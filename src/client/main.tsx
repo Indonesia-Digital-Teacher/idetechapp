@@ -1,0 +1,3809 @@
+import React, { useEffect, useMemo, useState } from "react";
+import ReactDOM from "react-dom/client";
+import {
+  BadgeCheck,
+  BookOpen,
+  Boxes,
+  ArrowRight,
+  ChevronRight,
+  CircleDollarSign,
+  Gauge,
+  GraduationCap,
+  Heart,
+  House,
+  LayoutDashboard,
+  LogOut,
+  Map,
+  MoreHorizontal,
+  Puzzle,
+  Rocket,
+  ScrollText,
+  Search,
+  Settings,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  Target,
+  Trophy,
+  UserCog,
+  UserRound,
+  Users,
+  X
+} from "lucide-react";
+import { Button, Card, SecondaryButton, Select, StatusPill } from "./components/ui";
+import "./styles.css";
+
+type RoleName = "admin" | "teacher" | "student" | "parent";
+
+type AuthUser = {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+  fullName: string | null;
+  schoolName: string | null;
+  contactChannel: "wa" | "telegram" | null;
+  contactValue: string | null;
+  profileCompleted: boolean;
+  status: "active" | "pending" | "suspended";
+  roles: RoleName[];
+  activeRole: RoleName;
+  permissions: string[];
+};
+
+type Dashboard = {
+  title: string;
+  description: string;
+  metrics: { label: string; value: string; hint: string }[];
+  actions: string[];
+  modules: string[];
+};
+
+type DashboardResponse = {
+  user: AuthUser;
+  dashboard: Dashboard;
+};
+
+type AdminUser = {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+  status: string;
+  roles: { name: string; label: string }[];
+};
+
+type AdminAccess = {
+  roles: { id: string; name: RoleName; label: string; description: string; permissions: string[] }[];
+  permissions: { id: string; name: string; description: string }[];
+  system: {
+    totalUsers: number;
+    activeUsers: number;
+    pendingUsers: number;
+    suspendedUsers: number;
+    totalRoles: number;
+    totalPermissions: number;
+    database: string;
+    authProvider: string;
+    apiBase: string;
+  };
+};
+
+type AdminClass = TeacherClass & {
+  teacherName: string;
+  teacherEmail: string;
+};
+
+type AdminView = "home" | "users" | "classes" | "access" | "system";
+
+type SchoolOption = {
+  name: string;
+  city?: string;
+  province?: string;
+};
+
+type TeacherClass = {
+  id: string;
+  classCode: string | null;
+  teacherUserId: string;
+  name: string;
+  subject: string;
+  grade: string;
+  students: number;
+  progress: number;
+  nextSession: string;
+  status: "active" | "draft" | "archived";
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+type TeacherClassSummary = {
+  totalClasses: number;
+  totalStudents: number;
+  averageProgress: number;
+};
+
+type TeacherMaterial = {
+  id: string;
+  teacherUserId: string;
+  classId: string;
+  title: string;
+  type: "lesson" | "video" | "document" | "quiz";
+  description: string;
+  status: "draft" | "published";
+};
+
+type TeacherIdeQuest = {
+  id: string;
+  teacherUserId: string;
+  classId: string;
+  materialId: string | null;
+  title: string;
+  mission: string;
+  points: number;
+  dueDate: string;
+  status: "draft" | "published" | "archived";
+};
+
+type StudentMaterial = TeacherMaterial & {
+  progress: number;
+  completedAt: string | null;
+};
+
+type StudentQuest = {
+  id: string;
+  title: string;
+  points: number;
+  progress: number;
+  earnedPoints?: number;
+  completedAt?: string | null;
+  dueDate: string;
+  mission: string;
+  classId: string;
+  materialId: string | null;
+};
+
+type StudentAchievement = {
+  id: string;
+  title: string;
+  description: string;
+  value: number;
+  unlocked: boolean;
+};
+
+type StudentClass = TeacherClass;
+
+const roleLabels: Record<RoleName, string> = {
+  admin: "Admin",
+  teacher: "Guru",
+  student: "Siswa",
+  parent: "Orang Tua"
+};
+
+const roleIcons: Record<RoleName, typeof ShieldCheck> = {
+  admin: ShieldCheck,
+  teacher: GraduationCap,
+  student: Sparkles,
+  parent: Users
+};
+
+const demoUsers = [
+  { label: "Feri Admin", email: "admin@idetech.local", role: "Admin + Guru" },
+  { label: "Bu Rani", email: "guru@idetech.local", role: "Guru" },
+  { label: "Dika", email: "siswa@idetech.local", role: "Siswa" },
+  { label: "Pak Bima", email: "ortu@idetech.local", role: "Orang Tua" }
+];
+
+const landingServices = [
+  {
+    title: "IdeStudio",
+    subtitle: "Rancang materi interaktif dan visual yang rapi untuk kelas.",
+    cta: "Buka Studio",
+    accent: "cyan"
+  },
+  {
+    title: "IdeQuest",
+    subtitle: "Susun jalur belajar, kuis, dan misi gamifikasi yang terukur.",
+    cta: "Buat Quest",
+    accent: "purple"
+  },
+  {
+    title: "Radar Pintar",
+    subtitle: "Pantau progres siswa, risiko belajar, dan intervensi tepat waktu.",
+    cta: "Lihat Radar",
+    accent: "blue"
+  },
+  {
+    title: "Bank Ide",
+    subtitle: "Bagikan materi, template, dan referensi antar guru secara aman.",
+    cta: "Kelola Bank",
+    accent: "rose"
+  }
+] as const;
+
+const landingTestimonials = [
+  {
+    name: "Fajar Pratama",
+    role: "Guru IPA",
+    quote: "Alur kerja guru jadi lebih rapi. Materi, misi, dan laporan berada di satu tempat."
+  },
+  {
+    name: "Alya Salsabila",
+    role: "Wali Kelas",
+    quote: "Struktur multi-role membuat administrasi sekolah tetap fleksibel dan mudah dipantau."
+  }
+] as const;
+
+const mobileNavItems = [
+  { id: "studio", label: "Studio", icon: BookOpen },
+  { id: "rank", label: "Piala", icon: Trophy },
+  { id: "map", label: "Map", icon: Map },
+  { id: "quest", label: "Quest", icon: Puzzle },
+  { id: "profile", label: "Profil", icon: UserRound }
+] as const;
+
+type MobileNavId = (typeof mobileNavItems)[number]["id"];
+
+const teacherMobileNavItems = [
+  { id: "map", label: "Beranda", icon: House },
+  { id: "quest", label: "Kelas", icon: GraduationCap },
+  { id: "studio", label: "Studio", icon: BookOpen },
+  { id: "rank", label: "Radar", icon: Gauge },
+  { id: "profile", label: "Profil", icon: UserRound }
+] as const;
+
+type GameMenuContent = {
+  title: string;
+  subtitle: string;
+  badge: string;
+  progress: string;
+  button: string;
+  rewards: string[];
+};
+
+type RoleFeature = {
+  name: string;
+  permission?: string;
+  access: "full" | "limited" | "self" | "child";
+  description: string;
+  cta: string;
+};
+
+type StudentIndicator = {
+  id: string;
+  title: string;
+  subtitle: string;
+  badge?: string;
+  connected: boolean;
+};
+
+type StudentIndicatorResponse = {
+  left: StudentIndicator[];
+  right: StudentIndicator[];
+  nav: Record<MobileNavId, boolean>;
+  meta: {
+    chapter: string;
+    chapterProgress: string;
+    levelButton: string;
+    progressPercent: number;
+    summary: string;
+  };
+};
+
+const roleFeatures: Record<RoleName, RoleFeature[]> = {
+  admin: [
+    { name: "Kelola user", permission: "user.manage", access: "full", description: "Verifikasi user baru dan atur role pengguna.", cta: "Verifikasi user" },
+    { name: "Kelola kelas", permission: "class.manage", access: "full", description: "Mengatur kelas global dan struktur sekolah.", cta: "Kelola kelas" },
+    { name: "Buat materi", permission: "material.create", access: "full", description: "Membuat materi melalui IdeStudio.", cta: "Buat materi" },
+    { name: "Buat IdeQuest", permission: "quest.manage", access: "full", description: "Menyusun jalur belajar gamifikasi.", cta: "Buat IdeQuest" },
+    { name: "Lihat progres siswa", permission: "report.view", access: "full", description: "Melihat laporan semua siswa dan kelas.", cta: "Lihat progres" },
+    { name: "Lihat Radar Pintar", permission: "radar.view", access: "full", description: "Pantau insight belajar lintas kelas.", cta: "Buka Radar" },
+    { name: "Kelola Bank Ide", permission: "bank.manage", access: "full", description: "Kurasi dan bagikan materi di Bank Ide.", cta: "Kelola Bank" }
+  ],
+  teacher: [
+    { name: "Kelola kelas", permission: "class.manage", access: "full", description: "Membuat kelas dan mengatur daftar siswa.", cta: "Kelola kelas" },
+    { name: "Buat materi", permission: "material.create", access: "full", description: "Membuat materi interaktif di IdeStudio.", cta: "Buat materi" },
+    { name: "Buat IdeQuest", permission: "quest.manage", access: "full", description: "Membuat misi, kuis, dan tugas belajar.", cta: "Buat IdeQuest" },
+    { name: "Lihat progres siswa", permission: "report.view", access: "full", description: "Melihat progres siswa di kelasnya.", cta: "Lihat progres" },
+    { name: "Lihat Radar Pintar", permission: "radar.view", access: "full", description: "Menganalisis performa dan risiko belajar.", cta: "Buka Radar" },
+    { name: "Kelola Bank Ide", permission: "bank.manage", access: "full", description: "Menyimpan dan membagikan materi ajar.", cta: "Kelola Bank" }
+  ],
+  student: [
+    { name: "Ikut IdeQuest", permission: "quest.play", access: "full", description: "Mengikuti jalur misi IdeQuest yang tersedia.", cta: "Masuk Quest" },
+    { name: "Kerjakan kuis", permission: "quest.play", access: "full", description: "Mengerjakan kuis dan tantangan aktif.", cta: "Kerjakan kuis" },
+    { name: "Lihat progres siswa", permission: "report.view", access: "self", description: "Melihat progres belajar diri sendiri.", cta: "Progres saya" },
+    { name: "Lihat Radar Pintar", permission: "radar.view", access: "limited", description: "Insight belajar tampil terbatas untuk siswa.", cta: "Lihat ringkasan" }
+  ],
+  parent: [
+    { name: "Lihat progres siswa", permission: "report.view", access: "child", description: "Melihat progres anak yang terhubung.", cta: "Progres anak" },
+    { name: "Lihat Radar Pintar", permission: "radar.view", access: "limited", description: "Radar Pintar tampil sebagai ringkasan orang tua.", cta: "Ringkasan Radar" }
+  ]
+};
+
+const roleMenuLabels: Record<RoleName, Record<MobileNavId, string>> = {
+  admin: {
+    studio: "User",
+    rank: "Role",
+    map: "Sistem",
+    quest: "Kelas",
+    profile: "Admin"
+  },
+  teacher: {
+    studio: "Studio",
+    rank: "Radar",
+    map: "Beranda",
+    quest: "Kelas",
+    profile: "Guru"
+  },
+  student: {
+    studio: "Tugas",
+    rank: "Piala",
+    map: "Map",
+    quest: "Quest",
+    profile: "Profil"
+  },
+  parent: {
+    studio: "Anak",
+    rank: "Laporan",
+    map: "Progres",
+    quest: "Catatan",
+    profile: "Wali"
+  }
+};
+
+const roleMenuContent: Record<RoleName, Record<MobileNavId, GameMenuContent>> = {
+  admin: {
+    studio: {
+      title: "Manajemen User",
+      subtitle: "Verifikasi user baru, tetapkan role, dan pantau status akun sekolah.",
+      badge: "User",
+      progress: "8/32",
+      button: "Verifikasi",
+      rewards: ["Pending", "Role aktif", "Audit"]
+    },
+    rank: {
+      title: "Role & Permission",
+      subtitle: "Atur izin sistem seperti user.manage, class.manage, dan system.setting.",
+      badge: "Access",
+      progress: "9/9",
+      button: "Atur Izin",
+      rewards: ["Admin", "Guru", "Matrix"]
+    },
+    map: {
+      title: "Pusat Sistem",
+      subtitle: "Ringkasan kesehatan aplikasi, konfigurasi, dan kelas global.",
+      badge: "System",
+      progress: "24/30",
+      button: "Cek Sistem",
+      rewards: ["Config", "Kelas", "Session"]
+    },
+    quest: {
+      title: "Kelas Global",
+      subtitle: "Kelola kelas lintas guru dan struktur pembelajaran sekolah.",
+      badge: "Kelas",
+      progress: "24/40",
+      button: "Kelola Kelas",
+      rewards: ["Jenjang", "Guru", "Siswa"]
+    },
+    profile: {
+      title: "Profil Admin",
+      subtitle: "Akses admin aktif dengan kontrol penuh atas sistem IdeTech.",
+      badge: "Admin",
+      progress: "8/8",
+      button: "Mode Admin",
+      rewards: ["Session", "OAuth", "Setting"]
+    }
+  },
+  teacher: {
+    studio: {
+      title: "IdeStudio Guru",
+      subtitle: "Rancang materi interaktif, kuis cepat, dan aktivitas kelas.",
+      badge: "Materi",
+      progress: "18/40",
+      button: "Buka Studio",
+      rewards: ["Template", "Bank Ide", "Publikasi"]
+    },
+    rank: {
+      title: "Radar Pintar",
+      subtitle: "Pantau progres, risiko belajar, dan siswa yang butuh intervensi.",
+      badge: "Radar",
+      progress: "76%",
+      button: "Buka Radar",
+      rewards: ["Progres", "Catatan", "Intervensi"]
+    },
+    map: {
+      title: "Beranda Guru",
+      subtitle: "Ringkasan kelas, materi, quest, dan progres siswa hari ini.",
+      badge: "Overview",
+      progress: "24/40",
+      button: "Lihat Ringkasan",
+      rewards: ["Kelas aktif", "Materi", "Radar"]
+    },
+    quest: {
+      title: "Kelas Saya",
+      subtitle: "Pusat kontrol kelas aktif, daftar siswa, dan agenda belajar.",
+      badge: "5 Kelas",
+      progress: "3/5",
+      button: "Kelola Kelas",
+      rewards: ["IPA 7A", "Math 8B", "STEAM"]
+    },
+    profile: {
+      title: "Profil Guru",
+      subtitle: "Role guru aktif dengan akses mengajar, membuat materi, dan melihat laporan siswa.",
+      badge: "Guru",
+      progress: "6/6",
+      button: "Mode Guru",
+      rewards: ["Kelas", "Materi", "Laporan"]
+    }
+  },
+  student: {
+    studio: {
+      title: "Tugas Saya",
+      subtitle: "Daftar tugas yang harus dikumpulkan dan progres pengerjaan pribadi.",
+      badge: "Tugas",
+      progress: "6/9",
+      button: "Kerjakan",
+      rewards: ["Deadline", "Upload", "Nilai"]
+    },
+    rank: {
+      title: "Piala Belajar",
+      subtitle: "Lihat badge, poin, dan pencapaian dari misi belajar yang selesai.",
+      badge: "Badge",
+      progress: "12/20",
+      button: "Lihat Badge",
+      rewards: ["Poin", "Badge", "Streak"]
+    },
+    map: {
+      title: "Peta IdeQuest",
+      subtitle: "Jalur belajar utama dengan level, chapter, dan misi aktif untuk siswa.",
+      badge: "Chapter 4",
+      progress: "29/40",
+      button: "Level 101",
+      rewards: ["Misi harian", "Quest aktif", "Bonus koin"]
+    },
+    quest: {
+      title: "Quest Center",
+      subtitle: "Kerjakan misi, kuis, dan tantangan belajar yang sedang berjalan.",
+      badge: "Quest",
+      progress: "4/7",
+      button: "Mulai Quest",
+      rewards: ["Kuis", "Misi", "Reward"]
+    },
+    profile: {
+      title: "Profil Siswa",
+      subtitle: "Lihat role siswa, progres diri, badge, dan izin belajar yang tersedia.",
+      badge: "Siswa",
+      progress: "3/3",
+      button: "Cek Profil",
+      rewards: ["Poin", "Badge", "Progres"]
+    }
+  },
+  parent: {
+    studio: {
+      title: "Anak Terhubung",
+      subtitle: "Pilih anak untuk melihat perkembangan belajar dan aktivitas terbaru.",
+      badge: "Anak",
+      progress: "2/2",
+      button: "Pilih Anak",
+      rewards: ["Dika", "Naya", "Wali"]
+    },
+    rank: {
+      title: "Laporan Belajar",
+      subtitle: "Ringkasan nilai, kehadiran, dan kebiasaan belajar anak.",
+      badge: "Report",
+      progress: "96%",
+      button: "Lihat Laporan",
+      rewards: ["Nilai", "Hadir", "Konsisten"]
+    },
+    map: {
+      title: "Progres Anak",
+      subtitle: "Pantau peta progres IdeQuest anak tanpa akses mengerjakan misi.",
+      badge: "Progres",
+      progress: "74/100",
+      button: "Pantau",
+      rewards: ["Quest", "Tugas", "Badge"]
+    },
+    quest: {
+      title: "Catatan Guru",
+      subtitle: "Baca catatan guru dan tindak lanjut belajar di rumah.",
+      badge: "Catatan",
+      progress: "5/8",
+      button: "Baca",
+      rewards: ["Saran", "Perhatian", "Apresiasi"]
+    },
+    profile: {
+      title: "Profil Wali",
+      subtitle: "Role orang tua aktif untuk memantau anak dan laporan belajar.",
+      badge: "Wali",
+      progress: "2/2",
+      button: "Mode Wali",
+      rewards: ["Session", "Anak", "Laporan"]
+    }
+  }
+};
+
+function App() {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [dashboard, setDashboard] = useState<Dashboard | null>(null);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [adminAccess, setAdminAccess] = useState<AdminAccess | null>(null);
+  const [adminClasses, setAdminClasses] = useState<AdminClass[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [activeMobileMenu, setActiveMobileMenu] = useState<MobileNavId>("map");
+
+  async function loadSession() {
+    setLoading(true);
+    setError(null);
+    const me = await api<{ user: AuthUser | null }>("/api/auth/me");
+    if (!me.user) {
+      setUser(null);
+      setDashboard(null);
+      setLoading(false);
+      return;
+    }
+
+    await loadDashboard();
+    setLoading(false);
+  }
+
+  async function loadDashboard() {
+    const payload = await api<DashboardResponse>("/api/dashboard");
+    setUser(payload.user);
+    setDashboard(payload.dashboard);
+
+    if (payload.user.activeRole === "admin") {
+      const [usersResponse, accessResponse, classResponse] = await Promise.all([
+        api<{ users: AdminUser[] }>("/api/admin/users"),
+        api<AdminAccess>("/api/admin/access"),
+        api<{ classes: AdminClass[] }>("/api/admin/classes")
+      ]);
+      setAdminUsers(usersResponse.users);
+      setAdminAccess(accessResponse);
+      setAdminClasses(classResponse.classes);
+    } else {
+      setAdminUsers([]);
+      setAdminAccess(null);
+      setAdminClasses([]);
+    }
+  }
+
+  useEffect(() => {
+    loadSession().catch((err: Error) => {
+      setError(err.message);
+      setLoading(false);
+    });
+  }, []);
+
+  async function loginDemo(email: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      await api("/api/auth/dev/google", { method: "POST", body: JSON.stringify({ email }) });
+      await loadDashboard();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login demo gagal.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function switchRole(role: RoleName) {
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await api<{ user: AuthUser }>("/api/auth/switch-role", {
+        method: "POST",
+        body: JSON.stringify({ role })
+      });
+      setUser(response.user);
+      await loadDashboard();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal mengganti role.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function logout() {
+    setBusy(true);
+    await api("/api/auth/logout", { method: "POST" });
+    setUser(null);
+    setDashboard(null);
+    setAdminUsers([]);
+    setAdminAccess(null);
+    setAdminClasses([]);
+    setBusy(false);
+  }
+
+  async function saveProfile(payload: {
+    fullName: string;
+    schoolName: string;
+    contactChannel: "wa" | "telegram";
+    contactValue: string;
+  }) {
+    setBusy(true);
+    setError(null);
+    try {
+      await api("/api/profile", {
+        method: "PATCH",
+        body: JSON.stringify(payload)
+      });
+      await loadDashboard();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menyimpan profil.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updateAdminUser(id: string, payload: { status?: string; roles?: RoleName[] }) {
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/api/admin/users/${id}/verify`, {
+        method: "PATCH",
+        body: JSON.stringify(payload)
+      });
+      await loadDashboard();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal memperbarui user.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updateRolePermissions(role: RoleName, permissions: string[]) {
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/api/admin/roles/${role}/permissions`, {
+        method: "PATCH",
+        body: JSON.stringify({ permissions })
+      });
+      await loadDashboard();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal memperbarui permission.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createAdminClass(payload: { teacherUserId?: string; name: string; subject: string; grade: string; students: number; status: TeacherClass["status"] }) {
+    setBusy(true);
+    setError(null);
+    try {
+      await api("/api/admin/classes", {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      await loadDashboard();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal membuat kelas.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updateAdminClass(id: string, payload: Partial<Pick<TeacherClass, "name" | "subject" | "grade" | "students" | "progress" | "status">> & { teacherUserId?: string }) {
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/api/admin/classes/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload)
+      });
+      await loadDashboard();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal memperbarui kelas.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteAdminClass(id: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/api/admin/classes/${id}`, { method: "DELETE" });
+      await loadDashboard();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menghapus kelas.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (loading) {
+    return <FullScreenState text="Memuat IdeTech..." />;
+  }
+
+  if (!user || !dashboard) {
+    return <LoginScreen busy={busy} error={error} onDemoLogin={loginDemo} />;
+  }
+
+  if (!user.profileCompleted) {
+    return <ProfileSetupScreen user={user} busy={busy} error={error} onSave={saveProfile} onLogout={logout} />;
+  }
+
+  if (user.activeRole === "student") {
+    return (
+      <StudentCompactDashboard
+        user={user}
+        dashboard={dashboard}
+        busy={busy}
+        activeMenu={activeMobileMenu}
+        onChangeMenu={setActiveMobileMenu}
+        onLogout={logout}
+      />
+    );
+  }
+
+  return (
+    <ProfessionalDashboard
+      user={user}
+      dashboard={dashboard}
+      adminUsers={adminUsers}
+      adminAccess={adminAccess}
+      adminClasses={adminClasses}
+      activeMenu={activeMobileMenu}
+      busy={busy}
+      error={error}
+      onChangeMenu={setActiveMobileMenu}
+      onLogout={logout}
+      onSwitchRole={switchRole}
+      onUpdateAdminUser={updateAdminUser}
+      onUpdateRolePermissions={updateRolePermissions}
+      onCreateAdminClass={createAdminClass}
+      onUpdateAdminClass={updateAdminClass}
+      onDeleteAdminClass={deleteAdminClass}
+    />
+  );
+}
+
+function ProfileSetupScreen({
+  user,
+  busy,
+  error,
+  onSave,
+  onLogout
+}: {
+  user: AuthUser;
+  busy: boolean;
+  error: string | null;
+  onSave: (payload: { fullName: string; schoolName: string; contactChannel: "wa" | "telegram"; contactValue: string }) => void;
+  onLogout: () => void;
+}) {
+  const [fullName, setFullName] = useState(user.fullName ?? user.name ?? "");
+  const [schoolName, setSchoolName] = useState(user.schoolName ?? "");
+  const [contactChannel, setContactChannel] = useState<"wa" | "telegram">(user.contactChannel ?? "wa");
+  const [contactValue, setContactValue] = useState(user.contactValue ?? "");
+  const [schools, setSchools] = useState<SchoolOption[]>([]);
+  const [schoolBusy, setSchoolBusy] = useState(false);
+
+  useEffect(() => {
+    if (schoolName.trim().length < 2) {
+      setSchools([]);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setSchoolBusy(true);
+      api<{ schools: SchoolOption[] }>(`/api/schools/search?q=${encodeURIComponent(schoolName)}`)
+        .then((payload) => setSchools(payload.schools))
+        .catch(() => setSchools([]))
+        .finally(() => setSchoolBusy(false));
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+  }, [schoolName]);
+
+  function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onSave({ fullName, schoolName, contactChannel, contactValue });
+  }
+
+  return (
+    <main className="profile-setup-shell">
+      <section className="profile-setup-card">
+        <div className="profile-setup-brand">
+          <IdeTechLogo className="profile-setup-logo" />
+          <div>
+            <p>IdeTech</p>
+            <span>Lengkapi profil untuk mulai memakai dashboard.</span>
+          </div>
+        </div>
+
+        <div className="profile-setup-header">
+          <h1>Profil pengguna</h1>
+          <p>Data ini dipakai untuk mencocokkan sekolah, kelas, dan komunikasi belajar.</p>
+        </div>
+
+        {error ? <ErrorBanner message={error} /> : null}
+
+        <form className="profile-setup-form" onSubmit={submit}>
+          <label>
+            <span>Nama Lengkap</span>
+            <input value={fullName} placeholder="Nama sesuai identitas sekolah" onChange={(event) => setFullName(event.target.value)} />
+          </label>
+
+          <label>
+            <span>Nama Sekolah</span>
+            <input
+              value={schoolName}
+              placeholder="Cari nama sekolah se-Indonesia"
+              list="school-options"
+              onChange={(event) => setSchoolName(event.target.value)}
+            />
+            <datalist id="school-options">
+              {schools.map((school) => (
+                <option key={`${school.name}-${school.city}-${school.province}`} value={school.name}>
+                  {[school.city, school.province].filter(Boolean).join(", ")}
+                </option>
+              ))}
+            </datalist>
+            <small>{schoolBusy ? "Mencari sekolah..." : "Ketik minimal 2 huruf untuk mencari dari API sekolah Indonesia."}</small>
+          </label>
+
+          <div className="profile-contact-grid">
+            <label>
+              <span>Kontak</span>
+              <Select value={contactChannel} onChange={(event) => setContactChannel(event.target.value as "wa" | "telegram")}>
+                <option value="wa">WhatsApp</option>
+                <option value="telegram">Telegram</option>
+              </Select>
+            </label>
+            <label>
+              <span>{contactChannel === "wa" ? "Nomor HP / WA" : "Username Telegram"}</span>
+              <input
+                value={contactValue}
+                placeholder={contactChannel === "wa" ? "08xxxxxxxxxx" : "@username"}
+                onChange={(event) => setContactValue(event.target.value)}
+              />
+            </label>
+          </div>
+
+          <div className="profile-setup-actions">
+            <button className="profile-setup-submit" type="submit" disabled={busy}>
+              {busy ? "Menyimpan..." : "Simpan profil"}
+            </button>
+            <button className="profile-setup-logout" type="button" disabled={busy} onClick={onLogout}>
+              Keluar
+            </button>
+          </div>
+        </form>
+      </section>
+    </main>
+  );
+}
+
+function StudentCompactDashboard({
+  user,
+  dashboard,
+  busy,
+  activeMenu,
+  onChangeMenu,
+  onLogout
+}: {
+  user: AuthUser;
+  dashboard: Dashboard;
+  busy: boolean;
+  activeMenu: MobileNavId;
+  onChangeMenu: (id: MobileNavId) => void;
+  onLogout: () => void;
+}) {
+  const [openPanel, setOpenPanel] = useState<MobileNavId | null>(null);
+  const content = roleMenuContent.student[openPanel && openPanel !== "profile" ? openPanel : activeMenu];
+  const [indicators, setIndicators] = useState<StudentIndicatorResponse | null>(null);
+  const [studentMaterials, setStudentMaterials] = useState<StudentMaterial[]>([]);
+  const [studentQuests, setStudentQuests] = useState<StudentQuest[]>([]);
+  const [studentAchievements, setStudentAchievements] = useState<StudentAchievement[]>([]);
+  const [studentClasses, setStudentClasses] = useState<StudentClass[]>([]);
+  const [studentMeta, setStudentMeta] = useState<{ completedMaterials: number; completedQuests: number; totalPoints: number } | null>(null);
+  const [studentPanelBusy, setStudentPanelBusy] = useState(false);
+  const [studentPanelError, setStudentPanelError] = useState("");
+
+  const loadIndicators = async () => {
+    const response = await fetch("/api/student/indicators", { credentials: "include" });
+    if (!response.ok) throw new Error("Gagal memuat indikator siswa.");
+    return (await response.json()) as StudentIndicatorResponse;
+  };
+
+  const refreshIndicators = () => {
+    fetch("/api/student/indicators", { credentials: "include" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Gagal memuat indikator siswa.");
+        return (await response.json()) as StudentIndicatorResponse;
+      })
+      .then((data) => {
+        setIndicators(data);
+      })
+      .catch(() => {
+        setIndicators(null);
+      });
+  };
+
+  const loadStudentPanelData = async () => {
+    if (!openPanel || openPanel === "profile") return;
+
+    setStudentPanelBusy(true);
+    setStudentPanelError("");
+
+    try {
+      const [classPayload, materialPayload, questPayload, achievementPayload] = await Promise.all([
+        api<{ classes: StudentClass[] }>("/api/student/classes"),
+        api<{ materials: StudentMaterial[] }>("/api/student/materials"),
+        api<{ quests: StudentQuest[] }>("/api/student/quests"),
+        api<{ achievements: StudentAchievement[]; meta: { completedMaterials: number; completedQuests: number; totalPoints: number } }>("/api/student/achievements")
+      ]);
+
+      setStudentClasses(classPayload.classes);
+      setStudentMaterials(materialPayload.materials);
+      setStudentQuests(questPayload.quests);
+      setStudentAchievements(achievementPayload.achievements);
+      setStudentMeta(achievementPayload.meta);
+    } catch (err) {
+      setStudentPanelError(err instanceof Error ? err.message : "Gagal memuat data siswa.");
+    } finally {
+      setStudentPanelBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    let alive = true;
+    loadIndicators()
+      .then((data) => {
+        if (alive) setIndicators(data);
+      })
+      .catch(() => {
+        if (alive) setIndicators(null);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    void loadStudentPanelData();
+  }, [openPanel]);
+
+  const features = roleFeatures.student;
+  const leftItems: StudentIndicator[] =
+    indicators?.left ?? [
+      { id: "map", title: features[0].name, subtitle: "9h 37m", badge: "+2", connected: true },
+      { id: "quest", title: features[1].name, subtitle: "2d 9h", connected: true },
+      { id: "rank", title: features[2].name, subtitle: "1d 9h", badge: "20", connected: true }
+    ];
+  const rightItems: StudentIndicator[] =
+    indicators?.right ?? [
+      { id: "tasks", title: "Tugas aktif", subtitle: "10d 9h", badge: "3", connected: true },
+      { id: "coins", title: "Poin penuh", subtitle: "Full", badge: "100", connected: true },
+      { id: "radar", title: "Radar", subtitle: "Terbatas", badge: "!", connected: false }
+    ];
+  const handleChangeMenu = (id: MobileNavId) => {
+    setOpenPanel(id);
+    if (id !== "profile") onChangeMenu(id);
+  };
+  const handleOpenChapter = () => {
+    setOpenPanel("map");
+    onChangeMenu("map");
+  };
+  const handleOpenLevel = () => {
+    setOpenPanel("quest");
+    onChangeMenu("quest");
+  };
+  const completeMaterial = async (materialId: string) => {
+    setStudentPanelBusy(true);
+    setStudentPanelError("");
+    try {
+      await api(`/api/student/materials/${materialId}/complete`, { method: "POST" });
+      await loadStudentPanelData();
+      refreshIndicators();
+    } catch (err) {
+      setStudentPanelError(err instanceof Error ? err.message : "Gagal menyelesaikan materi.");
+    } finally {
+      setStudentPanelBusy(false);
+    }
+  };
+  const completeQuest = async (questId: string) => {
+    setStudentPanelBusy(true);
+    setStudentPanelError("");
+    try {
+      await api(`/api/student/quests/${questId}/complete`, { method: "POST" });
+      await loadStudentPanelData();
+      refreshIndicators();
+    } catch (err) {
+      setStudentPanelError(err instanceof Error ? err.message : "Gagal mengumpulkan IdeQuest.");
+    } finally {
+      setStudentPanelBusy(false);
+    }
+  };
+  const joinStudentClass = async (classCode: string) => {
+    setStudentPanelBusy(true);
+    setStudentPanelError("");
+    try {
+      await api("/api/student/classes/join", {
+        method: "POST",
+        body: JSON.stringify({ classCode })
+      });
+      await loadStudentPanelData();
+      refreshIndicators();
+    } catch (err) {
+      setStudentPanelError(err instanceof Error ? err.message : "Gagal masuk kelas.");
+    } finally {
+      setStudentPanelBusy(false);
+    }
+  };
+
+  return (
+    <main className="student-compact-shell h-[100dvh] overflow-hidden">
+      <section className="student-compact-stage mx-auto flex h-full w-full max-w-[520px] flex-col px-4 pb-3 pt-4 md:max-w-none">
+        <header className="student-compact-hud">
+          <img
+            className="student-compact-avatar"
+            src={user.avatarUrl ?? `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(user.name)}`}
+            alt={user.name}
+          />
+          <div className="game-hud-pill">
+            <Heart className="h-5 w-5 text-red-500" />
+            <span>29:39</span>
+          </div>
+          <div className="game-hud-pill">
+            <CircleDollarSign className="h-5 w-5 text-yellow-500" />
+            <span>4778</span>
+          </div>
+          <button className="game-settings-button" disabled={busy} type="button" aria-label="Pengaturan">
+            <Settings className="h-5 w-5" />
+          </button>
+          <button className="student-exit-button" disabled={busy} type="button" onClick={onLogout} aria-label="Keluar">
+            <LogOut className="h-4 w-4" />
+          </button>
+        </header>
+
+        <div className="student-compact-progress">
+          <Star className="student-compact-progress__gem" />
+          <div className="game-progress-track">
+            <div className="game-progress-fill" style={{ width: `${indicators?.meta.progressPercent ?? 0}%` }} />
+            <span>{indicators?.meta.chapterProgress ?? content.progress}</span>
+          </div>
+          <div className="game-coin-stack">100</div>
+        </div>
+
+        <section className="student-compact-map" aria-label={dashboard.title}>
+          <StudentDesktopQuickAccess active={openPanel ?? activeMenu} notifications={indicators?.nav} onChange={handleChangeMenu} />
+
+          <div className="student-compact-side is-left">
+            {leftItems.map((item) => (
+              <StudentMapIcon key={item.id} item={{ ...item, icon: studentMapIcon(item.id) }} />
+            ))}
+          </div>
+
+          <div className="student-compact-center">
+            <div className="game-island compact">
+              <div className="game-island__rock" />
+              <div className="game-island__gate">
+                <span>{content.badge}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="student-compact-side is-right">
+            {rightItems.map((item) => (
+              <StudentMapIcon key={item.id} item={{ ...item, icon: studentMapIcon(item.id) }} />
+            ))}
+          </div>
+
+          <StudentDailyMissionPanel />
+        </section>
+
+        <section className="student-compact-actions">
+          <button className="game-chapter-panel game-chapter-panel--button" type="button" onClick={handleOpenChapter}>
+            <span>{indicators?.meta.chapter ?? content.badge}</span>
+            <strong>{indicators?.meta.chapterProgress ?? content.progress}</strong>
+          </button>
+          <button className="game-level-button" type="button" onClick={handleOpenLevel}>
+            {indicators?.meta.levelButton ?? content.button}
+          </button>
+        </section>
+      </section>
+
+      {openPanel === "profile" ? <StudentProfileModal user={user} indicators={indicators} onClose={() => setOpenPanel(null)} /> : null}
+      {openPanel && openPanel !== "profile" ? (
+        <StudentContentModal
+          active={openPanel}
+          classes={studentClasses}
+          materials={studentMaterials}
+          quests={studentQuests}
+          achievements={studentAchievements}
+          meta={studentMeta}
+          busy={studentPanelBusy}
+          error={studentPanelError}
+          onClose={() => setOpenPanel(null)}
+          onCompleteMaterial={completeMaterial}
+          onCompleteQuest={completeQuest}
+          onJoinClass={joinStudentClass}
+        />
+      ) : null}
+
+      <MobileGameNav active={openPanel ?? activeMenu} role="student" notifications={indicators?.nav} onChange={handleChangeMenu} />
+    </main>
+  );
+}
+
+function StudentDailyMissionPanel() {
+  const missions = [
+    { label: "Kerjakan 1 kuis", progress: "0/1", reward: "+20" },
+    { label: "Selesaikan quest", progress: "1/2", reward: "+35" },
+    { label: "Klaim badge baru", progress: "0/1", reward: "+50" }
+  ];
+
+  return (
+    <aside className="student-daily-panel" aria-label="Misi harian siswa">
+      <div className="student-daily-panel__header">
+        <span className="student-daily-panel__icon">
+          <Target className="h-6 w-6" strokeWidth={2.8} />
+        </span>
+        <div>
+          <p>Misi Harian</p>
+          <small>Reward aktif</small>
+        </div>
+      </div>
+
+      <div className="student-daily-panel__progress">
+        <span>2/4</span>
+        <div>
+          <i />
+        </div>
+      </div>
+
+      <div className="student-daily-panel__list">
+        {missions.map((mission) => (
+          <div key={mission.label} className="student-daily-mission">
+            <div>
+              <strong>{mission.label}</strong>
+              <span>{mission.progress}</span>
+            </div>
+            <em>{mission.reward}</em>
+          </div>
+        ))}
+      </div>
+
+      <button className="student-daily-panel__button" type="button">
+        Mulai
+      </button>
+    </aside>
+  );
+}
+
+function StudentDesktopQuickAccess({
+  active,
+  notifications,
+  onChange
+}: {
+  active: MobileNavId;
+  notifications?: Partial<Record<MobileNavId, boolean>>;
+  onChange: (id: MobileNavId) => void;
+}) {
+  return (
+    <nav className="student-desktop-quick-access" aria-label="Akses cepat siswa">
+      {mobileNavItems.map((item) => {
+        const Icon = item.icon;
+        const isActive = active === item.id;
+
+        return (
+          <button
+            key={item.id}
+            type="button"
+            aria-current={isActive ? "page" : undefined}
+            className={isActive ? "student-quick-card is-active" : "student-quick-card"}
+            onClick={() => onChange(item.id)}
+          >
+            <span className="student-quick-card__icon">
+              <Icon className="h-6 w-6" strokeWidth={2.8} />
+              {notifications?.[item.id] ? <span className="student-quick-card__notify" aria-hidden="true" /> : null}
+            </span>
+            <span className="student-quick-card__text">
+              <span>{roleMenuLabels.student[item.id]}</span>
+              <small>{roleMenuContent.student[item.id].badge}</small>
+            </span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+function StudentMapIcon({
+  item
+}: {
+  item: StudentIndicator & { icon: typeof Sparkles };
+}) {
+  const Icon = item.icon;
+
+  return (
+    <button
+      className={item.connected ? "student-map-icon" : "student-map-icon is-disconnected"}
+      type="button"
+      aria-label={item.title}
+    >
+      <span className="student-map-icon__orb">
+        <Icon className="student-map-icon__glyph" strokeWidth={2.8} />
+        {item.badge ? <span className={item.badge === "!" ? "student-map-icon__badge is-alert" : "student-map-icon__badge"}>{item.badge}</span> : null}
+      </span>
+      <span className="student-map-icon__plate">{item.subtitle}</span>
+    </button>
+  );
+}
+
+function StudentProfileModal({
+  user,
+  indicators,
+  onClose
+}: {
+  user: AuthUser;
+  indicators: StudentIndicatorResponse | null;
+  onClose: () => void;
+}) {
+  const level = indicators?.meta.levelButton.replace(/[^0-9]/g, "") || "101";
+  const progressValue = indicators?.meta.chapterProgress.split("/")[0] || "29";
+  const chapterValue = indicators?.meta.chapter.replace(/[^0-9]/g, "") || "4";
+  const collections = user.permissions.filter((permission) => permission.includes("quest") || permission.includes("report")).length;
+  const stats = [
+    { label: "First Try Wins", value: progressValue, icon: Target },
+    { label: "Helps Made", value: "0", icon: Heart },
+    { label: "Helps Received", value: "1", icon: ScrollText },
+    { label: "Areas Completed", value: chapterValue, icon: Star },
+    { label: "Collections Completed", value: String(collections), icon: BadgeCheck },
+    { label: "Sets Completed", value: String(user.roles.length), icon: Trophy }
+  ];
+
+  return (
+    <div className="student-profile-modal" role="dialog" aria-modal="true" aria-labelledby="student-profile-title">
+      <div className="student-profile-modal__backdrop" onClick={onClose} />
+      <section className="student-profile-modal__panel">
+        <header className="student-profile-modal__titlebar">
+          <h2 id="student-profile-title">Profile</h2>
+          <button type="button" className="student-profile-modal__close" onClick={onClose} aria-label="Tutup profil">
+            <X className="h-8 w-8" strokeWidth={4} />
+          </button>
+        </header>
+
+        <div className="student-profile-card">
+          <div className="student-profile-card__photo-wrap">
+            <img
+              className="student-profile-card__photo"
+              src={user.avatarUrl ?? `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(user.name)}`}
+              alt={user.name}
+            />
+            <span className="student-profile-card__edit">
+              <Settings className="h-4 w-4" strokeWidth={3} />
+            </span>
+          </div>
+
+          <div className="student-profile-card__identity">
+            <strong>{user.name}</strong>
+            <span>{user.email}</span>
+            <small>{new Date().toLocaleDateString("id-ID", { month: "2-digit", year: "numeric" })}</small>
+          </div>
+
+          <div className="student-profile-card__level">
+            <span>Level</span>
+            <strong>{level}</strong>
+          </div>
+        </div>
+
+        <section className="student-profile-stats">
+          <div className="student-profile-stats__ribbon">General Stats</div>
+          <div className="student-profile-stats__grid">
+            {stats.map((stat) => {
+              const Icon = stat.icon;
+
+              return (
+                <div key={stat.label} className="student-profile-stat">
+                  <Icon className="student-profile-stat__icon" strokeWidth={2.8} />
+                  <strong>{stat.label}</strong>
+                  <span>{stat.value}</span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      </section>
+    </div>
+  );
+}
+
+function StudentContentModal({
+  active,
+  classes,
+  materials,
+  quests,
+  achievements,
+  meta,
+  busy,
+  error,
+  onClose,
+  onCompleteMaterial,
+  onCompleteQuest,
+  onJoinClass
+}: {
+  active: Exclude<MobileNavId, "profile">;
+  classes: StudentClass[];
+  materials: StudentMaterial[];
+  quests: StudentQuest[];
+  achievements: StudentAchievement[];
+  meta: { completedMaterials: number; completedQuests: number; totalPoints: number } | null;
+  busy: boolean;
+  error: string;
+  onClose: () => void;
+  onCompleteMaterial: (materialId: string) => void;
+  onCompleteQuest: (questId: string) => void;
+  onJoinClass: (classCode: string) => void;
+}) {
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [classCode, setClassCode] = useState("");
+  const title = roleMenuLabels.student[active];
+  const summary = {
+    studio: "Materi dari guru yang bisa dipelajari siswa.",
+    rank: "Piala dan badge dari materi serta IdeQuest yang sudah selesai.",
+    map: "Jalur belajar yang menghubungkan materi guru ke IdeQuest.",
+    quest: "Misi IdeQuest dari guru yang bisa dikumpulkan siswa."
+  }[active];
+  const taskSlots = Array.from({ length: 9 }, (_, index) => materials[index] ?? null);
+  const completedTasks = taskSlots.filter((material) => material && material.progress >= 100).length;
+  const selectedTask = selectedTaskId ? materials.find((material) => material.id === selectedTaskId) ?? null : null;
+
+  useEffect(() => {
+    setSelectedTaskId(null);
+  }, [active]);
+
+  function submitClassCode(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!classCode.trim()) return;
+    onJoinClass(classCode);
+    setClassCode("");
+  }
+
+  return (
+    <div className="student-profile-modal student-content-modal" role="dialog" aria-modal="true" aria-labelledby="student-content-title">
+      <div className="student-profile-modal__backdrop" onClick={onClose} />
+      <section className={active === "studio" ? "student-profile-modal__panel student-content-modal__panel is-task-panel" : "student-profile-modal__panel student-content-modal__panel"}>
+        {active !== "studio" ? (
+          <header className="student-profile-modal__titlebar student-content-modal__titlebar">
+            <div>
+              <h2 id="student-content-title">{title}</h2>
+              <p>{summary}</p>
+            </div>
+            <button type="button" className="student-profile-modal__close" onClick={onClose} aria-label={`Tutup ${title}`}>
+              <X className="h-8 w-8" strokeWidth={4} />
+            </button>
+          </header>
+        ) : null}
+
+        {error ? <div className="student-content-error">{error}</div> : null}
+
+        {active === "studio" ? (
+          <section className="student-task-set">
+            <div className="student-task-set__banner">
+              <strong id="student-content-title">Tugas</strong>
+              <button type="button" className="student-task-set__close" onClick={onClose} aria-label="Tutup Tugas">
+                <X className="h-8 w-8" strokeWidth={4} />
+              </button>
+            </div>
+
+            <div className="student-task-set__meter">
+              <span className="student-task-set__deck">
+                <BookOpen className="h-8 w-8" strokeWidth={2.8} />
+              </span>
+              <div className="student-task-set__track">
+                <i style={{ width: `${(completedTasks / 9) * 100}%` }} />
+                <strong>
+                  {completedTasks}/9
+                </strong>
+              </div>
+              <span className="student-task-set__coin">{materials.reduce((total, item) => total + (item.progress >= 100 ? 50 : 0), 0)}</span>
+            </div>
+
+            <div className="student-task-card-grid">
+              {taskSlots.map((material, index) => {
+                const isUnavailable = !material;
+                const isDone = Boolean(material && material.progress >= 100);
+                const Icon = material?.type === "quiz" ? Puzzle : material?.type === "video" ? Rocket : material?.type === "document" ? ScrollText : BookOpen;
+
+                return (
+                  <button
+                    key={material?.id ?? `empty-task-${index}`}
+                    type="button"
+                    className={[
+                      "student-task-card",
+                      isDone ? "is-done" : "",
+                      isUnavailable ? "is-unavailable" : "",
+                      material && selectedTaskId === material.id ? "is-selected" : ""
+                    ].filter(Boolean).join(" ")}
+                    disabled={isUnavailable}
+                    onClick={() => {
+                      if (material) setSelectedTaskId(material.id);
+                    }}
+                  >
+                    <span className="student-task-card__star">
+                      <Star className="h-6 w-6" fill="currentColor" strokeWidth={2.4} />
+                    </span>
+                    <span className="student-task-card__bonus">+{isDone ? 1 : 0}</span>
+                    <span className="student-task-card__art">
+                      <Icon className="h-14 w-14" strokeWidth={2.8} />
+                    </span>
+                    <span className="student-task-card__label">{material?.title ?? "Belum Tersedia"}</span>
+                    <span className="student-task-card__status">{material ? (isDone ? "Done" : `${material.progress}%`) : "Locked"}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+          </section>
+        ) : null}
+
+        {active === "quest" ? (
+          <div className="student-content-grid">
+            {quests.length ? null : <p className="student-content-empty">Belum ada IdeQuest aktif. Masuk ke kelas guru atau tunggu quest dipublikasikan.</p>}
+            {quests.map((quest) => {
+              const relatedMaterial = materials.find((material) => material.id === quest.materialId);
+              const materialDone = !quest.materialId || (relatedMaterial?.progress ?? 0) >= 100;
+
+              return (
+                <article key={quest.id} className="student-content-card is-quest">
+                  <span className="student-content-card__icon">
+                    <Puzzle className="h-8 w-8" strokeWidth={2.8} />
+                  </span>
+                  <div>
+                    <small>{quest.dueDate} | {quest.points} poin</small>
+                    <h3>{quest.title}</h3>
+                    <p>{quest.mission}</p>
+                    {relatedMaterial ? <em>Materi: {relatedMaterial.title}</em> : null}
+                  </div>
+                  <div className="student-content-progress">
+                    <span>{quest.progress}%</span>
+                    <i style={{ width: `${quest.progress}%` }} />
+                  </div>
+                  <button type="button" disabled={busy || quest.progress >= 100 || !materialDone} onClick={() => onCompleteQuest(quest.id)}>
+                    {quest.progress >= 100 ? "Terkumpul" : materialDone ? "Kumpulkan Quest" : "Selesaikan Materi"}
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {active === "rank" ? (
+          <div className="student-achievement-wrap">
+            <div className="student-achievement-summary">
+              <strong>{meta?.totalPoints ?? 0}</strong>
+              <span>Total Poin</span>
+              <strong>{meta?.completedQuests ?? 0}</strong>
+              <span>Quest Selesai</span>
+              <strong>{meta?.completedMaterials ?? 0}</strong>
+              <span>Materi Selesai</span>
+            </div>
+            <div className="student-content-grid">
+              {achievements.map((achievement) => (
+                <article key={achievement.id} className={achievement.unlocked ? "student-content-card is-trophy is-unlocked" : "student-content-card is-trophy"}>
+                  <span className="student-content-card__icon">
+                    <Trophy className="h-8 w-8" strokeWidth={2.8} />
+                  </span>
+                  <div>
+                    <small>{achievement.unlocked ? "Unlocked" : "Locked"}</small>
+                    <h3>{achievement.title}</h3>
+                    <p>{achievement.description}</p>
+                  </div>
+                  <b>{achievement.value}</b>
+                </article>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {active === "map" ? (
+          <div className="student-class-join-wrap">
+            <form className="student-class-join" onSubmit={submitClassCode}>
+              <div>
+                <strong>Masuk kelas</strong>
+                <span>Masukkan ClassID dari guru untuk membuka materi dan IdeQuest kelas.</span>
+              </div>
+              <div className="student-class-join__control">
+                <input
+                  value={classCode}
+                  placeholder="IDT-ABC123"
+                  onChange={(event) => setClassCode(event.target.value.toUpperCase())}
+                />
+                <button type="submit" disabled={busy || !classCode.trim()}>
+                  Gabung
+                </button>
+              </div>
+            </form>
+
+            <div className="student-class-list">
+              {classes.length ? null : <p className="student-content-empty">Belum tergabung di kelas. Minta ClassID dari guru.</p>}
+              {classes.map((kelas) => (
+                <article key={kelas.id} className="student-class-card">
+                  <span>{kelas.classCode ?? kelas.nextSession}</span>
+                  <strong>{kelas.name}</strong>
+                  <small>{kelas.subject} - Kelas {kelas.grade} · {kelas.students} siswa</small>
+                </article>
+              ))}
+            </div>
+
+            <div className="student-map-path">
+              {[...materials, ...quests].length ? null : <p className="student-content-empty">Materi dan IdeQuest akan muncul setelah kamu masuk kelas.</p>}
+              {materials.map((material, index) => {
+                const linkedQuests = quests.filter((quest) => quest.materialId === material.id);
+                return (
+                  <article key={material.id} className="student-map-node">
+                    <span className="student-map-node__step">{index + 1}</span>
+                    <div>
+                      <small>Materi Guru</small>
+                      <h3>{material.title}</h3>
+                      <p>{material.progress >= 100 ? "Materi selesai. Lanjutkan ke IdeQuest." : "Pelajari materi ini untuk membuka misi."}</p>
+                    </div>
+                    {linkedQuests.map((quest) => (
+                      <div key={quest.id} className="student-map-node__quest">
+                        <Puzzle className="h-5 w-5" />
+                        <span>{quest.title}</span>
+                        <strong>{quest.progress >= 100 ? "Selesai" : `${quest.points} poin`}</strong>
+                      </div>
+                    ))}
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
+        {busy ? <div className="student-content-loading">Memproses...</div> : null}
+      </section>
+
+      {selectedTask ? (
+        <div className="student-task-detail-modal" role="dialog" aria-modal="true" aria-label={`Detail tugas ${selectedTask.title}`}>
+          <div className="student-task-detail-modal__backdrop" onClick={() => setSelectedTaskId(null)} />
+          <article className="student-task-detail">
+            <button className="student-task-detail__close" type="button" onClick={() => setSelectedTaskId(null)} aria-label="Tutup detail tugas">
+              <X className="h-5 w-5" strokeWidth={4} />
+            </button>
+            <small>{selectedTask.type}</small>
+            <h3>{selectedTask.title}</h3>
+            <p>{selectedTask.description}</p>
+            <div className="student-content-progress">
+              <span>{selectedTask.progress}%</span>
+              <i style={{ width: `${selectedTask.progress}%` }} />
+            </div>
+            <button type="button" disabled={busy || selectedTask.progress >= 100} onClick={() => onCompleteMaterial(selectedTask.id)}>
+              {selectedTask.progress >= 100 ? "Tugas Selesai" : "Buka dan Kerjakan"}
+            </button>
+          </article>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ProfessionalDashboard({
+  user,
+  dashboard,
+  adminUsers,
+  adminAccess,
+  adminClasses,
+  activeMenu,
+  busy,
+  error,
+  onChangeMenu,
+  onLogout,
+  onSwitchRole,
+  onUpdateAdminUser,
+  onUpdateRolePermissions,
+  onCreateAdminClass,
+  onUpdateAdminClass,
+  onDeleteAdminClass
+}: {
+  user: AuthUser;
+  dashboard: Dashboard;
+  adminUsers: AdminUser[];
+  adminAccess: AdminAccess | null;
+  adminClasses: AdminClass[];
+  activeMenu: MobileNavId;
+  busy: boolean;
+  error: string | null;
+  onChangeMenu: (id: MobileNavId) => void;
+  onLogout: () => void;
+  onSwitchRole: (role: RoleName) => void;
+  onUpdateAdminUser: (id: string, payload: { status?: string; roles?: RoleName[] }) => void;
+  onUpdateRolePermissions: (role: RoleName, permissions: string[]) => void;
+  onCreateAdminClass: (payload: { teacherUserId?: string; name: string; subject: string; grade: string; students: number; status: TeacherClass["status"] }) => void;
+  onUpdateAdminClass: (id: string, payload: Partial<Pick<TeacherClass, "name" | "subject" | "grade" | "students" | "progress" | "status">> & { teacherUserId?: string }) => void;
+  onDeleteAdminClass: (id: string) => void;
+}) {
+  const [adminView, setAdminView] = useState<AdminView>("home");
+  const features = roleFeatures[user.activeRole];
+  const isTeacher = user.activeRole === "teacher";
+  const activeLabel = roleMenuLabels[user.activeRole][activeMenu];
+  const shellClass = isTeacher ? "teacher-futuristic-shell professional-shell min-h-screen pb-28 md:pb-0" : "professional-shell min-h-screen";
+  const topbarClass = isTeacher ? "teacher-futuristic-topbar professional-topbar" : "professional-topbar";
+  const heroClass = isTeacher ? "teacher-futuristic-hero professional-hero" : "professional-hero";
+  const metricsClass = isTeacher ? "teacher-futuristic-metrics professional-metrics" : "professional-metrics";
+  const gridClass = isTeacher ? "teacher-futuristic-grid professional-grid" : "professional-grid";
+  const cardClass = isTeacher ? "teacher-futuristic-card professional-card" : "professional-card";
+  const featureRowClass = isTeacher ? "teacher-futuristic-feature-row professional-feature-row" : "professional-feature-row";
+  const actionRowClass = isTeacher ? "teacher-futuristic-action-row professional-action-row" : "professional-action-row";
+  const summaryItemClass = isTeacher ? "teacher-futuristic-summary__item professional-summary__item" : "professional-summary__item";
+  const adminActions: { label: string; view: AdminView; description: string; icon: typeof ShieldCheck }[] = [
+    { label: "Verifikasi user baru", view: "users", description: "Aktifkan user dan atur role.", icon: UserCog },
+    { label: "Kelola kelas global", view: "classes", description: "CRUD semua kelas yang dibuat guru.", icon: GraduationCap },
+    { label: "Atur role dan permission", view: "access", description: "Kelola izin tiap role.", icon: ShieldCheck },
+    { label: "Pantau konfigurasi sistem", view: "system", description: "Lihat ringkasan konfigurasi.", icon: Settings }
+  ];
+
+  if (isTeacher) {
+    return (
+      <TeacherSpaceDashboard
+        user={user}
+        dashboard={dashboard}
+        activeMenu={activeMenu}
+        busy={busy}
+        error={error}
+        onChangeMenu={onChangeMenu}
+        onLogout={onLogout}
+        onSwitchRole={onSwitchRole}
+      />
+    );
+  }
+
+  return (
+    <main className={shellClass}>
+      <header className={topbarClass}>
+        <div className="professional-topbar__brand">
+          <IdeTechLogo className="professional-topbar__logo" />
+          <div>
+            <p className="professional-topbar__title">IdeTech</p>
+            <p className="professional-topbar__subtitle">Dashboard profesional untuk {roleLabels[user.activeRole]}</p>
+          </div>
+        </div>
+        <div className="professional-topbar__actions">
+          {user.roles.length > 1 ? (
+            <Select
+              className="professional-select"
+              value={user.activeRole}
+              disabled={busy}
+              aria-label="Pilih role aktif"
+              onChange={(event) => onSwitchRole(event.target.value as RoleName)}
+            >
+              {user.roles.map((role) => (
+                <option key={role} value={role}>
+                  {roleLabels[role]}
+                </option>
+              ))}
+            </Select>
+          ) : null}
+          <button className="professional-logout" type="button" disabled={busy} onClick={onLogout}>
+            <LogOut className="h-4 w-4" />
+            Keluar
+          </button>
+        </div>
+      </header>
+
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+        {error ? <ErrorBanner message={error} /> : null}
+        <section className={heroClass}>
+          <div>
+            <p className="professional-eyebrow">{roleLabels[user.activeRole]}</p>
+            <h1 className="professional-hero__title">{dashboard.title}</h1>
+            <p className="professional-hero__copy">{dashboard.description}</p>
+          </div>
+          <div className="professional-hero__stack">
+            <div className="professional-role-chip">{user.status}</div>
+            {isTeacher ? <div className="professional-active-chip">{activeLabel}</div> : null}
+          </div>
+        </section>
+
+        <section className={metricsClass}>
+          {dashboard.metrics.map((metric) => (
+            <Card key={metric.label} className={`${cardClass} p-5`}>
+              <p className="professional-card__label">{metric.label}</p>
+              <p className="professional-card__value">{metric.value}</p>
+              <p className="professional-card__hint">{metric.hint}</p>
+            </Card>
+          ))}
+        </section>
+
+        {user.activeRole === "admin" && adminView !== "home" ? (
+          <AdminSubPage
+            view={adminView}
+            users={adminUsers}
+            access={adminAccess}
+            classes={adminClasses}
+            busy={busy}
+            onBack={() => setAdminView("home")}
+            onUpdateUser={onUpdateAdminUser}
+            onUpdateRolePermissions={onUpdateRolePermissions}
+            onCreateClass={onCreateAdminClass}
+            onUpdateClass={onUpdateAdminClass}
+            onDeleteClass={onDeleteAdminClass}
+          />
+        ) : (
+          <>
+            <section className={gridClass}>
+              <Card className={`${cardClass} p-5`}>
+                <div className="professional-card__header">
+                  <h2 className="professional-card__title">Fitur utama</h2>
+                  <span className="professional-card__pill">{features.length} fitur</span>
+                </div>
+                <div className="professional-feature-list">
+                  {features.map((feature) => (
+                    <div key={feature.name} className={featureRowClass}>
+                      <div>
+                        <p className="professional-feature-row__title">{feature.name}</p>
+                        <p className="professional-feature-row__desc">{feature.description}</p>
+                      </div>
+                      <FeatureAccessBadge access={feature.access} />
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              <Card className={`${cardClass} p-5`}>
+                <div className="professional-card__header">
+                  <h2 className="professional-card__title">Aksi cepat</h2>
+                </div>
+                <div className="professional-action-list">
+                  {(user.activeRole === "admin" ? adminActions : dashboard.actions.map((action) => ({ label: action, view: "home" as AdminView, description: "", icon: ChevronRight }))).map((action) => {
+                    const Icon = action.icon;
+                    return (
+                      <button key={action.label} type="button" className={`${actionRowClass} professional-action-button`} onClick={() => user.activeRole === "admin" && setAdminView(action.view)}>
+                        <span className="professional-action-button__icon">
+                          <Icon className="h-4 w-4" />
+                        </span>
+                        <span>
+                          <strong>{action.label}</strong>
+                          {action.description ? <small>{action.description}</small> : null}
+                        </span>
+                        <ChevronRight className="h-4 w-4 text-slate-400" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </Card>
+            </section>
+
+            {user.activeRole !== "admin" ? (
+              <Card className={`${cardClass} p-5`}>
+                <div className="professional-card__header">
+                  <h2 className="professional-card__title">Ringkasan role</h2>
+                </div>
+                <div className="professional-summary">
+                  {dashboard.modules.map((module) => (
+                    <div key={module} className={summaryItemClass}>
+                      <span>{module}</span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            ) : null}
+          </>
+        )}
+      </div>
+
+      {isTeacher ? <TeacherBottomNav active={activeMenu} onChange={onChangeMenu} /> : null}
+    </main>
+  );
+}
+
+function TeacherSpaceDashboard({
+  user,
+  dashboard,
+  activeMenu,
+  busy,
+  error,
+  onChangeMenu,
+  onLogout,
+  onSwitchRole
+}: {
+  user: AuthUser;
+  dashboard: Dashboard;
+  activeMenu: MobileNavId;
+  busy: boolean;
+  error: string | null;
+  onChangeMenu: (id: MobileNavId) => void;
+  onLogout: () => void;
+  onSwitchRole: (role: RoleName) => void;
+}) {
+  const content = roleMenuContent.teacher[activeMenu];
+  const [teacherClasses, setTeacherClasses] = useState<TeacherClass[]>([]);
+  const [classSummary, setClassSummary] = useState<TeacherClassSummary | null>(null);
+  const [classForm, setClassForm] = useState({
+    name: "",
+    subject: "",
+    grade: "7",
+    students: "24"
+  });
+  const [classBusy, setClassBusy] = useState(false);
+  const [classError, setClassError] = useState<string | null>(null);
+  const [materials, setMaterials] = useState<TeacherMaterial[]>([]);
+  const [ideQuestRows, setIdeQuestRows] = useState<TeacherIdeQuest[]>([]);
+  const [studioBusy, setStudioBusy] = useState(false);
+  const [studioError, setStudioError] = useState<string | null>(null);
+  const [materialForm, setMaterialForm] = useState({
+    classId: "",
+    title: "",
+    type: "lesson" as TeacherMaterial["type"],
+    description: ""
+  });
+  const [questForm, setQuestForm] = useState({
+    classId: "",
+    materialId: "",
+    title: "",
+    mission: "",
+    points: "100",
+    dueDate: "7d"
+  });
+  const featureGroups: Record<MobileNavId, RoleFeature[]> = {
+    map: roleFeatures.teacher,
+    quest: roleFeatures.teacher.filter((feature) => feature.name.includes("kelas") || feature.name.includes("progres")),
+    studio: roleFeatures.teacher.filter((feature) => feature.name.includes("materi") || feature.name.includes("IdeQuest") || feature.name.includes("Bank")),
+    rank: roleFeatures.teacher.filter((feature) => feature.name.includes("Radar") || feature.name.includes("progres")),
+    profile: roleFeatures.teacher
+  };
+  const exploreCards = featureGroups[activeMenu].slice(0, 2);
+  const listItems = featureGroups[activeMenu].slice(2, 5);
+
+  async function loadTeacherClasses() {
+    const payload = await api<{ classes: TeacherClass[]; summary: TeacherClassSummary }>("/api/teacher/classes");
+    setTeacherClasses(payload.classes);
+    setClassSummary(payload.summary);
+  }
+
+  async function loadTeacherStudio() {
+    const [classPayload, materialPayload, questPayload] = await Promise.all([
+      api<{ classes: TeacherClass[]; summary: TeacherClassSummary }>("/api/teacher/classes"),
+      api<{ materials: TeacherMaterial[] }>("/api/teacher/materials"),
+      api<{ quests: TeacherIdeQuest[] }>("/api/teacher/idequests")
+    ]);
+    setTeacherClasses(classPayload.classes);
+    setClassSummary(classPayload.summary);
+    setMaterials(materialPayload.materials);
+    setIdeQuestRows(questPayload.quests);
+
+    const firstClassId = classPayload.classes[0]?.id ?? "";
+    setMaterialForm((current) => ({ ...current, classId: current.classId || firstClassId }));
+    setQuestForm((current) => ({ ...current, classId: current.classId || firstClassId }));
+  }
+
+  useEffect(() => {
+    if (activeMenu !== "quest") return;
+
+    loadTeacherClasses().catch((err: Error) => {
+      setClassError(err.message);
+    });
+  }, [activeMenu]);
+
+  useEffect(() => {
+    if (activeMenu !== "studio") return;
+
+    loadTeacherStudio().catch((err: Error) => {
+      setStudioError(err.message);
+    });
+  }, [activeMenu]);
+
+  async function createTeacherClass(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setClassBusy(true);
+    setClassError(null);
+
+    try {
+      await api<{ class: TeacherClass }>("/api/teacher/classes", {
+        method: "POST",
+        body: JSON.stringify({
+          name: classForm.name,
+          subject: classForm.subject,
+          grade: classForm.grade,
+          students: Number(classForm.students)
+        })
+      });
+      setClassForm({ name: "", subject: "", grade: "7", students: "24" });
+      await loadTeacherClasses();
+    } catch (err) {
+      setClassError(err instanceof Error ? err.message : "Gagal menambah kelas.");
+    } finally {
+      setClassBusy(false);
+    }
+  }
+
+  async function createMaterial(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setStudioBusy(true);
+    setStudioError(null);
+
+    try {
+      await api<{ material: TeacherMaterial }>("/api/teacher/materials", {
+        method: "POST",
+        body: JSON.stringify(materialForm)
+      });
+      setMaterialForm((current) => ({ ...current, title: "", description: "" }));
+      await loadTeacherStudio();
+    } catch (err) {
+      setStudioError(err instanceof Error ? err.message : "Gagal membuat materi.");
+    } finally {
+      setStudioBusy(false);
+    }
+  }
+
+  async function createIdeQuest(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setStudioBusy(true);
+    setStudioError(null);
+
+    try {
+      await api<{ quest: TeacherIdeQuest }>("/api/teacher/idequests", {
+        method: "POST",
+        body: JSON.stringify({
+          ...questForm,
+          materialId: questForm.materialId || undefined,
+          points: Number(questForm.points)
+        })
+      });
+      setQuestForm((current) => ({ ...current, materialId: "", title: "", mission: "", points: "100", dueDate: "7d" }));
+      await loadTeacherStudio();
+    } catch (err) {
+      setStudioError(err instanceof Error ? err.message : "Gagal membuat IdeQuest.");
+    } finally {
+      setStudioBusy(false);
+    }
+  }
+
+  function openTeacherFeature(featureName: string) {
+    if (featureName.includes("kelas")) {
+      onChangeMenu("quest");
+      return;
+    }
+
+    if (featureName.includes("materi") || featureName.includes("IdeQuest") || featureName.includes("Bank")) {
+      onChangeMenu("studio");
+      return;
+    }
+
+    if (featureName.includes("progres") || featureName.includes("Radar")) {
+      onChangeMenu("rank");
+      return;
+    }
+
+    onChangeMenu("map");
+  }
+
+  return (
+    <main className="teacher-space-shell min-h-screen">
+      <div className="teacher-space-backdrop" />
+      <section className="teacher-space-board">
+        {error ? <ErrorBanner message={error} /> : null}
+
+        <article className="teacher-space-phone is-primary">
+          <header className="teacher-space-phone__top">
+            <button className="teacher-space-icon-button" type="button" aria-label="Kembali">
+              <ChevronRight className="h-5 w-5 rotate-180" />
+            </button>
+            <h1 className="teacher-space-logo-title">
+              <IdeTechLogo className="teacher-space-logo" />
+              IdeTech
+            </h1>
+            <button className="teacher-space-menu-button" type="button" aria-label="Menu guru">
+              <Boxes className="h-5 w-5" />
+            </button>
+          </header>
+
+          <div className="teacher-planet-stage">
+            <div className="teacher-planet-card">
+              <div className="teacher-planet" />
+            </div>
+            <p className="teacher-planet-caption">{roleMenuLabels.teacher[activeMenu]}</p>
+            <div className="teacher-orbit-row" aria-hidden="true">
+              <span className="teacher-mini-planet is-a" />
+              <span className="teacher-mini-planet is-b" />
+              <span className="teacher-mini-planet is-c" />
+              <span className="teacher-mini-planet is-d" />
+            </div>
+          </div>
+
+          <section className="teacher-space-info">
+            <div className="teacher-space-info__heading">
+              <div>
+                <h2>{content.title}</h2>
+                <p>{content.subtitle}</p>
+              </div>
+              <button type="button" onClick={() => onChangeMenu(activeMenu === "map" ? "quest" : activeMenu)}>
+                More
+              </button>
+            </div>
+            <div className="teacher-distance-pill">
+              <span>
+                <Rocket className="h-5 w-5" />
+              </span>
+              <div>
+                <small>{content.badge}</small>
+                <strong>{content.progress}</strong>
+              </div>
+              <MoreHorizontal className="h-5 w-5 text-slate-500" />
+            </div>
+          </section>
+        </article>
+
+        <article className="teacher-space-phone is-explore">
+          <header className="teacher-space-explore-head">
+            <div>
+              <h2>Let&apos;s Explore</h2>
+              <p>{dashboard.title}</p>
+            </div>
+            <div className="teacher-space-avatar">
+              {user.avatarUrl ? <img src={user.avatarUrl} alt={user.name} /> : <span>{user.name.slice(0, 2).toUpperCase()}</span>}
+            </div>
+          </header>
+
+          <div className="teacher-space-search">
+            <Search className="h-5 w-5" />
+            <span>Search</span>
+            <MoreHorizontal className="ml-auto h-5 w-5" />
+          </div>
+
+          <nav className="teacher-space-tabs" aria-label="Navigasi guru">
+            {teacherMobileNavItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeMenu === item.id;
+
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  aria-current={isActive ? "page" : undefined}
+                  className={isActive ? "teacher-space-tab is-active" : "teacher-space-tab"}
+                  onClick={() => onChangeMenu(item.id)}
+                >
+                  <Icon className="h-5 w-5" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+
+          {activeMenu === "studio" ? (
+            <TeacherStudioManager
+              classes={teacherClasses}
+              materials={materials}
+              quests={ideQuestRows}
+              materialForm={materialForm}
+              questForm={questForm}
+              busy={studioBusy}
+              error={studioError}
+              onMaterialFormChange={setMaterialForm}
+              onQuestFormChange={setQuestForm}
+              onCreateMaterial={createMaterial}
+              onCreateQuest={createIdeQuest}
+            />
+          ) : activeMenu === "quest" ? (
+            <TeacherClassManager
+              classes={teacherClasses}
+              summary={classSummary}
+              form={classForm}
+              busy={classBusy}
+              error={classError}
+              onFormChange={setClassForm}
+              onCreate={createTeacherClass}
+            />
+          ) : (
+            <>
+              <section className="teacher-space-card-grid">
+                {exploreCards.map((feature, index) => (
+                  <button
+                    key={feature.name}
+                    className={index === 0 ? "teacher-space-planet-card is-warm" : "teacher-space-planet-card is-green"}
+                    type="button"
+                    onClick={() => openTeacherFeature(feature.name)}
+                  >
+                    <span className="teacher-feature-orb" />
+                    <strong>{feature.name}</strong>
+                    <small>{feature.cta}</small>
+                    <ChevronRight className="teacher-feature-arrow h-5 w-5" />
+                  </button>
+                ))}
+              </section>
+
+              <section className="teacher-space-list">
+                {(listItems.length ? listItems : roleFeatures.teacher.slice(0, 3)).map((feature, index) => {
+                  const Icon = index === 0 ? Gauge : index === 1 ? BookOpen : Target;
+
+                  return (
+                    <button key={feature.name} className="teacher-space-list-card" type="button" onClick={() => openTeacherFeature(feature.name)}>
+                      <span>
+                        <Icon className="h-6 w-6" />
+                      </span>
+                      <div>
+                        <strong>{feature.name}</strong>
+                        <small>{feature.description}</small>
+                      </div>
+                      <MoreHorizontal className="h-5 w-5" />
+                    </button>
+                  );
+                })}
+              </section>
+            </>
+          )}
+
+          <footer className="teacher-space-footer">
+            {user.roles.length > 1 ? (
+              <Select
+                className="teacher-space-select"
+                value={user.activeRole}
+                disabled={busy}
+                aria-label="Pilih role aktif"
+                onChange={(event) => onSwitchRole(event.target.value as RoleName)}
+              >
+                {user.roles.map((role) => (
+                  <option key={role} value={role}>
+                    {roleLabels[role]}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              <span className="teacher-space-role">{roleLabels[user.activeRole]}</span>
+            )}
+            <button className="teacher-space-logout" type="button" disabled={busy} onClick={onLogout}>
+              <LogOut className="h-4 w-4" />
+              Keluar
+            </button>
+          </footer>
+        </article>
+      </section>
+
+      <TeacherBottomNav active={activeMenu} onChange={onChangeMenu} />
+    </main>
+  );
+}
+
+function TeacherStudioManager({
+  classes,
+  materials,
+  quests,
+  materialForm,
+  questForm,
+  busy,
+  error,
+  onMaterialFormChange,
+  onQuestFormChange,
+  onCreateMaterial,
+  onCreateQuest
+}: {
+  classes: TeacherClass[];
+  materials: TeacherMaterial[];
+  quests: TeacherIdeQuest[];
+  materialForm: { classId: string; title: string; type: TeacherMaterial["type"]; description: string };
+  questForm: { classId: string; materialId: string; title: string; mission: string; points: string; dueDate: string };
+  busy: boolean;
+  error: string | null;
+  onMaterialFormChange: React.Dispatch<React.SetStateAction<{ classId: string; title: string; type: TeacherMaterial["type"]; description: string }>>;
+  onQuestFormChange: React.Dispatch<React.SetStateAction<{ classId: string; materialId: string; title: string; mission: string; points: string; dueDate: string }>>;
+  onCreateMaterial: (event: React.FormEvent<HTMLFormElement>) => void;
+  onCreateQuest: (event: React.FormEvent<HTMLFormElement>) => void;
+}) {
+  const selectedClassMaterials = materials.filter((material) => material.classId === questForm.classId);
+
+  return (
+    <section className="teacher-studio-manager">
+      <form className="teacher-studio-form" onSubmit={onCreateMaterial}>
+        <div className="teacher-studio-form__header">
+          <BookOpen className="h-6 w-6" />
+          <div>
+            <h3>Buat Materi</h3>
+            <p>Materi langsung terhubung ke siswa di kelas yang dipilih.</p>
+          </div>
+        </div>
+        <label>
+          <span>Kelas tujuan</span>
+          <select
+            value={materialForm.classId}
+            onChange={(event) => onMaterialFormChange((current) => ({ ...current, classId: event.target.value }))}
+          >
+            {classes.map((item) => (
+              <option key={item.id} value={item.id}>{item.name}</option>
+            ))}
+          </select>
+        </label>
+        <div className="teacher-studio-form__grid">
+          <label>
+            <span>Judul materi</span>
+            <input
+              value={materialForm.title}
+              placeholder="Energi di Sekitar Kita"
+              onChange={(event) => onMaterialFormChange((current) => ({ ...current, title: event.target.value }))}
+            />
+          </label>
+          <label>
+            <span>Tipe</span>
+            <select
+              value={materialForm.type}
+              onChange={(event) => onMaterialFormChange((current) => ({ ...current, type: event.target.value as TeacherMaterial["type"] }))}
+            >
+              <option value="lesson">Lesson</option>
+              <option value="video">Video</option>
+              <option value="document">Document</option>
+              <option value="quiz">Quiz</option>
+            </select>
+          </label>
+        </div>
+        <label>
+          <span>Deskripsi</span>
+          <textarea
+            value={materialForm.description}
+            placeholder="Ringkasan materi untuk siswa..."
+            onChange={(event) => onMaterialFormChange((current) => ({ ...current, description: event.target.value }))}
+          />
+        </label>
+        <button type="submit" disabled={busy || classes.length === 0}>{busy ? "Menyimpan..." : "Publikasikan Materi"}</button>
+      </form>
+
+      <form className="teacher-studio-form" onSubmit={onCreateQuest}>
+        <div className="teacher-studio-form__header">
+          <Puzzle className="h-6 w-6" />
+          <div>
+            <h3>Buat IdeQuest</h3>
+            <p>Quest akan muncul untuk siswa yang terdaftar di kelas tujuan.</p>
+          </div>
+        </div>
+        <div className="teacher-studio-form__grid">
+          <label>
+            <span>Kelas tujuan</span>
+            <select
+              value={questForm.classId}
+              onChange={(event) => onQuestFormChange((current) => ({ ...current, classId: event.target.value, materialId: "" }))}
+            >
+              {classes.map((item) => (
+                <option key={item.id} value={item.id}>{item.name}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Materi terkait</span>
+            <select
+              value={questForm.materialId}
+              onChange={(event) => onQuestFormChange((current) => ({ ...current, materialId: event.target.value }))}
+            >
+              <option value="">Tanpa materi</option>
+              {selectedClassMaterials.map((item) => (
+                <option key={item.id} value={item.id}>{item.title}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <label>
+          <span>Judul IdeQuest</span>
+          <input
+            value={questForm.title}
+            placeholder="Misi Energi Rumah"
+            onChange={(event) => onQuestFormChange((current) => ({ ...current, title: event.target.value }))}
+          />
+        </label>
+        <label>
+          <span>Misi siswa</span>
+          <textarea
+            value={questForm.mission}
+            placeholder="Instruksi misi untuk siswa..."
+            onChange={(event) => onQuestFormChange((current) => ({ ...current, mission: event.target.value }))}
+          />
+        </label>
+        <div className="teacher-studio-form__grid">
+          <label>
+            <span>Poin</span>
+            <input
+              min="0"
+              type="number"
+              value={questForm.points}
+              onChange={(event) => onQuestFormChange((current) => ({ ...current, points: event.target.value }))}
+            />
+          </label>
+          <label>
+            <span>Deadline</span>
+            <input
+              value={questForm.dueDate}
+              placeholder="7d"
+              onChange={(event) => onQuestFormChange((current) => ({ ...current, dueDate: event.target.value }))}
+            />
+          </label>
+        </div>
+        {error ? <p className="teacher-class-error">{error}</p> : null}
+        <button type="submit" disabled={busy || classes.length === 0}>{busy ? "Menyimpan..." : "Publikasikan IdeQuest"}</button>
+      </form>
+
+      <div className="teacher-studio-board">
+        <div>
+          <h3>Materi Terbit</h3>
+          {materials.slice(0, 4).map((item) => (
+            <article key={item.id}>
+              <strong>{item.title}</strong>
+              <span>{item.type} - {classes.find((kelas) => kelas.id === item.classId)?.name ?? "Kelas"}</span>
+            </article>
+          ))}
+        </div>
+        <div>
+          <h3>IdeQuest Terbit</h3>
+          {quests.slice(0, 4).map((item) => (
+            <article key={item.id}>
+              <strong>{item.title}</strong>
+              <span>{item.points} poin - {item.dueDate}</span>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TeacherClassManager({
+  classes,
+  summary,
+  form,
+  busy,
+  error,
+  onFormChange,
+  onCreate
+}: {
+  classes: TeacherClass[];
+  summary: TeacherClassSummary | null;
+  form: { name: string; subject: string; grade: string; students: string };
+  busy: boolean;
+  error: string | null;
+  onFormChange: React.Dispatch<React.SetStateAction<{ name: string; subject: string; grade: string; students: string }>>;
+  onCreate: (event: React.FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <section className="teacher-class-manager">
+      <div className="teacher-class-summary">
+        <div>
+          <span>Kelas</span>
+          <strong>{summary?.totalClasses ?? classes.length}</strong>
+        </div>
+        <div>
+          <span>Siswa</span>
+          <strong>{summary?.totalStudents ?? classes.reduce((total, item) => total + item.students, 0)}</strong>
+        </div>
+        <div>
+          <span>Progres</span>
+          <strong>{summary?.averageProgress ?? 0}%</strong>
+        </div>
+      </div>
+
+      <form className="teacher-class-form" onSubmit={onCreate}>
+        <div className="teacher-class-form__grid">
+          <label>
+            <span>Nama kelas</span>
+            <input
+              value={form.name}
+              placeholder="IPA 7A"
+              onChange={(event) => onFormChange((current) => ({ ...current, name: event.target.value }))}
+            />
+          </label>
+          <label>
+            <span>Mapel</span>
+            <input
+              value={form.subject}
+              placeholder="Sains"
+              onChange={(event) => onFormChange((current) => ({ ...current, subject: event.target.value }))}
+            />
+          </label>
+          <label>
+            <span>Jenjang</span>
+            <Select
+              value={form.grade}
+              onChange={(event) => onFormChange((current) => ({ ...current, grade: event.target.value }))}
+            >
+              {Array.from({ length: 12 }, (_, index) => String(index + 1)).map((grade) => (
+                <option key={grade} value={grade}>
+                  Kelas {grade}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label>
+            <span>Jumlah siswa</span>
+            <input
+              min="0"
+              type="number"
+              value={form.students}
+              onChange={(event) => onFormChange((current) => ({ ...current, students: event.target.value }))}
+            />
+          </label>
+        </div>
+        <div className="teacher-class-auto-id">
+          <span>ClassID</span>
+          <strong>Otomatis dibuat saat kelas disimpan</strong>
+          <small>ClassID dipakai siswa untuk masuk ke kelas yang sesuai.</small>
+        </div>
+        {error ? <p className="teacher-class-error">{error}</p> : null}
+        <button type="submit" disabled={busy}>
+          {busy ? "Menyimpan..." : "Tambah Kelas"}
+        </button>
+      </form>
+
+      <div className="teacher-class-list">
+        {classes.map((item) => (
+          <article key={item.id} className="teacher-class-card">
+            <div>
+              <strong>{item.name}</strong>
+              <span>{item.subject} - {item.grade}</span>
+              <small>ClassID: {item.classCode ?? item.nextSession}</small>
+            </div>
+            <div className="teacher-class-card__meta">
+              <span>{item.students} siswa</span>
+              <b>{item.progress}%</b>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function TeacherDesktopSidebar({
+  active,
+  onChange
+}: {
+  active: MobileNavId;
+  onChange: (id: MobileNavId) => void;
+}) {
+  return (
+    <aside className="teacher-desktop-sidebar">
+      <div className="teacher-sidebar-profile">
+        <div className="teacher-sidebar-profile__avatar">GR</div>
+        <div>
+          <p>Mode Guru</p>
+          <span>IdeTech Classroom</span>
+        </div>
+      </div>
+      <nav className="teacher-sidebar-nav" aria-label="Navigasi dashboard guru">
+        {teacherMobileNavItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = active === item.id;
+
+          return (
+            <button
+              key={item.id}
+              type="button"
+              aria-current={isActive ? "page" : undefined}
+              className={isActive ? "teacher-sidebar-nav__item is-active" : "teacher-sidebar-nav__item"}
+              onClick={() => onChange(item.id)}
+            >
+              <span className="teacher-sidebar-nav__icon">
+                <Icon className="h-5 w-5" />
+              </span>
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+    </aside>
+  );
+}
+
+function TeacherDesktopContent({
+  active,
+  dashboard,
+  features,
+  cardClass,
+  featureRowClass,
+  actionRowClass,
+  summaryItemClass
+}: {
+  active: MobileNavId;
+  dashboard: Dashboard;
+  features: RoleFeature[];
+  cardClass: string;
+  featureRowClass: string;
+  actionRowClass: string;
+  summaryItemClass: string;
+}) {
+  const content = roleMenuContent.teacher[active];
+  const featureGroups: Record<MobileNavId, RoleFeature[]> = {
+    map: features,
+    quest: features.filter((feature) => feature.name.includes("kelas") || feature.name.includes("progres")),
+    studio: features.filter((feature) => feature.name.includes("materi") || feature.name.includes("IdeQuest") || feature.name.includes("Bank")),
+    rank: features.filter((feature) => feature.name.includes("Radar") || feature.name.includes("progres")),
+    profile: features
+  };
+  const actions: Record<MobileNavId, string[]> = {
+    map: dashboard.actions,
+    quest: ["Buat kelas baru", "Kelola roster siswa", "Atur agenda kelas"],
+    studio: ["Buat materi interaktif", "Susun IdeQuest", "Publikasikan ke Bank Ide"],
+    rank: ["Buka Radar Pintar", "Tinjau siswa berisiko", "Catat intervensi"],
+    profile: ["Lihat profil guru", "Periksa permission", "Kelola sesi aktif"]
+  };
+  const stats = [
+    { label: content.badge, value: content.progress, hint: content.button },
+    { label: "Fokus", value: String(featureGroups[active].length), hint: "fitur terkait" },
+    { label: "Aksi", value: String(actions[active].length), hint: "aksi cepat tersedia" }
+  ];
+
+  return (
+    <>
+      <section className="teacher-desktop-metrics teacher-futuristic-metrics professional-metrics">
+        {stats.map((metric) => (
+          <Card key={metric.label} className={`${cardClass} p-5`}>
+            <p className="professional-card__label">{metric.label}</p>
+            <p className="professional-card__value">{metric.value}</p>
+            <p className="professional-card__hint">{metric.hint}</p>
+          </Card>
+        ))}
+      </section>
+
+      <section className="teacher-desktop-content-grid">
+        <Card className={`${cardClass} p-5`}>
+          <div className="professional-card__header">
+            <h2 className="professional-card__title">Konten {roleMenuLabels.teacher[active]}</h2>
+            <span className="professional-card__pill">{featureGroups[active].length} fitur</span>
+          </div>
+          <div className="professional-feature-list">
+            {featureGroups[active].map((feature) => (
+              <div key={feature.name} className={featureRowClass}>
+                <div>
+                  <p className="professional-feature-row__title">{feature.name}</p>
+                  <p className="professional-feature-row__desc">{feature.description}</p>
+                </div>
+                <FeatureAccessBadge access={feature.access} />
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card className={`${cardClass} p-5`}>
+          <div className="professional-card__header">
+            <h2 className="professional-card__title">Aksi cepat</h2>
+          </div>
+          <div className="professional-action-list">
+            {actions[active].map((action) => (
+              <div key={action} className={actionRowClass}>
+                <span>{action}</span>
+                <ChevronRight className="h-4 w-4 text-white/70" />
+              </div>
+            ))}
+          </div>
+        </Card>
+      </section>
+
+      <Card className={`${cardClass} p-5`}>
+        <div className="professional-card__header">
+          <h2 className="professional-card__title">Ringkasan {roleMenuLabels.teacher[active]}</h2>
+        </div>
+        <div className="professional-summary">
+          {content.rewards.map((reward) => (
+            <div key={reward} className={summaryItemClass}>
+              <span>{reward}</span>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </>
+  );
+}
+
+function TeacherBottomNav({
+  active,
+  onChange
+}: {
+  active: MobileNavId;
+  onChange: (id: MobileNavId) => void;
+}) {
+  return (
+    <nav className="teacher-bottom-nav md:hidden" aria-label="Navigasi guru">
+      <div className="teacher-bottom-nav__shell">
+        {teacherMobileNavItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = active === item.id;
+          const center = item.id === "studio";
+
+          return (
+            <button
+              key={item.id}
+              type="button"
+              aria-current={isActive ? "page" : undefined}
+              className={
+                center
+                  ? isActive
+                    ? "teacher-bottom-nav__item is-center is-active"
+                    : "teacher-bottom-nav__item is-center"
+                  : isActive
+                    ? "teacher-bottom-nav__item is-active"
+                    : "teacher-bottom-nav__item"
+              }
+              onClick={() => onChange(item.id)}
+            >
+              <span className={center ? "teacher-bottom-nav__icon-wrap is-center" : "teacher-bottom-nav__icon-wrap"}>
+                <Icon className={center ? "teacher-bottom-nav__icon is-center" : "teacher-bottom-nav__icon"} />
+              </span>
+              <span className={center ? "teacher-bottom-nav__label is-center" : "teacher-bottom-nav__label"}>{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
+function LoginScreen({
+  busy,
+  error,
+  onDemoLogin
+}: {
+  busy: boolean;
+  error: string | null;
+  onDemoLogin: (email: string) => void;
+}) {
+  return (
+    <main className="landing-shell min-h-screen">
+      <div className="landing-bg" aria-hidden="true" />
+      <div className="landing-shell__glow" />
+      <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-7 sm:px-6 lg:px-8">
+        <header className="landing-nav">
+          <div className="landing-brand">
+            <IdeTechLogo className="landing-brand__logo" />
+            <p className="landing-brand__name">IdeTech</p>
+          </div>
+
+          <nav className="landing-links" aria-label="Navigasi utama">
+            <a href="#home">Home</a>
+            <a href="#usecases">Usecases</a>
+            <a href="#roles">Roles</a>
+            <a href="#demo">Demo</a>
+            <a href="#contact">Contact</a>
+          </nav>
+
+          <div className="landing-nav__cta">
+            <a href="/api/auth/google" className="landing-start-button">
+              Login
+            </a>
+          </div>
+        </header>
+
+        <section className="landing-hero" id="home">
+          <div className="landing-hero__copy">
+            <div className="landing-chip">
+              <Sparkles className="h-4 w-4" />
+              Platform belajar interaktif untuk sekolah modern
+            </div>
+            <h1 className="landing-title">
+              Learn with
+              <br />
+              ease.
+            </h1>
+            <p className="landing-description">
+              IdeTech membantu guru membuat materi, siswa menjalankan IdeQuest, orang tua memantau progres,
+              dan admin menjaga sistem tetap rapi.
+            </p>
+            <div className="landing-actions">
+              <a href="/api/auth/google">
+                <Button className="landing-primary-button" disabled={busy}>
+                  <BadgeCheck className="h-4 w-4" />
+                  Masuk dengan Google
+                </Button>
+              </a>
+              <button className="landing-secondary-button" type="button" onClick={() => onDemoLogin("guru@idetech.local")} disabled={busy}>
+                Lihat demo guru
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+            {error ? <ErrorBanner message={error} /> : null}
+          </div>
+        </section>
+
+        <section className="landing-demo-panel" id="demo">
+          <div className="landing-demo-panel__header">
+            <p className="landing-demo-panel__eyebrow">Demo role</p>
+            <LayoutDashboard className="h-5 w-5 text-slate-700" />
+          </div>
+          <div className="landing-demo-grid">
+            {demoUsers.map((demo) => (
+              <button
+                key={demo.email}
+                className="landing-demo-card"
+                disabled={busy}
+                onClick={() => onDemoLogin(demo.email)}
+              >
+                <div>
+                  <span className="landing-demo-card__label">{demo.label}</span>
+                  <span className="landing-demo-card__email">{demo.email}</span>
+                </div>
+                <span className="landing-demo-card__role">{demo.role}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+function TopBar({
+  user,
+  busy,
+  onLogout,
+  onSwitchRole
+}: {
+  user: AuthUser;
+  busy: boolean;
+  onLogout: () => void;
+  onSwitchRole: (role: RoleName) => void;
+}) {
+  return (
+    <header className="game-topbar">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+        <div className="flex items-center gap-3">
+          <IdeTechLogo className="game-avatar-frame" />
+          <div>
+            <p className="game-hud-title text-xl font-black">IdeTech</p>
+            <p className="text-xs font-bold text-white/85">API aktif di /api, session berbasis cookie</p>
+          </div>
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex gap-2">
+            <div className="game-hud-pill">
+              <Heart className="h-5 w-5 text-red-500" />
+              <span>29:39</span>
+            </div>
+            <div className="game-hud-pill">
+              <CircleDollarSign className="h-5 w-5 text-yellow-500" />
+              <span>4778</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <img
+              className="game-user-photo h-11 w-11 object-cover"
+              src={user.avatarUrl ?? `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(user.name)}`}
+              alt={user.name}
+            />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black text-white">{user.name}</p>
+              <p className="truncate text-xs font-bold text-white/80">{user.email}</p>
+            </div>
+          </div>
+          {user.roles.length > 1 ? (
+            <Select
+              className="game-select"
+              value={user.activeRole}
+              disabled={busy}
+              aria-label="Pilih role aktif"
+              onChange={(event) => onSwitchRole(event.target.value as RoleName)}
+            >
+              {user.roles.map((role) => (
+                <option key={role} value={role}>
+                  {roleLabels[role]}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <StatusPill tone="good">{roleLabels[user.activeRole]}</StatusPill>
+          )}
+          <SecondaryButton className="game-icon-button" disabled={busy} onClick={onLogout}>
+            <LogOut className="h-4 w-4" />
+            Keluar
+          </SecondaryButton>
+          <SecondaryButton className="game-settings-button" disabled={busy} aria-label="Pengaturan">
+            <Settings className="h-5 w-5" />
+          </SecondaryButton>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function DesktopGameTabs({
+  active,
+  role,
+  onChange
+}: {
+  active: MobileNavId;
+  role: RoleName;
+  onChange: (id: MobileNavId) => void;
+}) {
+  return (
+    <nav className="hidden grid-cols-5 gap-3 md:grid" aria-label="Navigasi konten">
+      {mobileNavItems.map((item) => {
+        const Icon = item.icon;
+        const isActive = active === item.id;
+
+        return (
+          <button
+            key={item.id}
+            className={isActive ? "game-tab is-active" : "game-tab"}
+            type="button"
+            aria-current={isActive ? "page" : undefined}
+            onClick={() => onChange(item.id)}
+          >
+            <Icon className="h-5 w-5" />
+            {roleMenuLabels[role][item.id]}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+function MobileGameNav({
+  active,
+  role,
+  notifications,
+  onChange
+}: {
+  active: MobileNavId;
+  role: RoleName;
+  notifications?: Partial<Record<MobileNavId, boolean>>;
+  onChange: (id: MobileNavId) => void;
+}) {
+  return (
+    <nav className="game-mobile-nav md:hidden" aria-label="Navigasi mobile">
+      <div className="game-mobile-nav__sky" />
+      <div className="game-mobile-nav__bar">
+        {mobileNavItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = active === item.id;
+
+          return (
+            <button
+              key={item.id}
+              type="button"
+              aria-current={isActive ? "page" : undefined}
+              className={isActive ? "game-mobile-nav__item is-active" : "game-mobile-nav__item"}
+              onClick={() => onChange(item.id)}
+            >
+              <span className="game-mobile-nav__icon-shell">
+                <Icon className="game-mobile-nav__icon" strokeWidth={2.8} />
+                {notifications?.[item.id] ? <span className="game-mobile-nav__notify" aria-hidden="true" /> : null}
+              </span>
+              <span className="game-mobile-nav__label">{roleMenuLabels[role][item.id]}</span>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
+function DashboardHeader({ dashboard, user, activeMenu }: { dashboard: Dashboard; user: AuthUser; activeMenu: MobileNavId }) {
+  const Icon = roleIcons[user.activeRole];
+  const content = roleMenuContent[user.activeRole][activeMenu];
+  return (
+    <section className="game-hero grid gap-5 p-5 lg:grid-cols-[1fr_auto] lg:items-center">
+      <div className="flex gap-4">
+        <div className="game-role-token flex h-14 w-14 shrink-0 items-center justify-center text-white">
+          <Icon className="h-6 w-6" />
+        </div>
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="game-panel-title text-2xl font-black tracking-normal">{content.title}</h1>
+            <StatusPill tone={user.status === "active" ? "good" : "warn"}>{user.status}</StatusPill>
+          </div>
+          <p className="max-w-3xl text-sm font-bold leading-6 text-amber-950/75">
+            {content.subtitle} {dashboard.description}
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {user.roles.map((role) => (
+          <StatusPill key={role}>{roleLabels[role]}</StatusPill>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function MetricGrid({ dashboard }: { dashboard: Dashboard }) {
+  return (
+    <section className="grid gap-4 md:grid-cols-3">
+      {dashboard.metrics.map((metric) => (
+        <Card key={metric.label} className="game-panel p-5">
+          <p className="text-sm font-black text-amber-950/70">{metric.label}</p>
+          <p className="game-score mt-2 text-3xl font-black tracking-normal">{metric.value}</p>
+          <p className="mt-2 text-sm font-bold text-amber-950/65">{metric.hint}</p>
+        </Card>
+      ))}
+    </section>
+  );
+}
+
+function Workspace({
+  dashboard,
+  user,
+  adminUsers,
+  activeMenu
+}: {
+  dashboard: Dashboard;
+  user: AuthUser;
+  adminUsers: AdminUser[];
+  activeMenu: MobileNavId;
+}) {
+  const permissionGroups = useMemo(() => user.permissions.slice().sort(), [user.permissions]);
+  const features = roleFeatures[user.activeRole];
+  const isStudent = user.activeRole === "student";
+
+  return (
+    <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+      <GameMenuContent active={activeMenu} user={user} adminUsers={adminUsers} />
+
+      <Card className="game-panel p-5">
+        <div className="mb-4 flex items-center gap-2">
+          <Boxes className="h-5 w-5 text-yellow-300 drop-shadow" />
+          <h2 className="game-panel-title text-lg font-black">Modul aktif</h2>
+        </div>
+        {isStudent ? (
+          <StudentIconGrid
+            items={features.map((feature, index) => ({
+              title: feature.name,
+              subtitle: studentFeatureTimer(index),
+              badge: feature.access === "limited" ? "!" : index === 0 ? "+2" : undefined,
+              icon: studentFeatureIcon(index)
+            }))}
+          />
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {features.map((feature) => (
+              <div key={feature.name} className="game-mini-card p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-black">{feature.name}</p>
+                  <FeatureAccessBadge access={feature.access} />
+                </div>
+                <p className="mt-2 text-xs font-bold leading-5 text-amber-950/65">{feature.description}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <Card className="game-panel p-5">
+        <div className="mb-4 flex items-center gap-2">
+          <Gauge className="h-5 w-5 text-yellow-300 drop-shadow" />
+          <h2 className="game-panel-title text-lg font-black">Aksi dan permission</h2>
+        </div>
+        {isStudent ? (
+          <StudentIconGrid
+            items={features.map((feature, index) => ({
+              title: feature.cta,
+              subtitle: feature.permission ?? "aktif",
+              badge: feature.access === "self" ? "20" : feature.access === "limited" ? "!" : undefined,
+              icon: studentActionIcon(index)
+            }))}
+            compact
+          />
+        ) : (
+          <div className="mb-5 grid gap-3">
+            {features.map((feature) => (
+              <div key={feature.cta} className="game-list-button flex items-center justify-between px-4 py-3">
+                <span>
+                  <span className="block text-sm font-black">{feature.cta}</span>
+                  {feature.permission ? <span className="block text-xs font-bold text-amber-950/60">{feature.permission}</span> : null}
+                </span>
+                <ChevronRight className="h-4 w-4 text-amber-950/70" />
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex flex-wrap gap-2">
+          {permissionGroups.map((permission) => (
+            <StatusPill key={permission}>{permission}</StatusPill>
+          ))}
+        </div>
+      </Card>
+
+      {user.activeRole === "admin" ? <AdminUserTable users={adminUsers} /> : <RoleSpecificPanel role={user.activeRole} />}
+    </section>
+  );
+}
+
+function StudentIconGrid({
+  items,
+  compact = false
+}: {
+  items: { title: string; subtitle: string; badge?: string; icon: typeof Sparkles }[];
+  compact?: boolean;
+}) {
+  return (
+    <div className={compact ? "student-icon-grid is-compact" : "student-icon-grid"}>
+      {items.map((item, index) => {
+        const Icon = item.icon;
+        return (
+          <button key={`${item.title}-${index}`} className="student-desktop-icon" type="button">
+            <span className="student-desktop-icon__orb">
+              <Icon className="student-desktop-icon__glyph" strokeWidth={2.8} />
+              {item.badge ? <span className={item.badge === "!" ? "student-desktop-icon__badge is-alert" : "student-desktop-icon__badge"}>{item.badge}</span> : null}
+            </span>
+            <span className="student-desktop-icon__timer">{item.subtitle}</span>
+            <span className="student-desktop-icon__label">{item.title}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function studentFeatureIcon(index: number) {
+  return [Map, Puzzle, Gauge, Star][index] ?? Sparkles;
+}
+
+function studentMapIcon(id: string) {
+  const iconMap: Record<string, typeof Sparkles> = {
+    map: Map,
+    quest: Puzzle,
+    rank: Trophy,
+    tasks: ScrollText,
+    coins: CircleDollarSign,
+    radar: Gauge
+  };
+
+  return iconMap[id] ?? Sparkles;
+}
+
+function studentActionIcon(index: number) {
+  return [Target, ScrollText, Trophy, Sparkles][index] ?? Puzzle;
+}
+
+function studentFeatureTimer(index: number) {
+  return ["9h 37m", "2d 9h", "1d 9h", "Terbatas"][index] ?? "Aktif";
+}
+
+function FeatureAccessBadge({ access }: { access: RoleFeature["access"] }) {
+  const label = {
+    full: "Penuh",
+    limited: "Terbatas",
+    self: "Diri sendiri",
+    child: "Anak"
+  }[access];
+
+  return (
+    <span className={access === "full" ? "feature-access-badge is-full" : "feature-access-badge"}>
+      {label}
+    </span>
+  );
+}
+
+function GameMenuContent({
+  active,
+  user,
+  adminUsers
+}: {
+  active: MobileNavId;
+  user: AuthUser;
+  adminUsers: AdminUser[];
+}) {
+  const content = roleMenuContent[user.activeRole][active];
+
+  return (
+    <Card className="game-map-card p-5 lg:col-span-2">
+      <div className="game-map-card__water" />
+      <div className="relative grid gap-5 lg:grid-cols-[1fr_240px] lg:items-center">
+        <div>
+          <div className="game-progress-panel mb-4">
+            <div className="flex items-center gap-3">
+              <Star className="h-9 w-9 text-fuchsia-300 drop-shadow" />
+              <div className="game-progress-track">
+                <div className="game-progress-fill" />
+                <span>{content.progress}</span>
+              </div>
+              <div className="game-coin-stack">100</div>
+            </div>
+          </div>
+
+          <div className="game-island">
+            <div className="game-island__rock" />
+            <div className="game-island__gate">
+              <span>{content.badge}</span>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_1fr]">
+            <div className="game-chapter-panel">
+              <span>{content.badge}</span>
+              <strong>{content.progress}</strong>
+            </div>
+            <button className="game-level-button" type="button">
+              {content.button}
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 lg:grid-cols-1">
+          {content.rewards.map((reward, index) => (
+            <div key={reward} className="game-reward-badge">
+              <span className="game-reward-badge__icon">{index + 1}</span>
+              <span>{reward}</span>
+            </div>
+          ))}
+          {active === "profile" ? (
+            <div className="game-reward-badge">
+              <span className="game-reward-badge__icon">{user.roles.length}</span>
+              <span>{roleLabels[user.activeRole]}</span>
+            </div>
+          ) : null}
+          {active === "studio" && user.activeRole === "admin" ? (
+            <div className="game-reward-badge">
+              <span className="game-reward-badge__icon">{adminUsers.length}</span>
+              <span>User</span>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function AdminUserTable({ users, clean = false }: { users: AdminUser[]; clean?: boolean }) {
+  return (
+    <Card className={clean ? "professional-card p-5 lg:col-span-2" : "game-panel p-5 lg:col-span-2"}>
+      <div className="mb-4 flex items-center gap-2">
+        <UserCog className={clean ? "h-5 w-5 text-slate-500" : "h-5 w-5 text-yellow-300 drop-shadow"} />
+        <h2 className={clean ? "professional-card__title text-lg" : "game-panel-title text-lg font-black"}>Verifikasi user</h2>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px] border-collapse text-sm">
+          <thead className={clean ? "professional-table-head" : "game-table-head"}>
+            <tr className="border-b text-left">
+              <th className="py-3 pr-4 font-semibold">Nama</th>
+              <th className="py-3 pr-4 font-semibold">Email</th>
+              <th className="py-3 pr-4 font-semibold">Status</th>
+              <th className="py-3 pr-4 font-semibold">Role</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((item) => (
+              <tr key={item.id} className="border-b last:border-0">
+                <td className={clean ? "py-3 pr-4 font-semibold text-slate-900" : "py-3 pr-4 font-semibold"}>{item.name}</td>
+                <td className={clean ? "py-3 pr-4 text-slate-600" : "py-3 pr-4 font-bold text-amber-950/65"}>{item.email}</td>
+                <td className="py-3 pr-4">
+                  <StatusPill tone={item.status === "active" ? "good" : "warn"}>{item.status}</StatusPill>
+                </td>
+                <td className="py-3 pr-4">
+                  <div className="flex flex-wrap gap-2">
+                    {item.roles.map((role) => (
+                      <StatusPill key={role.name}>{role.label}</StatusPill>
+                    ))}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+function AdminControlCenter({
+  users,
+  access,
+  busy,
+  onUpdateUser,
+  onUpdateRolePermissions
+}: {
+  users: AdminUser[];
+  access: AdminAccess | null;
+  busy: boolean;
+  onUpdateUser: (id: string, payload: { status?: string; roles?: RoleName[] }) => void;
+  onUpdateRolePermissions: (role: RoleName, permissions: string[]) => void;
+}) {
+  const pendingUsers = users.filter((item) => item.status === "pending");
+
+  return (
+    <section className="grid gap-6 xl:grid-cols-[1.45fr_1fr]">
+      <Card className="professional-card p-5">
+        <div className="professional-card__header">
+          <div>
+            <h2 className="professional-card__title">Verifikasi user baru</h2>
+            <p className="professional-card__hint">{pendingUsers.length} user menunggu aktivasi dan role.</p>
+          </div>
+          <span className="professional-card__pill">{users.length} user</span>
+        </div>
+
+        <AdminUserVerificationTable users={users} roles={access?.roles ?? []} busy={busy} onUpdateUser={onUpdateUser} />
+      </Card>
+
+      <div className="grid gap-6">
+        <AdminSystemConfig access={access} />
+        <AdminPermissionPanel access={access} busy={busy} onUpdateRolePermissions={onUpdateRolePermissions} />
+      </div>
+    </section>
+  );
+}
+
+function AdminSubPage({
+  view,
+  users,
+  access,
+  classes,
+  busy,
+  onBack,
+  onUpdateUser,
+  onUpdateRolePermissions,
+  onCreateClass,
+  onUpdateClass,
+  onDeleteClass
+}: {
+  view: AdminView;
+  users: AdminUser[];
+  access: AdminAccess | null;
+  classes: AdminClass[];
+  busy: boolean;
+  onBack: () => void;
+  onUpdateUser: (id: string, payload: { status?: string; roles?: RoleName[] }) => void;
+  onUpdateRolePermissions: (role: RoleName, permissions: string[]) => void;
+  onCreateClass: (payload: { teacherUserId?: string; name: string; subject: string; grade: string; students: number; status: TeacherClass["status"] }) => void;
+  onUpdateClass: (id: string, payload: Partial<Pick<TeacherClass, "name" | "subject" | "grade" | "students" | "progress" | "status">> & { teacherUserId?: string }) => void;
+  onDeleteClass: (id: string) => void;
+}) {
+  const title = {
+    users: "Verifikasi user baru",
+    classes: "Kelola kelas global",
+    access: "Role & permission",
+    system: "Konfigurasi sistem",
+    home: "Beranda admin"
+  }[view];
+
+  return (
+    <section className="admin-subpage">
+      <div className="admin-subpage__bar">
+        <button type="button" className="admin-back-button" onClick={onBack}>
+          <ChevronRight className="h-4 w-4 rotate-180" />
+          Beranda
+        </button>
+        <div>
+          <p className="professional-eyebrow">Admin</p>
+          <h2>{title}</h2>
+        </div>
+      </div>
+
+      {view === "users" ? (
+        <Card className="professional-card p-5">
+          <AdminUserVerificationTable users={users} roles={access?.roles ?? []} busy={busy} onUpdateUser={onUpdateUser} />
+        </Card>
+      ) : null}
+
+      {view === "classes" ? (
+        <AdminClassManager users={users} classes={classes} busy={busy} onCreate={onCreateClass} onUpdate={onUpdateClass} onDelete={onDeleteClass} />
+      ) : null}
+
+      {view === "access" ? <AdminPermissionPanel access={access} busy={busy} onUpdateRolePermissions={onUpdateRolePermissions} /> : null}
+
+      {view === "system" ? <AdminSystemConfig access={access} /> : null}
+    </section>
+  );
+}
+
+function AdminUserVerificationTable({
+  users,
+  roles,
+  busy,
+  onUpdateUser
+}: {
+  users: AdminUser[];
+  roles: { name: RoleName; label: string }[];
+  busy: boolean;
+  onUpdateUser: (id: string, payload: { status?: string; roles?: RoleName[] }) => void;
+}) {
+  return (
+    <div className="admin-verification-table-wrap">
+      <table className="admin-verification-table">
+        <thead>
+          <tr>
+            <th>Nama</th>
+            <th>Email</th>
+            <th>Status</th>
+            <th>Role</th>
+          </tr>
+        </thead>
+        <tbody>
+          {users.map((item) => {
+            const selectedRoles = item.roles.map((role) => role.name as RoleName);
+            return (
+              <tr key={item.id}>
+                <td>
+                  <span className="admin-table-name">{item.name}</span>
+                </td>
+                <td>
+                  <span className="admin-table-email">{item.email}</span>
+                </td>
+                <td>
+                  <Select
+                    className="admin-status-select"
+                    value={item.status}
+                    disabled={busy}
+                    aria-label={`Status ${item.name}`}
+                    onChange={(event) => onUpdateUser(item.id, { status: event.target.value, roles: selectedRoles })}
+                  >
+                    <option value="active">Aktifkan</option>
+                    <option value="pending">Pending</option>
+                    <option value="suspended">Suspend</option>
+                  </Select>
+                </td>
+                <td>
+                  <div className="admin-role-icon-checks">
+                    {roles.map((role) => {
+                      const checked = selectedRoles.includes(role.name);
+                      const nextRoles = checked ? selectedRoles.filter((name) => name !== role.name) : [...selectedRoles, role.name];
+                      const RoleIcon = roleIcons[role.name];
+                      return (
+                        <label key={role.name} className={`admin-role-icon-check ${checked ? "is-checked" : ""}`} title={role.label} aria-label={role.label}>
+                          <input type="checkbox" checked={checked} disabled={busy} onChange={() => onUpdateUser(item.id, { status: item.status, roles: nextRoles })} />
+                          <RoleIcon className="h-4 w-4" />
+                        </label>
+                      );
+                    })}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function AdminClassManager({
+  users,
+  classes,
+  busy,
+  onCreate,
+  onUpdate,
+  onDelete
+}: {
+  users: AdminUser[];
+  classes: AdminClass[];
+  busy: boolean;
+  onCreate: (payload: { teacherUserId?: string; name: string; subject: string; grade: string; students: number; status: TeacherClass["status"] }) => void;
+  onUpdate: (id: string, payload: Partial<Pick<TeacherClass, "name" | "subject" | "grade" | "students" | "progress" | "status">> & { teacherUserId?: string }) => void;
+  onDelete: (id: string) => void;
+}) {
+  const teacherUsers = users.filter((user) => user.roles.some((role) => role.name === "teacher" || role.name === "admin"));
+  const [form, setForm] = useState({
+    teacherUserId: teacherUsers[0]?.id ?? "",
+    name: "",
+    subject: "",
+    grade: "7",
+    students: "24",
+    status: "active" as TeacherClass["status"]
+  });
+
+  useEffect(() => {
+    if (!form.teacherUserId && teacherUsers[0]?.id) {
+      setForm((current) => ({ ...current, teacherUserId: teacherUsers[0].id }));
+    }
+  }, [teacherUsers.length]);
+
+  function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onCreate({
+      teacherUserId: form.teacherUserId || undefined,
+      name: form.name,
+      subject: form.subject,
+      grade: form.grade,
+      students: Number(form.students),
+      status: form.status
+    });
+    setForm((current) => ({ ...current, name: "", subject: "", grade: "7", students: "24", status: "active" }));
+  }
+
+  return (
+    <section className="admin-class-layout">
+      <Card className="professional-card p-5">
+        <div className="professional-card__header">
+          <div>
+            <h3 className="professional-card__title">Tambah kelas</h3>
+            <p className="professional-card__hint">ClassID dibuat otomatis dan bisa dipakai siswa untuk bergabung.</p>
+          </div>
+        </div>
+        <form className="admin-class-form" onSubmit={submit}>
+          <label>
+            <span>Guru</span>
+            <Select value={form.teacherUserId} disabled={busy} onChange={(event) => setForm((current) => ({ ...current, teacherUserId: event.target.value }))}>
+              {teacherUsers.map((teacher) => (
+                <option key={teacher.id} value={teacher.id}>
+                  {teacher.name} - {teacher.email}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label>
+            <span>Nama kelas</span>
+            <input value={form.name} placeholder="IPA 7A" onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
+          </label>
+          <label>
+            <span>Mapel</span>
+            <input value={form.subject} placeholder="Sains" onChange={(event) => setForm((current) => ({ ...current, subject: event.target.value }))} />
+          </label>
+          <label>
+            <span>Jenjang</span>
+            <Select value={form.grade} onChange={(event) => setForm((current) => ({ ...current, grade: event.target.value }))}>
+              {Array.from({ length: 12 }, (_, index) => String(index + 1)).map((grade) => (
+                <option key={grade} value={grade}>
+                  Kelas {grade}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label>
+            <span>Jumlah siswa</span>
+            <input min="0" type="number" value={form.students} onChange={(event) => setForm((current) => ({ ...current, students: event.target.value }))} />
+          </label>
+          <label>
+            <span>Status</span>
+            <Select value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as TeacherClass["status"] }))}>
+              <option value="active">Aktif</option>
+              <option value="draft">Draft</option>
+              <option value="archived">Arsip</option>
+            </Select>
+          </label>
+          <button type="submit" disabled={busy || !form.name || !form.subject}>
+            {busy ? "Menyimpan..." : "Tambah kelas"}
+          </button>
+        </form>
+      </Card>
+
+      <Card className="professional-card p-5">
+        <div className="professional-card__header">
+          <div>
+            <h3 className="professional-card__title">Semua kelas guru</h3>
+            <p className="professional-card__hint">{classes.length} kelas terdaftar.</p>
+          </div>
+        </div>
+        <div className="admin-class-table-wrap">
+          <table className="admin-class-table">
+            <thead>
+              <tr>
+                <th>Kelas</th>
+                <th>Guru</th>
+                <th>ClassID</th>
+                <th>Jenjang</th>
+                <th>Siswa</th>
+                <th>Status</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {classes.map((kelas) => (
+                <AdminClassRow key={kelas.id} kelas={kelas} teachers={teacherUsers} busy={busy} onUpdate={onUpdate} onDelete={onDelete} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </section>
+  );
+}
+
+function AdminClassRow({
+  kelas,
+  teachers,
+  busy,
+  onUpdate,
+  onDelete
+}: {
+  kelas: AdminClass;
+  teachers: AdminUser[];
+  busy: boolean;
+  onUpdate: (id: string, payload: Partial<Pick<TeacherClass, "name" | "subject" | "grade" | "students" | "progress" | "status">> & { teacherUserId?: string }) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [draft, setDraft] = useState({
+    teacherUserId: kelas.teacherUserId,
+    name: kelas.name,
+    subject: kelas.subject,
+    grade: kelas.grade,
+    students: String(kelas.students),
+    progress: String(kelas.progress),
+    status: kelas.status
+  });
+
+  useEffect(() => {
+    setDraft({
+      teacherUserId: kelas.teacherUserId,
+      name: kelas.name,
+      subject: kelas.subject,
+      grade: kelas.grade,
+      students: String(kelas.students),
+      progress: String(kelas.progress),
+      status: kelas.status
+    });
+  }, [kelas.id, kelas.updatedAt]);
+
+  return (
+    <tr>
+      <td>
+        <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} />
+        <input value={draft.subject} aria-label={`Mapel ${kelas.name}`} onChange={(event) => setDraft((current) => ({ ...current, subject: event.target.value }))} />
+      </td>
+      <td>
+        <Select value={draft.teacherUserId} onChange={(event) => setDraft((current) => ({ ...current, teacherUserId: event.target.value }))}>
+          {teachers.map((teacher) => (
+            <option key={teacher.id} value={teacher.id}>
+              {teacher.name}
+            </option>
+          ))}
+        </Select>
+      </td>
+      <td>
+        <code>{kelas.classCode ?? kelas.nextSession}</code>
+      </td>
+      <td>
+        <Select value={draft.grade} onChange={(event) => setDraft((current) => ({ ...current, grade: event.target.value }))}>
+          {Array.from({ length: 12 }, (_, index) => String(index + 1)).map((grade) => (
+            <option key={grade} value={grade}>
+              {grade}
+            </option>
+          ))}
+        </Select>
+      </td>
+      <td>
+        <input min="0" type="number" value={draft.students} onChange={(event) => setDraft((current) => ({ ...current, students: event.target.value }))} />
+      </td>
+      <td>
+        <Select value={draft.status} onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value as TeacherClass["status"] }))}>
+          <option value="active">Aktif</option>
+          <option value="draft">Draft</option>
+          <option value="archived">Arsip</option>
+        </Select>
+      </td>
+      <td>
+        <div className="admin-class-actions">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() =>
+              onUpdate(kelas.id, {
+                teacherUserId: draft.teacherUserId,
+                name: draft.name,
+                subject: draft.subject,
+                grade: draft.grade,
+                students: Number(draft.students),
+                progress: Number(draft.progress),
+                status: draft.status
+              })
+            }
+          >
+            Simpan
+          </button>
+          <button
+            type="button"
+            className="is-danger"
+            disabled={busy}
+            onClick={() => {
+              if (window.confirm(`Hapus kelas ${kelas.name}? Materi dan IdeQuest terkait dapat ikut terhapus.`)) onDelete(kelas.id);
+            }}
+          >
+            Hapus
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function AdminSystemConfig({ access }: { access: AdminAccess | null }) {
+  const system = access?.system;
+  const items = system
+    ? [
+        ["User aktif", system.activeUsers],
+        ["User pending", system.pendingUsers],
+        ["User suspend", system.suspendedUsers],
+        ["Role", system.totalRoles],
+        ["Permission", system.totalPermissions],
+        ["API", system.apiBase]
+      ]
+    : [];
+
+  return (
+    <Card className="professional-card p-5">
+      <div className="professional-card__header">
+        <h2 className="professional-card__title">Konfigurasi sistem</h2>
+        <Settings className="h-5 w-5 text-slate-400" />
+      </div>
+      <div className="admin-system-grid">
+        {items.map(([label, value]) => (
+          <div key={label} className="admin-system-tile">
+            <span>{label}</span>
+            <strong>{value}</strong>
+          </div>
+        ))}
+      </div>
+      {system ? (
+        <p className="mt-4 text-xs font-semibold text-slate-500">
+          Auth: {system.authProvider} · Database: {system.database}
+        </p>
+      ) : null}
+    </Card>
+  );
+}
+
+function AdminPermissionPanel({
+  access,
+  busy,
+  onUpdateRolePermissions
+}: {
+  access: AdminAccess | null;
+  busy: boolean;
+  onUpdateRolePermissions: (role: RoleName, permissions: string[]) => void;
+}) {
+  if (!access) {
+    return (
+      <Card className="professional-card p-5">
+        <h2 className="professional-card__title">Role & permission</h2>
+        <p className="professional-card__hint mt-2">Memuat konfigurasi permission...</p>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="professional-card p-5">
+      <div className="professional-card__header">
+        <div>
+          <h2 className="professional-card__title">Role & permission</h2>
+          <p className="professional-card__hint">Centang izin yang boleh dipakai tiap role.</p>
+        </div>
+        <ShieldCheck className="h-5 w-5 text-slate-400" />
+      </div>
+      <div className="mt-4 space-y-4">
+        {access.roles.map((role) => (
+          <div key={role.name} className="admin-permission-role">
+            <div>
+              <p className="font-black text-slate-900">{role.label}</p>
+              <p className="text-xs font-semibold text-slate-500">{role.description}</p>
+            </div>
+            <div className="admin-permission-list">
+              {access.permissions.map((permission) => {
+                const checked = role.permissions.includes(permission.name);
+                const nextPermissions = checked
+                  ? role.permissions.filter((name) => name !== permission.name)
+                  : [...role.permissions, permission.name];
+                return (
+                  <label key={permission.name} className="admin-permission-check" title={permission.description}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={busy}
+                      onChange={() => onUpdateRolePermissions(role.name, nextPermissions)}
+                    />
+                    <span>{permission.name}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function RoleSpecificPanel({ role }: { role: RoleName }) {
+  const content = {
+    teacher: {
+      icon: BookOpen,
+      title: "Alur Guru",
+      rows: ["Membuat kelas", "Membuat materi IdeStudio", "Menyusun IdeQuest", "Memantau Radar Pintar"]
+    },
+    student: {
+      icon: Sparkles,
+      title: "Alur Siswa",
+      rows: ["Membuka peta IdeQuest", "Mengerjakan misi", "Mengumpulkan tugas", "Mendapat poin dan badge"]
+    },
+    parent: {
+      icon: Users,
+      title: "Alur Orang Tua",
+      rows: ["Memilih anak", "Melihat progres", "Membaca catatan guru", "Meninjau laporan belajar"]
+    },
+    admin: {
+      icon: ShieldCheck,
+      title: "Alur Admin",
+      rows: ["Mengelola user", "Mengelola role", "Mengelola kelas global", "Mengatur sistem"]
+    }
+  }[role];
+  const Icon = content.icon;
+
+  if (role === "student") {
+    const icons = [Map, Puzzle, ScrollText, Trophy];
+    return (
+      <Card className="game-panel p-5 lg:col-span-2">
+        <div className="mb-4 flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-yellow-300 drop-shadow" />
+          <h2 className="game-panel-title text-lg font-black">{content.title}</h2>
+        </div>
+        <StudentIconGrid
+          items={content.rows.map((row, index) => ({
+            title: row,
+            subtitle: `Step ${index + 1}`,
+            badge: index === 1 ? "!" : index === 3 ? "20" : undefined,
+            icon: icons[index] ?? Sparkles
+          }))}
+        />
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="game-panel p-5 lg:col-span-2">
+      <div className="mb-4 flex items-center gap-2">
+        <Icon className="h-5 w-5 text-yellow-300 drop-shadow" />
+        <h2 className="game-panel-title text-lg font-black">{content.title}</h2>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {content.rows.map((row, index) => (
+          <div key={row} className="game-mini-card p-4">
+            <p className="text-xs font-black text-green-800">Langkah {index + 1}</p>
+            <p className="mt-1 text-sm font-black">{row}</p>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function FullScreenState({ text }: { text: string }) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-background px-4">
+      <div className="rounded-lg border bg-white px-5 py-4 text-sm font-semibold shadow-sm">{text}</div>
+    </main>
+  );
+}
+
+function ErrorBanner({ message }: { message: string }) {
+  return <div className="game-error-banner px-4 py-3 text-sm font-black">{message}</div>;
+}
+
+function IdeTechLogo({ className = "" }: { className?: string }) {
+  return (
+    <span className={`idetech-logo ${className}`} aria-hidden="true">
+      <svg viewBox="0 0 100 100" role="img">
+        <defs>
+          <linearGradient id="idetech-gold" x1="18" x2="82" y1="16" y2="86">
+            <stop offset="0" stopColor="#fff7b8" />
+            <stop offset="0.28" stopColor="#d2a73f" />
+            <stop offset="0.58" stopColor="#fff1a0" />
+            <stop offset="1" stopColor="#8c651d" />
+          </linearGradient>
+          <radialGradient id="idetech-shine" cx="30%" cy="28%" r="45%">
+            <stop offset="0" stopColor="#fff8c8" />
+            <stop offset="0.42" stopColor="#c7922e" />
+            <stop offset="1" stopColor="#6f4b13" />
+          </radialGradient>
+        </defs>
+        <rect x="5" y="5" width="90" height="90" rx="22" fill="#090d10" stroke="url(#idetech-gold)" strokeWidth="6" />
+        <circle cx="25" cy="29" r="8" fill="url(#idetech-shine)" />
+        <path
+          d="M18 58 C31 37 48 30 70 32 C57 38 51 45 48 55 C57 49 67 47 80 51 C68 64 55 72 41 72 C30 72 22 67 18 58 Z"
+          fill="url(#idetech-gold)"
+        />
+        <path d="M24 42 C42 54 59 57 78 47 C65 65 42 68 20 52" fill="none" stroke="#f7d979" strokeWidth="5" strokeLinecap="round" />
+        <path d="M36 72 C45 80 59 80 70 69" fill="none" stroke="url(#idetech-gold)" strokeWidth="3" strokeLinecap="round" />
+      </svg>
+    </span>
+  );
+}
+
+async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(path, {
+    credentials: "include",
+    headers: {
+      "content-type": "application/json",
+      ...(init?.headers ?? {})
+    },
+    ...init
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.message ?? "Request gagal.");
+  }
+
+  return payload as T;
+}
+
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
