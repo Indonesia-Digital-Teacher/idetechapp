@@ -108,6 +108,8 @@ export function initializeDatabase() {
       title TEXT NOT NULL,
       type TEXT NOT NULL DEFAULT 'lesson',
       description TEXT NOT NULL,
+      content TEXT,
+      options TEXT,
       status TEXT NOT NULL DEFAULT 'published',
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
@@ -168,6 +170,8 @@ export function initializeDatabase() {
   ensureColumn("users", "contact_value", "TEXT");
   ensureColumn("users", "profile_completed", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn("classes", "class_code", "TEXT");
+  ensureColumn("materials", "content", "TEXT");
+  ensureColumn("materials", "options", "TEXT");
   rawDb.exec("CREATE UNIQUE INDEX IF NOT EXISTS classes_class_code_idx ON classes(class_code);");
 }
 
