@@ -4,12 +4,16 @@ import { db } from "../db/client";
 import { users } from "../db/schema";
 import { nanoid } from "nanoid";
 import { setSessionCookie, sessionCookieName, createSession } from "../lib/auth";
+import { initializeDatabase } from "../db/init";
 
 describe("Backend API Endpoints", () => {
   let testUserToken: string;
   let testUserEmail: string;
 
   beforeAll(async () => {
+    // Inisialisasi database testing (membuat tabel jika belum ada, sangat penting untuk CI/CD)
+    initializeDatabase();
+
     // Buat user test di dalam database in-memory / testing
     const userId = `usr_${nanoid(12)}`;
     testUserEmail = `test-${nanoid(6)}@example.com`;

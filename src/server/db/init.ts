@@ -147,6 +147,19 @@ export function initializeDatabase() {
       updated_at INTEGER NOT NULL,
       UNIQUE(student_user_id, quest_id)
     );
+
+    CREATE TABLE IF NOT EXISTS teacher_journals (
+      id TEXT PRIMARY KEY,
+      teacher_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      mood TEXT,
+      success_reflection TEXT,
+      improvement_reflection TEXT,
+      anecdote TEXT,
+      todos TEXT,
+      photo_url TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `);
 
   ensureColumn("users", "full_name", "TEXT");
