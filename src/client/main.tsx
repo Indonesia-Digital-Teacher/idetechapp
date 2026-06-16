@@ -3990,6 +3990,9 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
   const [anecdote, setAnecdote] = React.useState("");
   const [todos, setTodos] = React.useState<{id: number, text: string, done: boolean}[]>([{id: 1, text: "Siapkan proyektor", done: false}]);
   const [newTodo, setNewTodo] = React.useState("");
+  const [photo, setPhoto] = React.useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = React.useState<string | null>(null);
+  const [isSaving, setIsSaving] = React.useState(false);
 
   const addTodo = () => {
     if (newTodo.trim()) {
@@ -4000,6 +4003,45 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
 
   const toggleTodo = (id: number) => {
     setTodos(todos.map(t => t.id === id ? { ...t, done: !t.done } : t));
+  };
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPhoto(file);
+      setPhotoPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const formData = new FormData();
+      if (mood) formData.append("mood", mood);
+      formData.append("success", reflection.success);
+      formData.append("improvement", reflection.improvement);
+      formData.append("anecdote", anecdote);
+      formData.append("todos", JSON.stringify(todos));
+      if (photo) formData.append("photo", photo);
+
+      const response = await fetch("/api/teacher/journals", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Gagal menyimpan jurnal");
+      }
+      
+      alert("Jurnal berhasil disimpan!");
+      onClose();
+    } catch (err) {
+      console.error(err);
+      alert("Terjadi kesalahan saat menyimpan jurnal.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -4101,18 +4143,26 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
 
         <section className="bg-white/10 backdrop-blur-xl rounded-2xl p-5 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
           <h3 className="text-[11px] font-bold text-blue-200 mb-4 uppercase tracking-wider">5. Momen Kelas (Foto)</h3>
-          <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-white/20 border-dashed rounded-2xl cursor-pointer bg-black/20 hover:bg-white/5 transition-colors">
-            <div className="flex flex-col items-center justify-center pt-5 pb-6">
-              <ImageIcon className="w-8 h-8 mb-2 text-white/40" />
-              <p className="text-sm text-white/70 font-medium"><span className="text-blue-300 font-bold">Klik untuk unggah</span> foto kelas</p>
-              <p className="text-[10px] uppercase tracking-widest font-bold text-white/30 mt-1">PNG, JPG, max 5MB</p>
-            </div>
-            <input type="file" className="hidden" accept="image/*" />
+          <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-white/20 border-dashed rounded-2xl cursor-pointer bg-black/20 hover:bg-white/5 transition-colors overflow-hidden relative">
+            {photoPreview ? (
+              <img src={photoPreview} alt="Preview Momen Kelas" className="absolute inset-0 w-full h-full object-cover opacity-80" />
+            ) : (
+              <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                <ImageIcon className="w-8 h-8 mb-2 text-white/40" />
+                <p className="text-sm text-white/70 font-medium"><span className="text-blue-300 font-bold">Klik untuk unggah</span> foto kelas</p>
+                <p className="text-[10px] uppercase tracking-widest font-bold text-white/30 mt-1">PNG, JPG, max 5MB</p>
+              </div>
+            )}
+            <input type="file" className="hidden" accept="image/*" onChange={handlePhotoChange} />
           </label>
         </section>
 
-        <button className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-bold text-sm py-4 rounded-xl shadow-[0_8px_16px_-4px_rgba(59,130,246,0.5)] hover:from-blue-400 hover:to-indigo-400 transition-all mt-2">
-          Simpan Jurnal Hari Ini
+        <button 
+          onClick={handleSave} 
+          disabled={isSaving}
+          className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 disabled:opacity-50 text-white font-bold text-sm py-4 rounded-xl shadow-[0_8px_16px_-4px_rgba(59,130,246,0.5)] hover:from-blue-400 hover:to-indigo-400 transition-all mt-2"
+        >
+          {isSaving ? "Menyimpan..." : "Simpan Jurnal Hari Ini"}
         </button>
       </div>
     </div>

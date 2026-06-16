@@ -1,3 +1,4 @@
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "../db/client";
@@ -520,6 +521,46 @@ app.post("/teacher/idequests", requireRole(["teacher", "admin"]), requirePermiss
     .returning();
 
   return c.json({ quest: created }, 201);
+});
+
+app.post("/teacher/journals", requireRole(["teacher", "admin"]), async (c) => {
+  const user = c.get("authUser");
+  const body = await c.req.parseBody();
+  const photo = body.photo as File | undefined;
+  let photoUrl = null;
+
+  if (photo) {
+    try {
+      const s3 = new S3Client({
+        endpoint: process.env.RUSTFS_ENDPOINT || process.env.S3_ENDPOINT || "http://global-storage:9000",
+        region: process.env.RUSTFS_REGION || process.env.S3_REGION || "us-east-1",
+        credentials: {
+          accessKeyId: process.env.RUSTFS_ACCESS_KEY || process.env.S3_ACCESS_KEY || "minioadmin",
+          secretAccessKey: process.env.RUSTFS_SECRET_KEY || process.env.S3_SECRET_KEY || "minioadmin"
+        },
+        forcePathStyle: true,
+      });
+      
+      const ext = photo.name.split('.').pop() || "png";
+      const key = `journals/${user.id}-${Date.now()}.${ext}`;
+      const buffer = await photo.arrayBuffer();
+
+      await s3.send(new PutObjectCommand({
+        Bucket: "idetech-assets",
+        Key: key,
+        Body: Buffer.from(buffer),
+        ContentType: photo.type,
+      }));
+      
+      const baseUrl = process.env.RUSTFS_PUBLIC_BASE_URL || process.env.S3_PUBLIC_BASE_URL || "http://localhost:9000/idetech-assets";
+      photoUrl = `${baseUrl}/${key}`;
+    } catch (err) {
+      console.error("Gagal upload foto ke RustFS:", err);
+      return c.json({ message: "Gagal mengunggah foto jurnal." }, 500);
+    }
+  }
+
+  return c.json({ ok: true, photoUrl });
 });
 
 async function getStudentClassIds(userId: string) {

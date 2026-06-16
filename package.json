@@ -11,6 +11,7 @@
     "db:seed": "bun src/server/seed.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1069.0",
     "@hono/node-server": "^1.13.8",
     "@vitejs/plugin-react": "^4.3.4",
     "clsx": "^2.1.1",
