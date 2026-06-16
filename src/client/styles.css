@@ -71,7 +71,7 @@ body {
   z-index: -3;
   background:
     linear-gradient(90deg, rgba(246, 249, 255, 0.78) 0%, rgba(246, 249, 255, 0.44) 34%, rgba(222, 232, 255, 0.08) 72%),
-    url("/landing-idetech-bg.png") center / cover no-repeat;
+    url("/landing-idetech-bg.webp") center / cover no-repeat;
 }
 
 .landing-shell__glow {
