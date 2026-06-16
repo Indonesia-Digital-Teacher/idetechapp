@@ -37,7 +37,7 @@ jobs:
           file: ./Dockerfile
           push: true
           platforms: linux/amd64
-          tags: ghcr.io/ferilee/idetechapp:latest
+          tags: ghcr.io/indonesia-digital-teacher/idetechapp:latest
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
