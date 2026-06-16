@@ -12,6 +12,7 @@ import {
   roles,
   studentMaterialProgress,
   studentQuestProgress,
+  teacherJournals,
   userRoles,
   users
 } from "../db/schema";
@@ -560,7 +561,32 @@ app.post("/teacher/journals", requireRole(["teacher", "admin"]), async (c) => {
     }
   }
 
+  const now = new Date();
+  await db.insert(teacherJournals).values({
+    id: `jrn_${nanoid(12)}`,
+    teacherUserId: user.id,
+    mood: typeof body.mood === "string" ? body.mood : null,
+    successReflection: typeof body.success === "string" ? body.success : null,
+    improvementReflection: typeof body.improvement === "string" ? body.improvement : null,
+    anecdote: typeof body.anecdote === "string" ? body.anecdote : null,
+    todos: typeof body.todos === "string" ? body.todos : null,
+    photoUrl,
+    createdAt: now,
+    updatedAt: now
+  });
+
   return c.json({ ok: true, photoUrl });
+});
+
+app.get("/teacher/journals", requireRole(["teacher", "admin"]), async (c) => {
+  const user = c.get("authUser");
+  const journals = await db
+    .select()
+    .from(teacherJournals)
+    .where(eq(teacherJournals.teacherUserId, user.id))
+    .orderBy(desc(teacherJournals.createdAt));
+
+  return c.json({ journals });
 });
 
 async function getStudentClassIds(userId: string) {

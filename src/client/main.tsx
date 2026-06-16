@@ -3993,6 +3993,19 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
   const [photo, setPhoto] = React.useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = React.useState<string | null>(null);
   const [isSaving, setIsSaving] = React.useState(false);
+  const [alertMsg, setAlertMsg] = React.useState<{type: "success" | "error", text: string} | null>(null);
+  const [view, setView] = React.useState<"form" | "history">("form");
+  const [history, setHistory] = React.useState<any[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = React.useState(false);
+
+  React.useEffect(() => {
+    if (view === "history") {
+      setIsLoadingHistory(true);
+      api<{ journals: any[] }>("/api/teacher/journals")
+        .then((res) => setHistory(res.journals))
+        .finally(() => setIsLoadingHistory(false));
+    }
+  }, [view]);
 
   const addTodo = () => {
     if (newTodo.trim()) {
@@ -4034,29 +4047,76 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
         throw new Error(errorData.message || "Gagal menyimpan jurnal");
       }
       
-      alert("Jurnal berhasil disimpan!");
-      onClose();
+      setAlertMsg({ type: "success", text: "Jurnal berhasil disimpan!" });
     } catch (err) {
       console.error(err);
-      alert("Terjadi kesalahan saat menyimpan jurnal.");
+      setAlertMsg({ type: "error", text: "Terjadi kesalahan saat menyimpan jurnal." });
     } finally {
       setIsSaving(false);
     }
   };
 
+  const closeAlert = () => {
+    if (alertMsg?.type === "success") {
+      onClose();
+    }
+    setAlertMsg(null);
+  };
+
   return (
     <div className="flex flex-col w-full animate-in fade-in slide-in-from-bottom-4 duration-300 mt-8">
-      <div className="flex items-center gap-3 mb-6">
-        <button onClick={onClose} className="p-2 -ml-2 rounded-full hover:bg-white/10 text-white transition-colors">
-          <ChevronLeft className="h-6 w-6" />
-        </button>
-        <div>
-          <h2 className="text-lg font-bold text-white">Jurnal Mengajar</h2>
-          <p className="text-[10px] font-bold tracking-widest uppercase text-blue-200">{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <button onClick={onClose} className="p-2 -ml-2 rounded-full hover:bg-white/10 text-white transition-colors">
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+          <div>
+            <h2 className="text-lg font-bold text-white">Jurnal Mengajar</h2>
+            <p className="text-[10px] font-bold tracking-widest uppercase text-blue-200">{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+          </div>
         </div>
+        <button 
+          onClick={() => setView(view === "form" ? "history" : "form")}
+          className="text-xs font-bold uppercase tracking-wider text-emerald-300 hover:text-emerald-200 bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-full transition-colors"
+        >
+          {view === "form" ? "Riwayat" : "Tulis Baru"}
+        </button>
       </div>
 
-      <div className="flex flex-col gap-6 w-full pb-8">
+      {view === "history" ? (
+        <div className="flex flex-col gap-4 pb-8">
+          {isLoadingHistory ? (
+            <div className="text-center py-10 text-white/50 animate-pulse">Memuat riwayat...</div>
+          ) : history.length === 0 ? (
+            <div className="text-center py-10 text-white/50">Belum ada jurnal yang disimpan.</div>
+          ) : (
+            history.map((journal) => (
+              <section key={journal.id} className="bg-white/10 backdrop-blur-xl rounded-2xl p-5 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+                <div className="flex justify-between items-start mb-3">
+                  <span className="text-[10px] uppercase tracking-widest font-bold text-emerald-300 bg-emerald-500/20 px-2 py-1 rounded-md">
+                    {new Date(journal.createdAt).toLocaleDateString('id-ID', { dateStyle: 'medium' })}
+                  </span>
+                  {journal.mood && (
+                    <span className="text-lg" title={`Mood: ${journal.mood}`}>
+                      {journal.mood === 'happy' ? '😁' : journal.mood === 'sad' ? '😞' : '😐'}
+                    </span>
+                  )}
+                </div>
+                {journal.successReflection && (
+                  <p className="text-sm text-white/90 mb-2"><strong>Berhasil:</strong> {journal.successReflection}</p>
+                )}
+                {journal.improvementReflection && (
+                  <p className="text-sm text-white/90 mb-2"><strong>Kendala:</strong> {journal.improvementReflection}</p>
+                )}
+                {journal.photoUrl && (
+                  <img src={journal.photoUrl} alt="Momen Kelas" className="w-full h-40 object-cover rounded-xl mt-3 opacity-90 hover:opacity-100 transition-opacity" />
+                )}
+              </section>
+            ))
+          )}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-6 w-full pb-8">
         <section className="bg-white/10 backdrop-blur-xl rounded-2xl p-5 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
           <h3 className="text-[11px] font-bold text-blue-200 mb-4 uppercase tracking-wider flex items-center gap-2">
             1. Mood Hari Ini
@@ -4165,6 +4225,28 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
           {isSaving ? "Menyimpan..." : "Simpan Jurnal Hari Ini"}
         </button>
       </div>
+
+      {alertMsg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#1c1c2e] border border-white/10 p-6 rounded-2xl shadow-2xl max-w-sm w-full animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center ${alertMsg.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                {alertMsg.type === 'success' ? <CheckCircle2 className="w-8 h-8" /> : <Frown className="w-8 h-8" />}
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">{alertMsg.type === 'success' ? 'Berhasil' : 'Gagal'}</h3>
+                <p className="text-sm text-slate-300 mt-1">{alertMsg.text}</p>
+              </div>
+              <button 
+                onClick={closeAlert}
+                className="w-full py-3 mt-2 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

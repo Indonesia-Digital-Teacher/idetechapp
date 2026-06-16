@@ -221,6 +221,19 @@ export const studentQuestProgress = sqliteTable(
   })
 );
 
+export const teacherJournals = sqliteTable("teacher_journals", {
+  id: text("id").primaryKey(),
+  teacherUserId: text("teacher_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  mood: text("mood"),
+  successReflection: text("success_reflection"),
+  improvementReflection: text("improvement_reflection"),
+  anecdote: text("anecdote"),
+  todos: text("todos"),
+  photoUrl: text("photo_url"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull()
+});
+
 export const userRelations = relations(users, ({ many }) => ({
   oauthAccounts: many(oauthAccounts),
   userRoles: many(userRoles),
