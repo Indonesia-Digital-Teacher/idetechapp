@@ -3344,7 +3344,7 @@ function AdminControlCenter({
           <span className="professional-card__pill">{users.length} user</span>
         </div>
 
-        <AdminUserVerificationTable users={users} roles={access?.roles ?? []} busy={busy} onUpdateUser={onUpdateUser} />
+        <AdminUserVerificationGrid users={users} roles={access?.roles ?? []} busy={busy} onUpdateUser={onUpdateUser} />
       </Card>
 
       <div className="grid gap-6">
