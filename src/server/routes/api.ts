@@ -432,6 +432,8 @@ app.post("/teacher/materials", requireRole(["teacher", "admin"]), requirePermiss
     title?: string;
     type?: "lesson" | "video" | "document" | "quiz";
     description?: string;
+    content?: string;
+    options?: unknown;
   };
 
   const title = body.title?.trim();
@@ -455,6 +457,8 @@ app.post("/teacher/materials", requireRole(["teacher", "admin"]), requirePermiss
       title,
       type: body.type ?? "lesson",
       description,
+      content: body.content ?? null,
+      options: body.options ?? null,
       status: "published",
       createdAt: now,
       updatedAt: now

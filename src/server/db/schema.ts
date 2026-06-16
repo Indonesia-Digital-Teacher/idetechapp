@@ -171,6 +171,8 @@ export const materials = sqliteTable("materials", {
   title: text("title").notNull(),
   type: text("type", { enum: ["lesson", "video", "document", "quiz"] }).notNull().default("lesson"),
   description: text("description").notNull(),
+  content: text("content"), // Menyimpan isi Markdown, URL Video, URL PDF, atau JSON Quiz
+  options: text("options", { mode: "json" }), // Menyimpan pengaturan tambahan (seperti allowDownload)
   status: text("status", { enum: ["draft", "published"] }).notNull().default("published"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull()

@@ -137,6 +137,8 @@ type TeacherMaterial = {
   title: string;
   type: "lesson" | "video" | "document" | "quiz";
   description: string;
+  content?: string;
+  options?: unknown;
   status: "draft" | "published";
 };
 
@@ -1582,6 +1584,43 @@ function StudentContentModal({
             <small>{selectedTask.type}</small>
             <h3>{selectedTask.title}</h3>
             <p>{selectedTask.description}</p>
+            
+            {selectedTask.content && (
+              <div className="mt-4 mb-6 bg-slate-50 border border-slate-200 rounded-xl p-4 overflow-hidden shadow-inner">
+                {selectedTask.type === 'lesson' && (
+                  <div className="prose prose-sm prose-blue max-w-none text-slate-700">
+                    {selectedTask.content.split('\n').map((line, i) => <p key={i} className="mb-2">{line}</p>)}
+                  </div>
+                )}
+                {selectedTask.type === 'video' && (
+                  <div className="aspect-video w-full bg-black rounded-lg overflow-hidden relative shadow-md">
+                    <iframe 
+                      src={selectedTask.content.includes("watch?v=") ? selectedTask.content.replace("watch?v=", "embed/") : selectedTask.content}
+                      title="Video Viewer"
+                      className="absolute inset-0 w-full h-full border-0"
+                      allowFullScreen
+                    />
+                  </div>
+                )}
+                {selectedTask.type === 'document' && (
+                  <div className="flex flex-col items-center justify-center p-6 bg-white border border-slate-200 rounded-lg">
+                    <ScrollText className="h-10 w-10 text-slate-400 mb-2" />
+                    <p className="text-slate-600 text-sm mb-4 font-medium text-center">Dokumen PDF siap dibaca oleh siswa.</p>
+                    <a href={selectedTask.content} target="_blank" rel="noreferrer" className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-sm transition-colors shadow-sm shadow-blue-500/20">
+                      Buka Dokumen
+                    </a>
+                  </div>
+                )}
+                {selectedTask.type === 'quiz' && (
+                  <div className="flex flex-col items-center justify-center py-8">
+                    <Puzzle className="h-12 w-12 text-yellow-500 mb-4 drop-shadow-sm" />
+                    <p className="text-slate-800 font-bold text-lg mb-2">Kuis Interaktif</p>
+                    <button className="px-6 py-3 bg-yellow-400 hover:bg-yellow-500 text-yellow-950 font-black tracking-wide rounded-xl transition-colors shadow-md shadow-yellow-500/20">Mulai Kerjakan Kuis</button>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="student-content-progress">
               <span>{selectedTask.progress}%</span>
               <i style={{ width: `${selectedTask.progress}%` }} />
@@ -1902,7 +1941,8 @@ function TeacherSpaceDashboard({
     classId: "",
     title: "",
     type: "lesson" as TeacherMaterial["type"],
-    description: ""
+    description: "",
+    content: ""
   });
   const [questForm, setQuestForm] = useState({
     classId: "",
@@ -2300,11 +2340,11 @@ function TeacherStudioManager({
   classes: TeacherClass[];
   materials: TeacherMaterial[];
   quests: TeacherIdeQuest[];
-  materialForm: { classId: string; title: string; type: TeacherMaterial["type"]; description: string };
+  materialForm: { classId: string; title: string; type: TeacherMaterial["type"]; description: string; content: string };
   questForm: { classId: string; materialId: string; title: string; mission: string; points: string; dueDate: string };
   busy: boolean;
   error: string | null;
-  onMaterialFormChange: React.Dispatch<React.SetStateAction<{ classId: string; title: string; type: TeacherMaterial["type"]; description: string }>>;
+  onMaterialFormChange: React.Dispatch<React.SetStateAction<{ classId: string; title: string; type: TeacherMaterial["type"]; description: string; content: string }>>;
   onQuestFormChange: React.Dispatch<React.SetStateAction<{ classId: string; materialId: string; title: string; mission: string; points: string; dueDate: string }>>;
   onCreateMaterial: (event: React.FormEvent<HTMLFormElement>) => void;
   onCreateQuest: (event: React.FormEvent<HTMLFormElement>) => void;
@@ -2374,13 +2414,62 @@ function TeacherStudioManager({
           </label>
         </div>
         <label>
-          <span>Deskripsi</span>
+          <span>Deskripsi Singkat</span>
           <textarea
             value={materialForm.description}
             placeholder="Ringkasan materi untuk siswa..."
             onChange={(event) => onMaterialFormChange((current) => ({ ...current, description: event.target.value }))}
           />
         </label>
+        
+        {materialForm.type === 'lesson' && (
+          <label>
+            <span>Isi Lesson (Teks/Markdown)</span>
+            <textarea
+              rows={6}
+              value={materialForm.content}
+              placeholder="Ketik materi lesson Anda secara mendetail di sini..."
+              onChange={(event) => onMaterialFormChange((current) => ({ ...current, content: event.target.value }))}
+            />
+          </label>
+        )}
+        
+        {materialForm.type === 'video' && (
+          <label>
+            <span>URL Video (YouTube / Embed)</span>
+            <input
+              type="text"
+              value={materialForm.content}
+              placeholder="Contoh: https://youtube.com/watch?v=..."
+              onChange={(event) => onMaterialFormChange((current) => ({ ...current, content: event.target.value }))}
+            />
+          </label>
+        )}
+        
+        {materialForm.type === 'document' && (
+          <label>
+            <span>URL Dokumen (PDF)</span>
+            <input
+              type="text"
+              value={materialForm.content}
+              placeholder="Contoh: https://idetech.app/assets/materi.pdf"
+              onChange={(event) => onMaterialFormChange((current) => ({ ...current, content: event.target.value }))}
+            />
+          </label>
+        )}
+        
+        {materialForm.type === 'quiz' && (
+          <label>
+            <span>Data Kuis (JSON - Lanjutan)</span>
+            <textarea
+              rows={4}
+              value={materialForm.content}
+              placeholder='[{"soal":"...","jawaban":["..."]}]'
+              onChange={(event) => onMaterialFormChange((current) => ({ ...current, content: event.target.value }))}
+            />
+          </label>
+        )}
+
         {error && activeTab === "material" ? <p className="teacher-class-error mb-4">{error}</p> : null}
         <button type="submit" disabled={busy || classes.length === 0}>{busy ? "Menyimpan..." : "Publikasikan Materi"}</button>
       </form>
