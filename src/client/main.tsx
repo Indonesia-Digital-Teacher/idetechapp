@@ -28,7 +28,14 @@ import {
   UserCog,
   UserRound,
   Users,
-  X
+  X,
+  Smile,
+  Frown,
+  Meh,
+  Plus,
+  Image as ImageIcon,
+  CheckCircle2,
+  ChevronLeft
 } from "lucide-react";
 import { Button, Card, SecondaryButton, Select, StatusPill } from "./components/ui";
 import "./styles.css";
@@ -301,6 +308,9 @@ const roleFeatures: Record<RoleName, RoleFeature[]> = {
     { name: "Kelola Bank Ide", permission: "bank.manage", access: "full", description: "Kurasi dan bagikan materi di Bank Ide.", cta: "Kelola Bank" }
   ],
   teacher: [
+    { name: "Peringatan Dini", permission: "radar.view", access: "full", description: "Pantau siswa yang butuh intervensi segera hari ini.", cta: "Lihat peringatan" },
+    { name: "Grading Queue", permission: "quest.manage", access: "full", description: "Periksa dan nilai tugas siswa yang menunggu antrean.", cta: "Mulai koreksi" },
+    { name: "Jurnal Mengajar", permission: "class.manage", access: "full", description: "Tulis catatan personal atau kejadian penting di kelas hari ini.", cta: "Tulis jurnal" },
     { name: "Kelola kelas", permission: "class.manage", access: "full", description: "Membuat kelas dan mengatur daftar siswa.", cta: "Kelola kelas" },
     { name: "Buat materi", permission: "material.create", access: "full", description: "Membuat materi interaktif di IdeStudio.", cta: "Buat materi" },
     { name: "Buat IdeQuest", permission: "quest.manage", access: "full", description: "Membuat misi, kuis, dan tugas belajar.", cta: "Buat IdeQuest" },
@@ -1689,7 +1699,7 @@ function ProfessionalDashboard({
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 pb-24 md:pb-6 sm:px-6 lg:px-8">
         {error ? <ErrorBanner message={error} /> : null}
         <section className={heroClass}>
           <div>
@@ -1703,14 +1713,27 @@ function ProfessionalDashboard({
           </div>
         </section>
 
-        <section className={metricsClass}>
-          {dashboard.metrics.map((metric) => (
-            <Card key={metric.label} className={`${cardClass} p-5`}>
-              <p className="professional-card__label">{metric.label}</p>
-              <p className="professional-card__value">{metric.value}</p>
-              <p className="professional-card__hint">{metric.hint}</p>
-            </Card>
-          ))}
+        <section
+          className={metricsClass}
+          style={user.activeRole === "admin" ? { gridTemplateColumns: "repeat(3, minmax(0, 1fr))" } : undefined}
+        >
+          {dashboard.metrics.map((metric, index) => {
+            const isAdmin = user.activeRole === "admin";
+            const adminColors = [
+              "bg-rose-50 border-rose-200",
+              "bg-emerald-50 border-emerald-200",
+              "bg-violet-50 border-violet-200"
+            ];
+            const colorClass = isAdmin ? adminColors[index % adminColors.length] : "";
+            
+            return (
+              <Card key={metric.label} className={`${cardClass} ${isAdmin ? "p-3 md:p-5" : "p-5"} ${colorClass}`}>
+                <p className={`professional-card__label ${isAdmin ? "text-[11px] leading-tight md:text-xs" : ""}`}>{metric.label}</p>
+                <p className={`professional-card__value ${isAdmin ? "text-lg md:text-2xl" : ""}`}>{metric.value}</p>
+                <p className={`professional-card__hint ${isAdmin ? "text-[10px] leading-tight md:text-xs" : ""}`}>{metric.hint}</p>
+              </Card>
+            );
+          })}
         </section>
 
         {user.activeRole === "admin" && adminView !== "home" ? (
@@ -1748,7 +1771,7 @@ function ProfessionalDashboard({
                 </div>
               </Card>
 
-              <Card className={`${cardClass} p-5`}>
+              <Card className={`${cardClass} p-5 ${user.activeRole === "admin" ? "hidden md:block" : ""}`}>
                 <div className="professional-card__header">
                   <h2 className="professional-card__title">Aksi cepat</h2>
                 </div>
@@ -1791,7 +1814,51 @@ function ProfessionalDashboard({
       </div>
 
       {isTeacher ? <TeacherBottomNav active={activeMenu} onChange={onChangeMenu} /> : null}
+      {user.activeRole === "admin" ? <AdminBottomNav activeView={adminView} onViewChange={setAdminView} actions={adminActions} /> : null}
     </main>
+  );
+}
+
+function AdminBottomNav({
+  activeView,
+  onViewChange,
+  actions
+}: {
+  activeView: AdminView;
+  onViewChange: (view: AdminView) => void;
+  actions: { label: string; view: AdminView; description: string; icon: any }[];
+}) {
+  const shortNames: Record<string, string> = {
+    users: "User",
+    classes: "Kelas",
+    access: "Akses",
+    system: "Sistem"
+  };
+
+  return (
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-slate-200 bg-white/95 backdrop-blur-md pb-2 pt-2 shadow-[0_-4px_24px_rgba(15,23,42,0.04)]">
+      <button 
+        className={`flex flex-col items-center gap-1 p-2 flex-1 ${activeView === "home" ? "text-blue-600" : "text-slate-500"}`}
+        onClick={() => onViewChange("home")}
+      >
+        <House className="h-5 w-5" />
+        <span className="text-[10px] font-bold">Beranda</span>
+      </button>
+      {actions.map((action) => {
+        const Icon = action.icon;
+        const isActive = activeView === action.view;
+        return (
+          <button
+            key={action.view}
+            className={`flex flex-col items-center gap-1 p-2 flex-1 ${isActive ? "text-blue-600" : "text-slate-500"}`}
+            onClick={() => onViewChange(action.view)}
+          >
+            <Icon className="h-5 w-5" />
+            <span className="text-[10px] font-bold">{shortNames[action.view] || action.label.split(" ")[0]}</span>
+          </button>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -1817,6 +1884,8 @@ function TeacherSpaceDashboard({
   const content = roleMenuContent.teacher[activeMenu];
   const [teacherClasses, setTeacherClasses] = useState<TeacherClass[]>([]);
   const [classSummary, setClassSummary] = useState<TeacherClassSummary | null>(null);
+  const [activeClassFilter, setActiveClassFilter] = useState<string>("all");
+  const [activeFeature, setActiveFeature] = useState<string | null>(null);
   const [classForm, setClassForm] = useState({
     name: "",
     subject: "",
@@ -1841,7 +1910,7 @@ function TeacherSpaceDashboard({
     title: "",
     mission: "",
     points: "100",
-    dueDate: "7d"
+    dueDate: ""
   });
   const featureGroups: Record<MobileNavId, RoleFeature[]> = {
     map: roleFeatures.teacher,
@@ -1948,7 +2017,7 @@ function TeacherSpaceDashboard({
           points: Number(questForm.points)
         })
       });
-      setQuestForm((current) => ({ ...current, materialId: "", title: "", mission: "", points: "100", dueDate: "7d" }));
+      setQuestForm((current) => ({ ...current, materialId: "", title: "", mission: "", points: "100", dueDate: "" }));
       await loadTeacherStudio();
     } catch (err) {
       setStudioError(err instanceof Error ? err.message : "Gagal membuat IdeQuest.");
@@ -1958,6 +2027,11 @@ function TeacherSpaceDashboard({
   }
 
   function openTeacherFeature(featureName: string) {
+    if (featureName.includes("Jurnal") || featureName.includes("jurnal")) {
+      setActiveFeature("jurnal");
+      return;
+    }
+
     if (featureName.includes("kelas")) {
       onChangeMenu("quest");
       return;
@@ -1977,7 +2051,7 @@ function TeacherSpaceDashboard({
   }
 
   return (
-    <main className="teacher-space-shell min-h-screen">
+    <main className="teacher-space-shell min-h-screen relative">
       <div className="teacher-space-backdrop" />
       <section className="teacher-space-board">
         {error ? <ErrorBanner message={error} /> : null}
@@ -2012,22 +2086,48 @@ function TeacherSpaceDashboard({
           <section className="teacher-space-info">
             <div className="teacher-space-info__heading">
               <div>
-                <h2>{content.title}</h2>
+                <h2>{activeMenu === "map" ? `Selamat datang, ${user.name}` : content.title}</h2>
                 <p>{content.subtitle}</p>
               </div>
-              <button type="button" onClick={() => onChangeMenu(activeMenu === "map" ? "quest" : activeMenu)}>
-                More
-              </button>
+              {activeMenu === "profile" ? (
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-transparent">
+                  <BadgeCheck className="h-8 w-8 text-blue-500" />
+                </div>
+              ) : (
+                <button type="button" onClick={() => onChangeMenu(activeMenu === "map" ? "profile" : activeMenu)}>
+                  {activeMenu === "map" ? "Profil" : "More"}
+                </button>
+              )}
             </div>
             <div className="teacher-distance-pill">
               <span>
-                <Rocket className="h-5 w-5" />
+                {activeMenu === "map" ? <House className="h-5 w-5" /> :
+                 activeMenu === "quest" ? <Users className="h-5 w-5" /> :
+                 activeMenu === "studio" ? <BookOpen className="h-5 w-5" /> :
+                 activeMenu === "rank" ? <Target className="h-5 w-5" /> :
+                 <UserRound className="h-5 w-5" />}
               </span>
-              <div>
-                <small>{content.badge}</small>
-                <strong>{content.progress}</strong>
+              {activeMenu === "studio" ? (
+                <div className="flex items-center gap-6">
+                  <div>
+                    <small>Materi</small>
+                    <strong>{materials.length}</strong>
+                  </div>
+                  <div className="h-8 w-px bg-blue-900/10"></div>
+                  <div>
+                    <small>IdeQuest</small>
+                    <strong>{ideQuestRows.length}</strong>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <small>{activeMenu === "map" ? "Kelas Dibuat" : activeMenu === "quest" ? `${teacherClasses.length} Kelas` : content.badge}</small>
+                  <strong>{activeMenu === "map" ? teacherClasses.length : activeMenu === "quest" ? `${classSummary?.totalStudents ?? 0} Siswa` : activeMenu === "profile" ? (user.fullName || user.name) : content.progress}</strong>
+                </div>
+              )}
+              <div className="flex items-center justify-center">
+                <Sparkles className="h-5 w-5 text-blue-900/20" />
               </div>
-              <MoreHorizontal className="h-5 w-5 text-slate-500" />
             </div>
           </section>
         </article>
@@ -2043,37 +2143,56 @@ function TeacherSpaceDashboard({
             </div>
           </header>
 
-          <div className="teacher-space-search">
-            <Search className="h-5 w-5" />
-            <span>Search</span>
-            <MoreHorizontal className="ml-auto h-5 w-5" />
-          </div>
+          {activeMenu !== "profile" && activeFeature !== "jurnal" ? (
+            <div className="flex items-center mt-6 bg-white/50 backdrop-blur-sm border border-slate-200/60 rounded-xl mb-6 shadow-sm overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/20">
+              <div className="pl-4 pr-2 text-slate-400">
+                <LayoutDashboard className="h-5 w-5" />
+              </div>
+              <select
+                value={activeClassFilter}
+                onChange={(e) => setActiveClassFilter(e.target.value)}
+                className="w-full bg-transparent border-none focus:ring-0 py-3 pr-4 text-sm font-bold text-slate-700 outline-none appearance-none"
+              >
+                <option value="all">Semua Kelas Aktif</option>
+                {teacherClasses.map((cls) => (
+                  <option key={cls.id} value={cls.id}>{cls.name} ({cls.subject})</option>
+                ))}
+              </select>
+              <div className="pr-4 pointer-events-none text-slate-400">
+                <ChevronRight className="h-4 w-4 rotate-90" />
+              </div>
+            </div>
+          ) : null}
 
-          <nav className="teacher-space-tabs" aria-label="Navigasi guru">
-            {teacherMobileNavItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeMenu === item.id;
+          {activeFeature !== "jurnal" && (
+            <nav className="teacher-space-tabs" aria-label="Navigasi guru">
+              {teacherMobileNavItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeMenu === item.id;
 
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  aria-current={isActive ? "page" : undefined}
-                  className={isActive ? "teacher-space-tab is-active" : "teacher-space-tab"}
-                  onClick={() => onChangeMenu(item.id)}
-                >
-                  <Icon className="h-5 w-5" />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    aria-current={isActive ? "page" : undefined}
+                    className={isActive ? "teacher-space-tab is-active" : "teacher-space-tab"}
+                    onClick={() => onChangeMenu(item.id)}
+                  >
+                    <Icon className="h-5 w-5" />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          )}
 
-          {activeMenu === "studio" ? (
+          {activeFeature === "jurnal" ? (
+            <TeacherJournalView onClose={() => { setActiveFeature(null); onChangeMenu("map"); }} />
+          ) : activeMenu === "studio" ? (
             <TeacherStudioManager
               classes={teacherClasses}
-              materials={materials}
-              quests={ideQuestRows}
+              materials={activeClassFilter === "all" ? materials : materials.filter(m => m.classId === activeClassFilter)}
+              quests={activeClassFilter === "all" ? ideQuestRows : ideQuestRows.filter(q => q.classId === activeClassFilter)}
               materialForm={materialForm}
               questForm={questForm}
               busy={studioBusy}
@@ -2085,7 +2204,7 @@ function TeacherSpaceDashboard({
             />
           ) : activeMenu === "quest" ? (
             <TeacherClassManager
-              classes={teacherClasses}
+              classes={activeClassFilter === "all" ? teacherClasses : teacherClasses.filter(c => c.id === activeClassFilter)}
               summary={classSummary}
               form={classForm}
               busy={classBusy}
@@ -2093,6 +2212,8 @@ function TeacherSpaceDashboard({
               onFormChange={setClassForm}
               onCreate={createTeacherClass}
             />
+          ) : activeMenu === "profile" ? (
+            <TeacherProfileView user={user} />
           ) : (
             <>
               <section className="teacher-space-card-grid">
@@ -2188,11 +2309,30 @@ function TeacherStudioManager({
   onCreateMaterial: (event: React.FormEvent<HTMLFormElement>) => void;
   onCreateQuest: (event: React.FormEvent<HTMLFormElement>) => void;
 }) {
+  const [activeTab, setActiveTab] = React.useState<"material" | "quest">("material");
   const selectedClassMaterials = materials.filter((material) => material.classId === questForm.classId);
 
   return (
     <section className="teacher-studio-manager">
-      <form className="teacher-studio-form" onSubmit={onCreateMaterial}>
+      <div className="flex bg-slate-100 rounded-lg p-1 mb-4 gap-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab("material")}
+          className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all ${activeTab === "material" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+        >
+          Buat Materi
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("quest")}
+          className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all ${activeTab === "quest" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+        >
+          Buat IdeQuest
+        </button>
+      </div>
+
+      {activeTab === "material" && (
+        <form className="teacher-studio-form" onSubmit={onCreateMaterial}>
         <div className="teacher-studio-form__header">
           <BookOpen className="h-6 w-6" />
           <div>
@@ -2241,9 +2381,12 @@ function TeacherStudioManager({
             onChange={(event) => onMaterialFormChange((current) => ({ ...current, description: event.target.value }))}
           />
         </label>
+        {error && activeTab === "material" ? <p className="teacher-class-error mb-4">{error}</p> : null}
         <button type="submit" disabled={busy || classes.length === 0}>{busy ? "Menyimpan..." : "Publikasikan Materi"}</button>
       </form>
+      )}
 
+      {activeTab === "quest" && (
       <form className="teacher-studio-form" onSubmit={onCreateQuest}>
         <div className="teacher-studio-form__header">
           <Puzzle className="h-6 w-6" />
@@ -2306,15 +2449,16 @@ function TeacherStudioManager({
           <label>
             <span>Deadline</span>
             <input
+              type="datetime-local"
               value={questForm.dueDate}
-              placeholder="7d"
               onChange={(event) => onQuestFormChange((current) => ({ ...current, dueDate: event.target.value }))}
             />
           </label>
         </div>
-        {error ? <p className="teacher-class-error">{error}</p> : null}
+        {error && activeTab === "quest" ? <p className="teacher-class-error">{error}</p> : null}
         <button type="submit" disabled={busy || classes.length === 0}>{busy ? "Menyimpan..." : "Publikasikan IdeQuest"}</button>
       </form>
+      )}
 
       <div className="teacher-studio-board">
         <div>
@@ -3258,9 +3402,9 @@ function AdminSubPage({
       </div>
 
       {view === "users" ? (
-        <Card className="professional-card p-5">
-          <AdminUserVerificationTable users={users} roles={access?.roles ?? []} busy={busy} onUpdateUser={onUpdateUser} />
-        </Card>
+        <div className="mt-6">
+          <AdminUserVerificationGrid users={users} roles={access?.roles ?? []} busy={busy} onUpdateUser={onUpdateUser} />
+        </div>
       ) : null}
 
       {view === "classes" ? (
@@ -3274,7 +3418,7 @@ function AdminSubPage({
   );
 }
 
-function AdminUserVerificationTable({
+function AdminUserVerificationGrid({
   users,
   roles,
   busy,
@@ -3286,60 +3430,50 @@ function AdminUserVerificationTable({
   onUpdateUser: (id: string, payload: { status?: string; roles?: RoleName[] }) => void;
 }) {
   return (
-    <div className="admin-verification-table-wrap">
-      <table className="admin-verification-table">
-        <thead>
-          <tr>
-            <th>Nama</th>
-            <th>Email</th>
-            <th>Status</th>
-            <th>Role</th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.map((item) => {
-            const selectedRoles = item.roles.map((role) => role.name as RoleName);
-            return (
-              <tr key={item.id}>
-                <td>
-                  <span className="admin-table-name">{item.name}</span>
-                </td>
-                <td>
-                  <span className="admin-table-email">{item.email}</span>
-                </td>
-                <td>
-                  <Select
-                    className="admin-status-select"
-                    value={item.status}
-                    disabled={busy}
-                    aria-label={`Status ${item.name}`}
-                    onChange={(event) => onUpdateUser(item.id, { status: event.target.value, roles: selectedRoles })}
-                  >
-                    <option value="active">Aktifkan</option>
-                    <option value="pending">Pending</option>
-                    <option value="suspended">Suspend</option>
-                  </Select>
-                </td>
-                <td>
-                  <div className="admin-role-icon-checks">
-                    {roles.map((role) => {
-                      const checked = selectedRoles.includes(role.name);
-                      const nextRoles = checked ? selectedRoles.filter((name) => name !== role.name) : [...selectedRoles, role.name];
-                      const RoleIcon = roleIcons[role.name];
-                      return (
-                        <label key={role.name} className={`admin-role-icon-check ${checked ? "is-checked" : ""}`} title={role.label} aria-label={role.label}>
-                          <input type="checkbox" checked={checked} disabled={busy} onChange={() => onUpdateUser(item.id, { status: item.status, roles: nextRoles })} />
-                          <RoleIcon className="h-4 w-4" />
-                        </label>
-                      );
-                    })}
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      {users.map((item) => {
+        const selectedRoles = item.roles.map((role) => role.name as RoleName);
+        return (
+          <Card key={item.id} className="professional-card p-4 flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <span className="font-semibold text-lg">{item.name}</span>
+              <span className="text-sm opacity-70 font-mono">{item.email}</span>
+            </div>
+            
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium opacity-70">Status</label>
+              <Select
+                className="w-full"
+                value={item.status}
+                disabled={busy}
+                aria-label={`Status ${item.name}`}
+                onChange={(event) => onUpdateUser(item.id, { status: event.target.value, roles: selectedRoles })}
+              >
+                <option value="active">Aktifkan</option>
+                <option value="pending">Pending</option>
+                <option value="suspended">Suspend</option>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium opacity-70">Role</label>
+              <div className="admin-role-icon-checks">
+                {roles.map((role) => {
+                  const checked = selectedRoles.includes(role.name);
+                  const nextRoles = checked ? selectedRoles.filter((name) => name !== role.name) : [...selectedRoles, role.name];
+                  const RoleIcon = roleIcons[role.name];
+                  return (
+                    <label key={role.name} className={`admin-role-icon-check ${checked ? "is-checked" : ""}`} title={role.label} aria-label={role.label}>
+                      <input type="checkbox" checked={checked} disabled={busy} onChange={() => onUpdateUser(item.id, { status: item.status, roles: nextRoles })} />
+                      <RoleIcon className="h-4 w-4" />
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          </Card>
+        );
+      })}
     </div>
   );
 }
@@ -3444,39 +3578,24 @@ function AdminClassManager({
         </form>
       </Card>
 
-      <Card className="professional-card p-5">
-        <div className="professional-card__header">
+      <div className="mt-8">
+        <div className="professional-card__header mb-4">
           <div>
             <h3 className="professional-card__title">Semua kelas guru</h3>
             <p className="professional-card__hint">{classes.length} kelas terdaftar.</p>
           </div>
         </div>
-        <div className="admin-class-table-wrap">
-          <table className="admin-class-table">
-            <thead>
-              <tr>
-                <th>Kelas</th>
-                <th>Guru</th>
-                <th>ClassID</th>
-                <th>Jenjang</th>
-                <th>Siswa</th>
-                <th>Status</th>
-                <th>Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {classes.map((kelas) => (
-                <AdminClassRow key={kelas.id} kelas={kelas} teachers={teacherUsers} busy={busy} onUpdate={onUpdate} onDelete={onDelete} />
-              ))}
-            </tbody>
-          </table>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {classes.map((kelas) => (
+            <AdminClassCard key={kelas.id} kelas={kelas} teachers={teacherUsers} busy={busy} onUpdate={onUpdate} onDelete={onDelete} />
+          ))}
         </div>
-      </Card>
+      </div>
     </section>
   );
 }
 
-function AdminClassRow({
+function AdminClassCard({
   kelas,
   teachers,
   busy,
@@ -3512,12 +3631,17 @@ function AdminClassRow({
   }, [kelas.id, kelas.updatedAt]);
 
   return (
-    <tr>
-      <td>
-        <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} />
-        <input value={draft.subject} aria-label={`Mapel ${kelas.name}`} onChange={(event) => setDraft((current) => ({ ...current, subject: event.target.value }))} />
-      </td>
-      <td>
+    <Card className="professional-card p-4 flex flex-col gap-4">
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium opacity-70">Nama & Mapel</label>
+        <div className="flex gap-2">
+          <input className="w-full" value={draft.name} placeholder="Nama Kelas" onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} />
+          <input className="w-full" value={draft.subject} placeholder="Mapel" aria-label={`Mapel ${kelas.name}`} onChange={(event) => setDraft((current) => ({ ...current, subject: event.target.value }))} />
+        </div>
+      </div>
+      
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium opacity-70">Guru</label>
         <Select value={draft.teacherUserId} onChange={(event) => setDraft((current) => ({ ...current, teacherUserId: event.target.value }))}>
           {teachers.map((teacher) => (
             <option key={teacher.id} value={teacher.id}>
@@ -3525,61 +3649,71 @@ function AdminClassRow({
             </option>
           ))}
         </Select>
-      </td>
-      <td>
-        <code>{kelas.classCode ?? kelas.nextSession}</code>
-      </td>
-      <td>
-        <Select value={draft.grade} onChange={(event) => setDraft((current) => ({ ...current, grade: event.target.value }))}>
-          {Array.from({ length: 12 }, (_, index) => String(index + 1)).map((grade) => (
-            <option key={grade} value={grade}>
-              {grade}
-            </option>
-          ))}
-        </Select>
-      </td>
-      <td>
-        <input min="0" type="number" value={draft.students} onChange={(event) => setDraft((current) => ({ ...current, students: event.target.value }))} />
-      </td>
-      <td>
-        <Select value={draft.status} onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value as TeacherClass["status"] }))}>
-          <option value="active">Aktif</option>
-          <option value="draft">Draft</option>
-          <option value="archived">Arsip</option>
-        </Select>
-      </td>
-      <td>
-        <div className="admin-class-actions">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() =>
-              onUpdate(kelas.id, {
-                teacherUserId: draft.teacherUserId,
-                name: draft.name,
-                subject: draft.subject,
-                grade: draft.grade,
-                students: Number(draft.students),
-                progress: Number(draft.progress),
-                status: draft.status
-              })
-            }
-          >
-            Simpan
-          </button>
-          <button
-            type="button"
-            className="is-danger"
-            disabled={busy}
-            onClick={() => {
-              if (window.confirm(`Hapus kelas ${kelas.name}? Materi dan IdeQuest terkait dapat ikut terhapus.`)) onDelete(kelas.id);
-            }}
-          >
-            Hapus
-          </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium opacity-70">Jenjang</label>
+          <Select value={draft.grade} onChange={(event) => setDraft((current) => ({ ...current, grade: event.target.value }))}>
+            {Array.from({ length: 12 }, (_, index) => String(index + 1)).map((grade) => (
+              <option key={grade} value={grade}>
+                Kelas {grade}
+              </option>
+            ))}
+          </Select>
         </div>
-      </td>
-    </tr>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium opacity-70">Siswa</label>
+          <input className="w-full" min="0" type="number" value={draft.students} onChange={(event) => setDraft((current) => ({ ...current, students: event.target.value }))} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium opacity-70">Status</label>
+          <Select value={draft.status} onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value as TeacherClass["status"] }))}>
+            <option value="active">Aktif</option>
+            <option value="draft">Draft</option>
+            <option value="archived">Arsip</option>
+          </Select>
+        </div>
+        <div className="flex flex-col gap-1.5">
+           <label className="text-sm font-medium opacity-70">ClassID</label>
+           <code className="p-2 bg-black/5 dark:bg-white/10 rounded-md text-center text-sm font-mono mt-0.5">{kelas.classCode ?? kelas.nextSession}</code>
+        </div>
+      </div>
+
+      <div className="flex gap-2 mt-2">
+        <button
+          className="flex-1"
+          type="button"
+          disabled={busy}
+          onClick={() =>
+            onUpdate(kelas.id, {
+              teacherUserId: draft.teacherUserId,
+              name: draft.name,
+              subject: draft.subject,
+              grade: draft.grade,
+              students: Number(draft.students),
+              progress: Number(draft.progress),
+              status: draft.status
+            })
+          }
+        >
+          Simpan
+        </button>
+        <button
+          className="flex-1 is-danger"
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            if (window.confirm(`Hapus kelas ${kelas.name}? Materi dan IdeQuest terkait dapat ikut terhapus.`)) onDelete(kelas.id);
+          }}
+        >
+          Hapus
+        </button>
+      </div>
+    </Card>
   );
 }
 
@@ -3800,6 +3934,189 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   return payload as T;
+}
+
+function TeacherProfileView({ user }: { user: AuthUser }) {
+  return (
+    <div className="flex flex-col gap-4 mt-4 md:mt-6">
+      <Card className="professional-card p-5 shadow-sm">
+        <div className="flex items-center gap-4 border-b border-slate-100 pb-4 mb-4">
+          <div className="h-16 w-16 overflow-hidden rounded-full bg-slate-100 shadow-inner">
+            {user.avatarUrl ? (
+              <img src={user.avatarUrl} alt={user.name} className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-600 text-xl font-bold text-white">
+                {user.name.slice(0, 2).toUpperCase()}
+              </div>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="truncate text-xl font-bold text-slate-800">{user.fullName || user.name}</h3>
+            <p className="truncate text-sm font-medium text-slate-500">{user.email}</p>
+            <div className="mt-1.5 inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-700 ring-1 ring-inset ring-blue-700/10">
+              {roleLabels[user.activeRole]}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Instansi Sekolah</p>
+            <p className="font-semibold text-slate-800">{user.schoolName || "-"}</p>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Kontak ({user.contactChannel || "-"})</p>
+              <p className="font-semibold text-slate-800">{user.contactValue || "-"}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Status Akun</p>
+              <div className="inline-flex items-center gap-1.5">
+                <span className={`h-2 w-2 rounded-full ${user.status === "active" ? "bg-emerald-500" : "bg-amber-500"}`} />
+                <p className="font-semibold capitalize text-slate-800">{user.status}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function TeacherJournalView({ onClose }: { onClose: () => void }) {
+  const [mood, setMood] = React.useState<string | null>(null);
+  const [reflection, setReflection] = React.useState({ success: "", improvement: "" });
+  const [anecdote, setAnecdote] = React.useState("");
+  const [todos, setTodos] = React.useState<{id: number, text: string, done: boolean}[]>([{id: 1, text: "Siapkan proyektor", done: false}]);
+  const [newTodo, setNewTodo] = React.useState("");
+
+  const addTodo = () => {
+    if (newTodo.trim()) {
+      setTodos([...todos, { id: Date.now(), text: newTodo.trim(), done: false }]);
+      setNewTodo("");
+    }
+  };
+
+  const toggleTodo = (id: number) => {
+    setTodos(todos.map(t => t.id === id ? { ...t, done: !t.done } : t));
+  };
+
+  return (
+    <div className="flex flex-col w-full animate-in fade-in slide-in-from-bottom-4 duration-300 mt-8">
+      <div className="flex items-center gap-3 mb-6">
+        <button onClick={onClose} className="p-2 -ml-2 rounded-full hover:bg-white/10 text-white transition-colors">
+          <ChevronLeft className="h-6 w-6" />
+        </button>
+        <div>
+          <h2 className="text-lg font-bold text-white">Jurnal Mengajar</h2>
+          <p className="text-[10px] font-bold tracking-widest uppercase text-blue-200">{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-6 w-full pb-8">
+        <section className="bg-white/10 backdrop-blur-xl rounded-2xl p-5 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+          <h3 className="text-[11px] font-bold text-blue-200 mb-4 uppercase tracking-wider flex items-center gap-2">
+            1. Mood Hari Ini
+          </h3>
+          <div className="flex justify-between gap-3">
+            <button onClick={() => setMood('happy')} className={`flex-1 py-4 flex flex-col items-center gap-2 rounded-2xl border transition-all duration-300 ${mood === 'happy' ? 'border-emerald-400 bg-emerald-500/20 shadow-[0_0_20px_rgba(52,211,153,0.2)]' : 'border-white/10 bg-black/10 hover:border-emerald-400/50 hover:bg-white/5'}`}>
+              <Smile className={`h-8 w-8 transition-colors ${mood === 'happy' ? 'text-emerald-400' : 'text-blue-100/50'}`} />
+              <span className={`text-[10px] font-bold transition-colors ${mood === 'happy' ? 'text-emerald-300' : 'text-blue-100/70'}`}>Semangat</span>
+            </button>
+            <button onClick={() => setMood('meh')} className={`flex-1 py-4 flex flex-col items-center gap-2 rounded-2xl border transition-all duration-300 ${mood === 'meh' ? 'border-amber-400 bg-amber-500/20 shadow-[0_0_20px_rgba(251,191,36,0.2)]' : 'border-white/10 bg-black/10 hover:border-amber-400/50 hover:bg-white/5'}`}>
+              <Meh className={`h-8 w-8 transition-colors ${mood === 'meh' ? 'text-amber-400' : 'text-blue-100/50'}`} />
+              <span className={`text-[10px] font-bold transition-colors ${mood === 'meh' ? 'text-amber-300' : 'text-blue-100/70'}`}>Biasa</span>
+            </button>
+            <button onClick={() => setMood('sad')} className={`flex-1 py-4 flex flex-col items-center gap-2 rounded-2xl border transition-all duration-300 ${mood === 'sad' ? 'border-rose-400 bg-rose-500/20 shadow-[0_0_20px_rgba(251,113,133,0.2)]' : 'border-white/10 bg-black/10 hover:border-rose-400/50 hover:bg-white/5'}`}>
+              <Frown className={`h-8 w-8 transition-colors ${mood === 'sad' ? 'text-rose-400' : 'text-blue-100/50'}`} />
+              <span className={`text-[10px] font-bold transition-colors ${mood === 'sad' ? 'text-rose-300' : 'text-blue-100/70'}`}>Lelah</span>
+            </button>
+          </div>
+        </section>
+
+        <section className="bg-white/10 backdrop-blur-xl rounded-2xl p-5 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+          <h3 className="text-[11px] font-bold text-blue-200 mb-4 uppercase tracking-wider">2. Refleksi Kelas</h3>
+          <div className="flex flex-col gap-4">
+            <div>
+              <label className="text-[11px] font-bold text-emerald-300 mb-1.5 block">Momen/Metode yang berhasil:</label>
+              <textarea 
+                value={reflection.success}
+                onChange={e => setReflection({...reflection, success: e.target.value})}
+                className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm font-medium text-white focus:ring-2 focus:ring-emerald-400 focus:outline-none placeholder-blue-100/30 transition-all" 
+                rows={2} 
+                placeholder="Contoh: Kuis interaktif membuat anak lebih fokus..."
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-bold text-rose-300 mb-1.5 block">Kendala / Yang perlu diperbaiki:</label>
+              <textarea 
+                value={reflection.improvement}
+                onChange={e => setReflection({...reflection, improvement: e.target.value})}
+                className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm font-medium text-white focus:ring-2 focus:ring-rose-400 focus:outline-none placeholder-blue-100/30 transition-all" 
+                rows={2} 
+                placeholder="Contoh: Manajemen waktu saat kerja kelompok..."
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-white/10 backdrop-blur-xl rounded-2xl p-5 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+          <h3 className="text-[11px] font-bold text-blue-200 mb-4 uppercase tracking-wider">3. Catatan Insiden/Siswa</h3>
+          <textarea 
+            value={anecdote}
+            onChange={e => setAnecdote(e.target.value)}
+            className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm font-medium text-white focus:ring-2 focus:ring-blue-400 focus:outline-none placeholder-blue-100/30 transition-all" 
+            rows={3} 
+            placeholder="Tulis kejadian menarik atau sorotan siswa hari ini... (misal: Budi sangat aktif di sesi tanya jawab)"
+          />
+        </section>
+
+        <section className="bg-white/10 backdrop-blur-xl rounded-2xl p-5 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+          <h3 className="text-[11px] font-bold text-blue-200 mb-4 uppercase tracking-wider">4. Tindak Lanjut (To-Do)</h3>
+          <div className="flex flex-col gap-2">
+            {todos.map(todo => (
+              <div key={todo.id} className="flex items-center gap-3 p-2 hover:bg-white/5 rounded-xl cursor-pointer group transition-colors" onClick={() => toggleTodo(todo.id)}>
+                <button className={`flex-shrink-0 h-5 w-5 rounded-md border flex items-center justify-center transition-colors ${todo.done ? 'bg-blue-500 border-blue-500 text-white' : 'border-white/30 bg-black/20 group-hover:border-blue-400'}`}>
+                  {todo.done && <CheckCircle2 className="h-3.5 w-3.5" />}
+                </button>
+                <span className={`text-sm ${todo.done ? 'line-through text-white/40' : 'text-white/90 font-medium'}`}>{todo.text}</span>
+              </div>
+            ))}
+            <div className="flex items-center gap-2 mt-2">
+              <input 
+                type="text" 
+                value={newTodo}
+                onChange={e => setNewTodo(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addTodo()}
+                placeholder="Tambah tugas baru..." 
+                className="flex-1 bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-medium text-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 placeholder-blue-100/30 transition-all"
+              />
+              <button onClick={addTodo} className="bg-blue-500/80 text-white p-2.5 rounded-xl hover:bg-blue-500 transition-colors">
+                <Plus className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-white/10 backdrop-blur-xl rounded-2xl p-5 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+          <h3 className="text-[11px] font-bold text-blue-200 mb-4 uppercase tracking-wider">5. Momen Kelas (Foto)</h3>
+          <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-white/20 border-dashed rounded-2xl cursor-pointer bg-black/20 hover:bg-white/5 transition-colors">
+            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+              <ImageIcon className="w-8 h-8 mb-2 text-white/40" />
+              <p className="text-sm text-white/70 font-medium"><span className="text-blue-300 font-bold">Klik untuk unggah</span> foto kelas</p>
+              <p className="text-[10px] uppercase tracking-widest font-bold text-white/30 mt-1">PNG, JPG, max 5MB</p>
+            </div>
+            <input type="file" className="hidden" accept="image/*" />
+          </label>
+        </section>
+
+        <button className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-bold text-sm py-4 rounded-xl shadow-[0_8px_16px_-4px_rgba(59,130,246,0.5)] hover:from-blue-400 hover:to-indigo-400 transition-all mt-2">
+          Simpan Jurnal Hari Ini
+        </button>
+      </div>
+    </div>
+  );
 }
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
