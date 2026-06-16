@@ -1,6 +1,6 @@
 services:
   app:
-    image: ghcr.io/ferilee/idetechapp:latest
+    image: ghcr.io/indonesia-digital-teacher/idetechapp:latest
     container_name: idetechapp
     ports:
       - "2016:2016"
