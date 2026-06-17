@@ -468,6 +468,40 @@ app.post("/teacher/materials", requireRole(["teacher", "admin"]), requirePermiss
   return c.json({ material: created }, 201);
 });
 
+app.patch("/teacher/materials/:id", requireRole(["teacher", "admin"]), requirePermission("material.create"), async (c) => {
+  const user = c.get("authUser");
+  const id = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as {
+    title?: string;
+    type?: "lesson" | "video" | "document" | "quiz";
+    description?: string;
+    content?: string;
+    options?: unknown;
+    status?: "draft" | "published" | "archived";
+  };
+
+  const [targetMaterial] = await db.select().from(materials).where(eq(materials.id, id));
+  if (!targetMaterial || (user.activeRole !== "admin" && targetMaterial.teacherUserId !== user.id)) {
+    return c.json({ message: "Materi tidak ditemukan atau bukan milik guru aktif." }, 404);
+  }
+
+  const [updated] = await db
+    .update(materials)
+    .set({
+      title: body.title?.trim() || targetMaterial.title,
+      type: body.type ?? targetMaterial.type,
+      description: body.description?.trim() || targetMaterial.description,
+      content: body.content !== undefined ? body.content : targetMaterial.content,
+      options: body.options !== undefined ? body.options : targetMaterial.options,
+      status: body.status ?? targetMaterial.status,
+      updatedAt: new Date()
+    })
+    .where(eq(materials.id, id))
+    .returning();
+
+  return c.json({ material: updated });
+});
+
 app.get("/teacher/idequests", requireRole(["teacher", "admin"]), requirePermission("quest.manage"), async (c) => {
   const user = c.get("authUser");
   const rows =
@@ -527,6 +561,47 @@ app.post("/teacher/idequests", requireRole(["teacher", "admin"]), requirePermiss
     .returning();
 
   return c.json({ quest: created }, 201);
+});
+
+app.patch("/teacher/idequests/:id", requireRole(["teacher", "admin"]), requirePermission("quest.manage"), async (c) => {
+  const user = c.get("authUser");
+  const id = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as {
+    materialId?: string | null;
+    title?: string;
+    mission?: string;
+    points?: number;
+    dueDate?: string;
+    status?: "draft" | "published" | "archived";
+  };
+
+  const [targetQuest] = await db.select().from(ideQuests).where(eq(ideQuests.id, id));
+  if (!targetQuest || (user.activeRole !== "admin" && targetQuest.teacherUserId !== user.id)) {
+    return c.json({ message: "IdeQuest tidak ditemukan atau bukan milik guru aktif." }, 404);
+  }
+
+  if (body.materialId !== undefined && body.materialId !== null) {
+    const [targetMaterial] = await db.select().from(materials).where(eq(materials.id, body.materialId));
+    if (!targetMaterial || targetMaterial.classId !== targetQuest.classId) {
+      return c.json({ message: "Materi tidak ditemukan di kelas yang dipilih." }, 400);
+    }
+  }
+
+  const [updated] = await db
+    .update(ideQuests)
+    .set({
+      materialId: body.materialId !== undefined ? body.materialId : targetQuest.materialId,
+      title: body.title?.trim() || targetQuest.title,
+      mission: body.mission?.trim() || targetQuest.mission,
+      points: body.points !== undefined ? Math.max(0, Number(body.points)) : targetQuest.points,
+      dueDate: body.dueDate?.trim() || targetQuest.dueDate,
+      status: body.status ?? targetQuest.status,
+      updatedAt: new Date()
+    })
+    .where(eq(ideQuests.id, id))
+    .returning();
+
+  return c.json({ quest: updated });
 });
 
 app.post("/teacher/journals", requireRole(["teacher", "admin"]), async (c) => {

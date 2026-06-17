@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom/client";
+import ReactMarkdown from "react-markdown";
 import {
   BadgeCheck,
   BookOpen,
@@ -15,6 +16,7 @@ import {
   LogOut,
   Map,
   MoreHorizontal,
+  Pencil,
   Puzzle,
   Rocket,
   ScrollText,
@@ -1595,7 +1597,7 @@ function StudentContentModal({
               <div className="mt-4 mb-6 bg-slate-50 border border-slate-200 rounded-xl p-4 overflow-hidden shadow-inner">
                 {selectedTask.type === 'lesson' && (
                   <div className="prose prose-sm prose-blue max-w-none text-slate-700">
-                    {selectedTask.content.split('\n').map((line, i) => <p key={i} className="mb-2">{line}</p>)}
+                    <ReactMarkdown>{selectedTask.content}</ReactMarkdown>
                   </div>
                 )}
                 {selectedTask.type === 'video' && (
@@ -1941,6 +1943,8 @@ function TeacherSpaceDashboard({
   const [classError, setClassError] = useState<string | null>(null);
   const [materials, setMaterials] = useState<TeacherMaterial[]>([]);
   const [ideQuestRows, setIdeQuestRows] = useState<TeacherIdeQuest[]>([]);
+  const [editingMaterialId, setEditingMaterialId] = useState<string | null>(null);
+  const [editingQuestId, setEditingQuestId] = useState<string | null>(null);
   const [studioBusy, setStudioBusy] = useState(false);
   const [studioError, setStudioError] = useState<string | null>(null);
   const [materialForm, setMaterialForm] = useState({
@@ -2036,14 +2040,22 @@ function TeacherSpaceDashboard({
     setStudioError(null);
 
     try {
-      await api<{ material: TeacherMaterial }>("/api/teacher/materials", {
-        method: "POST",
-        body: JSON.stringify(materialForm)
-      });
+      if (editingMaterialId) {
+        await api<{ material: TeacherMaterial }>(`/api/teacher/materials/${editingMaterialId}`, {
+          method: "PATCH",
+          body: JSON.stringify(materialForm)
+        });
+        setEditingMaterialId(null);
+      } else {
+        await api<{ material: TeacherMaterial }>("/api/teacher/materials", {
+          method: "POST",
+          body: JSON.stringify(materialForm)
+        });
+      }
       setMaterialForm((current) => ({ ...current, title: "", description: "" }));
       await loadTeacherStudio();
     } catch (err) {
-      setStudioError(err instanceof Error ? err.message : "Gagal membuat materi.");
+      setStudioError(err instanceof Error ? err.message : "Gagal menyimpan materi.");
     } finally {
       setStudioBusy(false);
     }
@@ -2055,21 +2067,64 @@ function TeacherSpaceDashboard({
     setStudioError(null);
 
     try {
-      await api<{ quest: TeacherIdeQuest }>("/api/teacher/idequests", {
-        method: "POST",
-        body: JSON.stringify({
-          ...questForm,
-          materialId: questForm.materialId || undefined,
-          points: Number(questForm.points)
-        })
-      });
+      const payload = {
+        ...questForm,
+        materialId: questForm.materialId || undefined,
+        points: Number(questForm.points)
+      };
+
+      if (editingQuestId) {
+        await api<{ quest: TeacherIdeQuest }>(`/api/teacher/idequests/${editingQuestId}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload)
+        });
+        setEditingQuestId(null);
+      } else {
+        await api<{ quest: TeacherIdeQuest }>("/api/teacher/idequests", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+      }
       setQuestForm((current) => ({ ...current, materialId: "", title: "", mission: "", points: "100", dueDate: "" }));
       await loadTeacherStudio();
     } catch (err) {
-      setStudioError(err instanceof Error ? err.message : "Gagal membuat IdeQuest.");
+      setStudioError(err instanceof Error ? err.message : "Gagal menyimpan IdeQuest.");
     } finally {
       setStudioBusy(false);
     }
+  }
+
+  function startEditMaterial(material: TeacherMaterial) {
+    setEditingMaterialId(material.id);
+    setMaterialForm({
+      classId: material.classId,
+      title: material.title,
+      type: material.type,
+      description: material.description,
+      content: material.content ?? ""
+    });
+  }
+
+  function cancelEditMaterial() {
+    setEditingMaterialId(null);
+    setMaterialForm({ classId: "", title: "", type: "lesson", description: "", content: "" });
+  }
+
+  function startEditQuest(quest: TeacherIdeQuest) {
+    setEditingQuestId(quest.id);
+    setQuestForm({
+      classId: quest.classId,
+      materialId: quest.materialId ?? "",
+      title: quest.title,
+      mission: quest.mission,
+      points: String(quest.points),
+      dueDate: quest.dueDate
+    });
+  }
+
+  function cancelEditQuest() {
+    setEditingQuestId(null);
+    setQuestForm({ classId: "", materialId: "", title: "", mission: "", points: "100", dueDate: "" });
   }
 
   function openTeacherFeature(featureName: string) {
@@ -2243,10 +2298,16 @@ function TeacherSpaceDashboard({
               questForm={questForm}
               busy={studioBusy}
               error={studioError}
+              editingMaterialId={editingMaterialId}
+              editingQuestId={editingQuestId}
               onMaterialFormChange={setMaterialForm}
               onQuestFormChange={setQuestForm}
               onCreateMaterial={createMaterial}
               onCreateQuest={createIdeQuest}
+              onEditMaterial={startEditMaterial}
+              onEditQuest={startEditQuest}
+              onCancelEditMaterial={cancelEditMaterial}
+              onCancelEditQuest={cancelEditQuest}
             />
           ) : activeMenu === "quest" ? (
             <TeacherClassManager
@@ -2338,10 +2399,16 @@ function TeacherStudioManager({
   questForm,
   busy,
   error,
+  editingMaterialId,
+  editingQuestId,
   onMaterialFormChange,
   onQuestFormChange,
   onCreateMaterial,
-  onCreateQuest
+  onCreateQuest,
+  onEditMaterial,
+  onEditQuest,
+  onCancelEditMaterial,
+  onCancelEditQuest
 }: {
   classes: TeacherClass[];
   materials: TeacherMaterial[];
@@ -2350,14 +2417,34 @@ function TeacherStudioManager({
   questForm: { classId: string; materialId: string; title: string; mission: string; points: string; dueDate: string };
   busy: boolean;
   error: string | null;
+  editingMaterialId?: string | null;
+  editingQuestId?: string | null;
   onMaterialFormChange: React.Dispatch<React.SetStateAction<{ classId: string; title: string; type: TeacherMaterial["type"]; description: string; content: string }>>;
   onQuestFormChange: React.Dispatch<React.SetStateAction<{ classId: string; materialId: string; title: string; mission: string; points: string; dueDate: string }>>;
   onCreateMaterial: (event: React.FormEvent<HTMLFormElement>) => void;
   onCreateQuest: (event: React.FormEvent<HTMLFormElement>) => void;
+  onEditMaterial?: (material: TeacherMaterial) => void;
+  onEditQuest?: (quest: TeacherIdeQuest) => void;
+  onCancelEditMaterial?: () => void;
+  onCancelEditQuest?: () => void;
 }) {
   const [activeTab, setActiveTab] = React.useState<"material" | "quest">("material");
   const [showMarkdownGuide, setShowMarkdownGuide] = React.useState(false);
   const selectedClassMaterials = materials.filter((material) => material.classId === questForm.classId);
+
+  let quizData: { soal: string; jawaban: string[] }[] = [];
+  if (materialForm.type === "quiz") {
+    try {
+      quizData = JSON.parse(materialForm.content || "[]");
+      if (!Array.isArray(quizData)) quizData = [];
+    } catch {
+      quizData = [];
+    }
+  }
+
+  const updateQuizData = (newData: { soal: string; jawaban: string[] }[]) => {
+    onMaterialFormChange((current) => ({ ...current, content: JSON.stringify(newData) }));
+  };
 
   return (
     <section className="teacher-studio-manager">
@@ -2477,19 +2564,57 @@ function TeacherStudioManager({
         )}
         
         {materialForm.type === 'quiz' && (
-          <label>
-            <span>Data Kuis (JSON - Lanjutan)</span>
-            <textarea
-              rows={4}
-              value={materialForm.content}
-              placeholder='[{"soal":"...","jawaban":["..."]}]'
-              onChange={(event) => onMaterialFormChange((current) => ({ ...current, content: event.target.value }))}
-            />
-          </label>
+          <div className="flex flex-col gap-3">
+            <span className="font-semibold text-slate-700 text-sm">Daftar Pertanyaan Kuis</span>
+            {quizData.map((q, i) => (
+              <div key={i} className="flex flex-col gap-3 p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-xs text-slate-500 uppercase tracking-wider">Soal {i + 1}</span>
+                  <button type="button" onClick={() => updateQuizData(quizData.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-600 transition-colors p-1 bg-white rounded shadow-sm border border-slate-100">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Ketik pertanyaan soal di sini..."
+                  value={q.soal}
+                  onChange={(e) => {
+                    const newQ = [...quizData];
+                    newQ[i].soal = e.target.value;
+                    updateQuizData(newQ);
+                  }}
+                  className="w-full text-sm border-slate-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 py-2 px-3 bg-white"
+                />
+                <input
+                  type="text"
+                  placeholder="Kunci jawaban (pisahkan dengan koma jika > 1)"
+                  value={q.jawaban.join(", ")}
+                  onChange={(e) => {
+                    const newQ = [...quizData];
+                    newQ[i].jawaban = e.target.value.split(",").map(s => s.trim()).filter(Boolean);
+                    updateQuizData(newQ);
+                  }}
+                  className="w-full text-sm border-slate-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 py-2 px-3 bg-white"
+                />
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => updateQuizData([...quizData, { soal: "", jawaban: [] }])}
+              className="flex items-center justify-center gap-2 w-full py-3 mt-1 border-2 border-dashed border-slate-300 text-slate-500 rounded-lg hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-all text-sm font-bold shadow-sm"
+            >
+              <Plus className="h-5 w-5" /> Tambah Soal Kuis
+            </button>
+          </div>
         )}
 
         {error && activeTab === "material" ? <p className="teacher-class-error mb-4">{error}</p> : null}
-        <button type="submit" disabled={busy || classes.length === 0}>{busy ? "Menyimpan..." : "Publikasikan Materi"}</button>
+        <div className="flex gap-2">
+          {editingMaterialId && onCancelEditMaterial ? (
+            <button type="button" onClick={onCancelEditMaterial} className="bg-slate-200 text-slate-700 hover:bg-slate-300">Batal</button>
+          ) : null}
+          <button className="flex-1" type="submit" disabled={busy || classes.length === 0}>{busy ? "Menyimpan..." : editingMaterialId ? "Update Materi" : "Publikasikan Materi"}</button>
+        </div>
       </form>
       )}
 
@@ -2563,7 +2688,12 @@ function TeacherStudioManager({
           </label>
         </div>
         {error && activeTab === "quest" ? <p className="teacher-class-error">{error}</p> : null}
-        <button type="submit" disabled={busy || classes.length === 0}>{busy ? "Menyimpan..." : "Publikasikan IdeQuest"}</button>
+        <div className="flex gap-2">
+          {editingQuestId && onCancelEditQuest ? (
+            <button type="button" onClick={onCancelEditQuest} className="bg-slate-200 text-slate-700 hover:bg-slate-300">Batal</button>
+          ) : null}
+          <button className="flex-1" type="submit" disabled={busy || classes.length === 0}>{busy ? "Menyimpan..." : editingQuestId ? "Update IdeQuest" : "Publikasikan IdeQuest"}</button>
+        </div>
       </form>
       )}
 
@@ -2571,18 +2701,32 @@ function TeacherStudioManager({
         <div>
           <h3>Materi Terbit</h3>
           {materials.slice(0, 4).map((item) => (
-            <article key={item.id}>
-              <strong>{item.title}</strong>
-              <span>{item.type} - {classes.find((kelas) => kelas.id === item.classId)?.name ?? "Kelas"}</span>
+            <article key={item.id} className="flex justify-between items-center group relative">
+              <div className="flex flex-col">
+                <strong>{item.title}</strong>
+                <span>{item.type} - {classes.find((kelas) => kelas.id === item.classId)?.name ?? "Kelas"}</span>
+              </div>
+              {onEditMaterial && (
+                <button type="button" onClick={() => onEditMaterial(item)} className="p-1.5 text-slate-400 hover:text-blue-500 rounded-md hover:bg-blue-50 transition-colors bg-white shadow-sm border border-slate-100 lg:opacity-0 lg:group-hover:opacity-100" title="Edit Materi">
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
             </article>
           ))}
         </div>
         <div>
           <h3>IdeQuest Terbit</h3>
           {quests.slice(0, 4).map((item) => (
-            <article key={item.id}>
-              <strong>{item.title}</strong>
-              <span>{item.points} poin - {item.dueDate}</span>
+            <article key={item.id} className="flex justify-between items-center group relative">
+              <div className="flex flex-col">
+                <strong>{item.title}</strong>
+                <span>{item.points} poin - {item.dueDate}</span>
+              </div>
+              {onEditQuest && (
+                <button type="button" onClick={() => onEditQuest(item)} className="p-1.5 text-slate-400 hover:text-blue-500 rounded-md hover:bg-blue-50 transition-colors bg-white shadow-sm border border-slate-100 lg:opacity-0 lg:group-hover:opacity-100" title="Edit IdeQuest">
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
             </article>
           ))}
         </div>

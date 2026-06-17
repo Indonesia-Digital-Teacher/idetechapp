@@ -2755,8 +2755,8 @@ body {
   flex: 0 0 auto;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
-  margin: -78px 6px 152px;
-  transform: translateY(-24px);
+  margin: -78px 6px 98px;
+  transform: translateY(-6px);
 }
 
 .student-compact-actions .game-chapter-panel,
@@ -5311,7 +5311,7 @@ body {
   resize: vertical;
 }
 
-.teacher-studio-form button {
+.teacher-studio-form button[type="submit"] {
   min-height: 46px;
   border: 0;
   border-radius: 999px;
@@ -5324,7 +5324,7 @@ body {
     inset 0 1px 0 rgba(255, 255, 255, 0.38);
 }
 
-.teacher-studio-form button:disabled {
+.teacher-studio-form button[type="submit"]:disabled {
   opacity: 0.72;
 }
 
@@ -6365,7 +6365,7 @@ select {
 .game-mobile-nav__item.is-active .game-mobile-nav__icon-shell {
   width: 54px;
   height: 54px;
-  transform: translateY(-5px) scale(1.08);
+  transform: translateY(-18px) scale(1.08);
   box-shadow:
     inset 0 4px 0 rgba(255, 255, 255, 0.55),
     inset 0 -6px 0 rgba(121, 48, 16, 0.48),
@@ -6417,5 +6417,5 @@ select {
 .game-mobile-nav__item.is-active .game-mobile-nav__label {
   max-height: 24px;
   opacity: 1;
-  transform: translateY(-1px) scale(1);
+  transform: translateY(-16px) scale(1);
 }
