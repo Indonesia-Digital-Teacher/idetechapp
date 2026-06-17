@@ -174,6 +174,7 @@ export const materials = sqliteTable("materials", {
   content: text("content"), // Menyimpan isi Markdown, URL Video, URL PDF, atau JSON Quiz
   options: text("options", { mode: "json" }), // Menyimpan pengaturan tambahan (seperti allowDownload)
   status: text("status", { enum: ["draft", "published"] }).notNull().default("published"),
+  bankStatus: text("bank_status", { enum: ["none", "pending", "approved", "rejected"] }).notNull().default("none"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull()
 });
@@ -188,6 +189,7 @@ export const ideQuests = sqliteTable("ide_quests", {
   points: integer("points").notNull().default(100),
   dueDate: text("due_date").notNull(),
   status: text("status", { enum: ["draft", "published", "archived"] }).notNull().default("published"),
+  bankStatus: text("bank_status", { enum: ["none", "pending", "approved", "rejected"] }).notNull().default("none"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull()
 });
@@ -232,6 +234,18 @@ export const teacherJournals = sqliteTable("teacher_journals", {
   anecdote: text("anecdote"),
   todos: text("todos"),
   photoUrl: text("photo_url"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull()
+});
+
+export const bankRequests = sqliteTable("bank_requests", {
+  id: text("id").primaryKey(),
+  requesterUserId: text("requester_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  ownerUserId: text("owner_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  targetClassId: text("target_class_id").notNull().references(() => classes.id, { onDelete: "cascade" }),
+  itemType: text("item_type", { enum: ["material", "quest"] }).notNull(),
+  itemId: text("item_id").notNull(),
+  status: text("status", { enum: ["pending", "approved", "rejected"] }).notNull().default("pending"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull()
 });

@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import {
   BadgeCheck,
+  Bell,
   BookOpen,
   Boxes,
   ArrowRight,
@@ -2545,8 +2546,68 @@ function TeacherStudioManager({
   };
 
   const [showBankModal, setShowBankModal] = React.useState(false);
+  const [showRequestsModal, setShowRequestsModal] = React.useState(false);
   const [bankTab, setBankTab] = React.useState<"material" | "quest">("material");
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
+  
+  const [bankItems, setBankItems] = React.useState<{ materials: any[]; quests: any[] }>({ materials: [], quests: [] });
+  const [bankRequests, setBankRequests] = React.useState<{ incoming: any[]; outgoing: any[] }>({ incoming: [], outgoing: [] });
+  const [requestTargetClass, setRequestTargetClass] = React.useState<Record<string, string>>({});
+  
+  const loadBankPublic = async () => {
+    try {
+      const data = await api<{ materials: any[]; quests: any[] }>("/api/teacher/bank-public");
+      setBankItems(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const loadBankRequests = async () => {
+    try {
+      const data = await api<{ incoming: any[]; outgoing: any[] }>("/api/teacher/bank-requests");
+      setBankRequests(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  React.useEffect(() => {
+    if (showBankModal) loadBankPublic();
+  }, [showBankModal]);
+
+  React.useEffect(() => {
+    if (showRequestsModal) loadBankRequests();
+  }, [showRequestsModal]);
+
+  const sendBankRequest = async (type: "material" | "quest", id: string) => {
+    const classId = requestTargetClass[id];
+    if (!classId) return alert("Pilih kelas tujuan terlebih dahulu.");
+    try {
+      await api("/api/teacher/bank-requests", {
+        method: "POST",
+        body: JSON.stringify({ itemType: type, itemId: id, targetClassId: classId })
+      });
+      showToast("Permohonan berhasil dikirim ke pembuat.");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Gagal memohon.");
+    }
+  };
+
+  const processBankRequest = async (id: string, status: "approved" | "rejected") => {
+    try {
+      await api(`/api/teacher/bank-requests/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status })
+      });
+      showToast(status === "approved" ? "Permohonan disetujui." : "Permohonan ditolak.");
+      loadBankRequests();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Gagal memproses permohonan.");
+    }
+  };
+
+  const pendingIncomingRequests = bankRequests.incoming.filter(r => r.status === 'pending').length;
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -2557,14 +2618,27 @@ function TeacherStudioManager({
     <section className="teacher-studio-manager">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold text-slate-800">Studio Pembuatan</h2>
-        <button 
-          type="button" 
-          onClick={() => setShowBankModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-lg shadow-sm hover:shadow text-sm transition-all hover:scale-105"
-        >
-          <BookOpen className="h-4 w-4" />
-          Bank IdeTech
-        </button>
+        <div className="flex gap-2">
+          <button 
+            type="button" 
+            onClick={() => setShowRequestsModal(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-white text-slate-700 border border-slate-200 font-bold rounded-lg shadow-sm hover:shadow text-sm transition-all hover:border-blue-300 relative"
+          >
+            <Bell className="h-4 w-4 text-blue-500" />
+            <span className="hidden sm:inline">Permintaan</span>
+            {pendingIncomingRequests > 0 && (
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse border border-white"></span>
+            )}
+          </button>
+          <button 
+            type="button" 
+            onClick={() => setShowBankModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-lg shadow-sm hover:shadow text-sm transition-all hover:scale-105"
+          >
+            <BookOpen className="h-4 w-4" />
+            Bank IdeTech
+          </button>
+        </div>
       </div>
 
       <div className="flex bg-slate-100 rounded-lg p-1 mb-4 gap-1">
@@ -2841,7 +2915,14 @@ function TeacherStudioManager({
                 <span className="text-xs text-slate-500">{item.type} - {classes.find((kelas) => kelas.id === item.classId)?.name ?? "Kelas"}</span>
               </div>
               <div className="flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                <button type="button" onClick={() => showToast("Materi ini akan ditinjau oleh tim IdeTech sebelum masuk ke Bank Materi.")} className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors" title="Kirim ke Bank Materi">
+                <button type="button" onClick={async () => {
+                  try {
+                    await api("/api/teacher/bank-submit", { method: "POST", body: JSON.stringify({ type: "material", id: item.id }) });
+                    showToast("Materi ini akan ditinjau oleh tim IdeTech sebelum masuk ke Bank Materi.");
+                  } catch (err) {
+                    alert(err instanceof Error ? err.message : "Gagal mengirim ke bank.");
+                  }
+                }} className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors" title="Kirim ke Bank Materi">
                   <Upload className="h-4 w-4" />
                 </button>
                 {onEditMaterial && (
@@ -2862,7 +2943,14 @@ function TeacherStudioManager({
                 <span className="text-xs text-slate-500">{item.points} poin - {item.dueDate}</span>
               </div>
               <div className="flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                <button type="button" onClick={() => showToast("IdeQuest ini akan ditinjau oleh tim IdeTech sebelum masuk ke Bank IdeQuest.")} className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors" title="Kirim ke Bank IdeQuest">
+                <button type="button" onClick={async () => {
+                  try {
+                    await api("/api/teacher/bank-submit", { method: "POST", body: JSON.stringify({ type: "quest", id: item.id }) });
+                    showToast("IdeQuest ini akan ditinjau oleh tim IdeTech sebelum masuk ke Bank IdeQuest.");
+                  } catch (err) {
+                    alert(err instanceof Error ? err.message : "Gagal mengirim ke bank.");
+                  }
+                }} className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors" title="Kirim ke Bank IdeQuest">
                   <Upload className="h-4 w-4" />
                 </button>
                 {onEditQuest && (
@@ -2950,27 +3038,145 @@ function TeacherStudioManager({
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto flex-1 bg-slate-50">
-              <div className="flex flex-col items-center justify-center h-full py-10 text-center opacity-70">
-                <Puzzle className="h-16 w-16 text-blue-300 mb-4 drop-shadow-sm" />
-                <h4 className="text-xl font-bold text-slate-700 mb-2">Koleksi Sedang Disiapkan</h4>
-                <p className="text-slate-500 max-w-md mx-auto">
-                  {bankTab === 'material' 
-                    ? "Tim IdeTech sedang mengkurasi materi-materi terbaik dari berbagai guru. Anda dapat berpartisipasi dengan mengirimkan materi buatan Anda ke Bank Materi!"
-                    : "Tim IdeTech sedang mengkurasi IdeQuest paling menarik dari berbagai guru. Anda dapat berpartisipasi dengan mengirimkan IdeQuest Anda ke Bank!"}
-                </p>
-                <div className="mt-8 bg-blue-50 border border-blue-100 rounded-lg p-4 max-w-sm w-full mx-auto text-left">
-                  <h5 className="font-bold text-blue-800 text-sm mb-1 flex items-center gap-1.5"><Star className="w-4 h-4 text-blue-500" /> Cara Kontribusi</h5>
-                  <p className="text-xs text-blue-600/80 leading-relaxed">
-                    Buka daftar Materi atau IdeQuest terbit Anda, lalu klik ikon <strong>Kirim ke Bank</strong> (<Upload className="inline w-3 h-3" />). Setelah lolos peninjauan, karya Anda akan tersedia untuk seluruh guru di Indonesia!
-                  </p>
-                </div>
-              </div>
+            <div className="p-6 overflow-y-auto flex-1 bg-slate-50 space-y-4">
+              {bankTab === 'material' ? (
+                bankItems.materials.length === 0 ? (
+                  <div className="text-center p-8 text-slate-500 bg-white rounded-xl border border-slate-100 shadow-sm">Belum ada materi di bank.</div>
+                ) : (
+                  bankItems.materials.map(item => (
+                    <div key={item.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                      <div>
+                        <h4 className="font-bold text-slate-800">{item.title}</h4>
+                        <p className="text-xs text-slate-500 mt-1">Oleh: {item.teacherName} • Tipe: {item.type}</p>
+                        <p className="text-sm text-slate-600 mt-2 line-clamp-2">{item.description}</p>
+                      </div>
+                      <div className="flex flex-col gap-2 min-w-[160px]">
+                        <select 
+                          className="text-xs border border-slate-200 rounded p-1.5 w-full bg-slate-50 focus:border-blue-400 focus:outline-none"
+                          value={requestTargetClass[item.id] || ""}
+                          onChange={(e) => setRequestTargetClass(prev => ({...prev, [item.id]: e.target.value}))}
+                        >
+                          <option value="">-- Pilih Kelas Tujuan --</option>
+                          {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                        <Button type="button" onClick={() => sendBankRequest("material", item.id)} className="w-full text-xs py-1.5">Minta Izin Penggunaan</Button>
+                      </div>
+                    </div>
+                  ))
+                )
+              ) : (
+                bankItems.quests.length === 0 ? (
+                  <div className="text-center p-8 text-slate-500 bg-white rounded-xl border border-slate-100 shadow-sm">Belum ada IdeQuest di bank.</div>
+                ) : (
+                  bankItems.quests.map(item => (
+                    <div key={item.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                      <div>
+                        <h4 className="font-bold text-slate-800">{item.title}</h4>
+                        <p className="text-xs text-slate-500 mt-1">Oleh: {item.teacherName} • Poin: {item.points}</p>
+                        <p className="text-sm text-slate-600 mt-2 line-clamp-2">{item.mission}</p>
+                      </div>
+                      <div className="flex flex-col gap-2 min-w-[160px]">
+                        <select 
+                          className="text-xs border border-slate-200 rounded p-1.5 w-full bg-slate-50 focus:border-blue-400 focus:outline-none"
+                          value={requestTargetClass[item.id] || ""}
+                          onChange={(e) => setRequestTargetClass(prev => ({...prev, [item.id]: e.target.value}))}
+                        >
+                          <option value="">-- Pilih Kelas Tujuan --</option>
+                          {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                        <Button type="button" onClick={() => sendBankRequest("quest", item.id)} className="w-full text-xs py-1.5">Minta Izin Penggunaan</Button>
+                      </div>
+                    </div>
+                  ))
+                )
+              )}
             </div>
             
             <div className="p-4 border-t border-slate-100 bg-white flex justify-end">
               <button type="button" onClick={() => setShowBankModal(false)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-sm transition-colors">
                 Tutup Bank
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRequestsModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <Bell className="h-5 w-5 text-blue-500" />
+                Permintaan Bank IdeTech
+              </h3>
+              <button type="button" onClick={() => setShowRequestsModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-md hover:bg-slate-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1 bg-slate-50 space-y-6">
+              <div>
+                <h4 className="font-bold text-slate-700 mb-3 border-b border-slate-200 pb-2 flex items-center justify-between">
+                  Permintaan Masuk
+                  <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">{bankRequests.incoming.length}</span>
+                </h4>
+                {bankRequests.incoming.length === 0 ? (
+                  <p className="text-sm text-slate-500 italic">Belum ada permintaan masuk dari guru lain.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {bankRequests.incoming.map(req => (
+                      <div key={req.id} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm text-sm">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <span className="font-semibold text-slate-800">{req.requesterName}</span> meminta izin untuk menggunakan <span className="font-semibold text-blue-600">{req.itemTitle}</span> ({req.itemType})
+                          </div>
+                          <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${req.status === 'pending' ? 'bg-amber-100 text-amber-700' : req.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-rose-100 text-rose-700'}`}>
+                            {req.status}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-500 mb-3">Tujuan: Kelas ID {req.targetClassId} • Dikirim: {new Date(req.createdAt).toLocaleDateString()}</div>
+                        {req.status === 'pending' && (
+                          <div className="flex gap-2 justify-end mt-2 pt-2 border-t border-slate-100">
+                            <Button type="button" onClick={() => processBankRequest(req.id, "approved")} className="px-3 py-1.5 text-xs bg-green-50 text-green-700 hover:bg-green-100 border-none shadow-none"><CheckCircle2 className="w-3.5 h-3.5 mr-1 inline"/> Izinkan</Button>
+                            <Button type="button" onClick={() => processBankRequest(req.id, "rejected")} className="px-3 py-1.5 text-xs bg-rose-50 text-rose-700 hover:bg-rose-100 border-none shadow-none"><X className="w-3.5 h-3.5 mr-1 inline"/> Tolak</Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <h4 className="font-bold text-slate-700 mb-3 border-b border-slate-200 pb-2 flex items-center justify-between">
+                  Permintaan Keluar
+                  <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">{bankRequests.outgoing.length}</span>
+                </h4>
+                {bankRequests.outgoing.length === 0 ? (
+                  <p className="text-sm text-slate-500 italic">Anda belum pernah meminta izin materi guru lain.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {bankRequests.outgoing.map(req => (
+                      <div key={req.id} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm text-sm">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            Anda meminta izin kepada <span className="font-semibold text-slate-800">{req.ownerName}</span> untuk menggunakan <span className="font-semibold text-blue-600">{req.itemTitle}</span> ({req.itemType})
+                          </div>
+                          <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${req.status === 'pending' ? 'bg-amber-100 text-amber-700' : req.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-rose-100 text-rose-700'}`}>
+                            {req.status}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-500 mt-1">Tujuan: Kelas ID {req.targetClassId} • Dikirim: {new Date(req.createdAt).toLocaleDateString()}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="p-4 border-t border-slate-100 bg-white flex justify-end">
+              <button type="button" onClick={() => setShowRequestsModal(false)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-sm transition-colors">
+                Tutup
               </button>
             </div>
           </div>
@@ -4761,28 +4967,49 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
 function AdminBankApprovalPanel() {
   const [tab, setTab] = React.useState<"material" | "quest">("material");
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
+  const [queue, setQueue] = React.useState<{ materials: any[]; quests: any[] }>({ materials: [], quests: [] });
+
+  const loadQueue = async () => {
+    try {
+      const data = await api<{ materials: any[]; quests: any[] }>("/api/admin/bank-queue");
+      setQueue(data);
+    } catch (err) {
+      console.error("Gagal mengambil antrean:", err);
+    }
+  };
+
+  React.useEffect(() => {
+    loadQueue();
+  }, []);
 
   const showToast = (message: string) => {
     setToastMessage(message);
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const dummyMaterials = [
-    { id: "1", title: "Pengenalan Algoritma", teacher: "Budi Santoso", date: "2026-06-15" },
-    { id: "2", title: "Dasar Pemrograman Web", teacher: "Siti Aminah", date: "2026-06-16" }
-  ];
+  const processQueue = async (type: "material" | "quest", id: string, status: "approved" | "rejected") => {
+    try {
+      await api(`/api/admin/bank-queue/${type}/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
+      showToast(`Berhasil diproses (${status === "approved" ? "Disetujui" : "Ditolak"})`);
+      loadQueue();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Gagal memproses.");
+    }
+  };
 
-  const dummyQuests = [
-    { id: "1", title: "Membangun Web Sederhana", teacher: "Budi Santoso", points: 150 },
-    { id: "2", title: "Kuis Logika Cepat", teacher: "Ahmad Fauzi", points: 50 }
-  ];
+  const pendingCount = queue.materials.length + queue.quests.length;
 
   return (
     <Card className="professional-card p-5 relative overflow-hidden">
       <div className="professional-card__header mb-4">
         <div>
           <h3 className="professional-card__title flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-blue-500" />
+            <div className="relative">
+              <BookOpen className="h-5 w-5 text-blue-500" />
+              {pendingCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse border border-white"></span>
+              )}
+            </div>
             Persetujuan Bank IdeTech
           </h3>
           <p className="professional-card__hint">Tinjau dan setujui materi/quest yang dikirim guru untuk diterbitkan ke publik.</p>
@@ -4793,60 +5020,70 @@ function AdminBankApprovalPanel() {
         <button
           type="button"
           onClick={() => setTab("material")}
-          className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors ${tab === "material" ? "border-blue-500 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${tab === "material" ? "border-blue-500 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
         >
           Antrean Materi
+          {queue.materials.length > 0 && <span className="bg-red-100 text-red-600 text-[10px] px-1.5 py-0.5 rounded-full">{queue.materials.length}</span>}
         </button>
         <button
           type="button"
           onClick={() => setTab("quest")}
-          className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors ${tab === "quest" ? "border-blue-500 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${tab === "quest" ? "border-blue-500 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
         >
           Antrean IdeQuest
+          {queue.quests.length > 0 && <span className="bg-red-100 text-red-600 text-[10px] px-1.5 py-0.5 rounded-full">{queue.quests.length}</span>}
         </button>
       </div>
 
       <div className="grid gap-3">
         {tab === "material" ? (
-          dummyMaterials.map(item => (
-            <div key={item.id} className="flex justify-between items-center p-3 border border-slate-100 rounded-lg hover:border-blue-100 bg-slate-50/50">
-              <div>
-                <strong className="text-sm text-slate-700 block">{item.title}</strong>
-                <span className="text-xs text-slate-500">Oleh: {item.teacher} • {item.date}</span>
+          queue.materials.length === 0 ? (
+            <div className="p-4 text-center text-sm text-slate-500 bg-slate-50 rounded-lg">Tidak ada antrean materi.</div>
+          ) : (
+            queue.materials.map((item) => (
+              <div key={item.id} className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center p-3 border border-slate-100 rounded-lg hover:border-blue-100 bg-slate-50/50">
+                <div>
+                  <strong className="text-sm text-slate-700 block">{item.title}</strong>
+                  <span className="text-xs text-slate-500">Oleh: {item.teacherName}</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" onClick={() => processQueue("material", item.id, "approved")} className="px-3 py-1.5 text-xs bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800 border-none shadow-sm">
+                    <CheckCircle2 className="w-3.5 h-3.5 mr-1 inline" /> Setujui
+                  </Button>
+                  <Button type="button" onClick={() => processQueue("material", item.id, "rejected")} className="px-3 py-1.5 text-xs bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800 border-none shadow-sm">
+                    <X className="w-3.5 h-3.5 mr-1 inline" /> Tolak
+                  </Button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Button type="button" onClick={() => showToast(`Materi '${item.title}' disetujui.`)} className="px-3 py-1.5 text-xs bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800 border-none shadow-sm">
-                  <CheckCircle2 className="w-3.5 h-3.5 mr-1 inline" /> Setujui
-                </Button>
-                <Button type="button" onClick={() => showToast(`Materi '${item.title}' ditolak.`)} className="px-3 py-1.5 text-xs bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800 border-none shadow-sm">
-                  <X className="w-3.5 h-3.5 mr-1 inline" /> Tolak
-                </Button>
-              </div>
-            </div>
-          ))
+            ))
+          )
         ) : (
-          dummyQuests.map(item => (
-            <div key={item.id} className="flex justify-between items-center p-3 border border-slate-100 rounded-lg hover:border-blue-100 bg-slate-50/50">
-              <div>
-                <strong className="text-sm text-slate-700 block">{item.title}</strong>
-                <span className="text-xs text-slate-500">Oleh: {item.teacher} • {item.points} poin</span>
+          queue.quests.length === 0 ? (
+            <div className="p-4 text-center text-sm text-slate-500 bg-slate-50 rounded-lg">Tidak ada antrean IdeQuest.</div>
+          ) : (
+            queue.quests.map((item) => (
+              <div key={item.id} className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center p-3 border border-slate-100 rounded-lg hover:border-blue-100 bg-slate-50/50">
+                <div>
+                  <strong className="text-sm text-slate-700 block">{item.title}</strong>
+                  <span className="text-xs text-slate-500">Oleh: {item.teacherName} • {item.points} poin</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" onClick={() => processQueue("quest", item.id, "approved")} className="px-3 py-1.5 text-xs bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800 border-none shadow-sm">
+                    <CheckCircle2 className="w-3.5 h-3.5 mr-1 inline" /> Setujui
+                  </Button>
+                  <Button type="button" onClick={() => processQueue("quest", item.id, "rejected")} className="px-3 py-1.5 text-xs bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800 border-none shadow-sm">
+                    <X className="w-3.5 h-3.5 mr-1 inline" /> Tolak
+                  </Button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Button type="button" onClick={() => showToast(`IdeQuest '${item.title}' disetujui.`)} className="px-3 py-1.5 text-xs bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800 border-none shadow-sm">
-                  <CheckCircle2 className="w-3.5 h-3.5 mr-1 inline" /> Setujui
-                </Button>
-                <Button type="button" onClick={() => showToast(`IdeQuest '${item.title}' ditolak.`)} className="px-3 py-1.5 text-xs bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800 border-none shadow-sm">
-                  <X className="w-3.5 h-3.5 mr-1 inline" /> Tolak
-                </Button>
-              </div>
-            </div>
-          ))
+            ))
+          )
         )}
       </div>
 
       {toastMessage && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 animate-in fade-in slide-in-from-bottom-2">
-          <div className="bg-slate-800 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 text-sm whitespace-nowrap">
+          <div className="bg-slate-800 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 text-sm whitespace-nowrap border border-slate-700">
             <CheckCircle2 className="w-4 h-4 text-green-400" />
             {toastMessage}
           </div>

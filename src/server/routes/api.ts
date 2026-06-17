@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { nanoid } from "nanoid";
 import { db } from "../db/client";
 import {
+  bankRequests,
   classes,
   classStudents,
   ideQuests,
@@ -669,6 +670,205 @@ app.get("/teacher/journals", requireRole(["teacher", "admin"]), async (c) => {
     .orderBy(desc(teacherJournals.createdAt));
 
   return c.json({ journals });
+});
+
+app.post("/teacher/bank-submit", requireRole(["teacher", "admin"]), async (c) => {
+  const user = c.get("authUser");
+  const body = (await c.req.json().catch(() => ({}))) as { type: "material" | "quest"; id: string };
+  if (!body.type || !body.id) return c.json({ message: "Type dan ID wajib diisi." }, 400);
+
+  if (body.type === "material") {
+    const [item] = await db.select().from(materials).where(eq(materials.id, body.id)).limit(1);
+    if (!item || (user.activeRole !== "admin" && item.teacherUserId !== user.id)) return c.json({ message: "Materi tidak ditemukan." }, 404);
+    await db.update(materials).set({ bankStatus: "pending", updatedAt: new Date() }).where(eq(materials.id, body.id));
+  } else {
+    const [item] = await db.select().from(ideQuests).where(eq(ideQuests.id, body.id)).limit(1);
+    if (!item || (user.activeRole !== "admin" && item.teacherUserId !== user.id)) return c.json({ message: "IdeQuest tidak ditemukan." }, 404);
+    await db.update(ideQuests).set({ bankStatus: "pending", updatedAt: new Date() }).where(eq(ideQuests.id, body.id));
+  }
+  return c.json({ ok: true });
+});
+
+app.get("/admin/bank-queue", requireRole(["admin"]), async (c) => {
+  const [materialRows, questRows, userRows] = await Promise.all([
+    db.select().from(materials).where(eq(materials.bankStatus, "pending")).orderBy(desc(materials.updatedAt)),
+    db.select().from(ideQuests).where(eq(ideQuests.bankStatus, "pending")).orderBy(desc(ideQuests.updatedAt)),
+    db.select().from(users)
+  ]);
+
+  return c.json({
+    materials: materialRows.map((item) => ({
+      ...item,
+      teacherName: userRows.find((u) => u.id === item.teacherUserId)?.fullName ?? "Guru"
+    })),
+    quests: questRows.map((item) => ({
+      ...item,
+      teacherName: userRows.find((u) => u.id === item.teacherUserId)?.fullName ?? "Guru"
+    }))
+  });
+});
+
+app.patch("/admin/bank-queue/:type/:id", requireRole(["admin"]), async (c) => {
+  const type = c.req.param("type");
+  const id = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as { status: "approved" | "rejected" };
+  if (!id || (body.status !== "approved" && body.status !== "rejected")) return c.json({ message: "Invalid payload." }, 400);
+
+  if (type === "material") {
+    await db.update(materials).set({ bankStatus: body.status, updatedAt: new Date() }).where(eq(materials.id, id));
+  } else if (type === "quest") {
+    await db.update(ideQuests).set({ bankStatus: body.status, updatedAt: new Date() }).where(eq(ideQuests.id, id));
+  }
+  return c.json({ ok: true });
+});
+
+app.get("/teacher/bank-public", requireRole(["teacher", "admin"]), async (c) => {
+  const [materialRows, questRows, userRows] = await Promise.all([
+    db.select().from(materials).where(eq(materials.bankStatus, "approved")).orderBy(desc(materials.updatedAt)),
+    db.select().from(ideQuests).where(eq(ideQuests.bankStatus, "approved")).orderBy(desc(ideQuests.updatedAt)),
+    db.select().from(users)
+  ]);
+
+  return c.json({
+    materials: materialRows.map((item) => ({
+      ...item,
+      teacherName: userRows.find((u) => u.id === item.teacherUserId)?.fullName ?? "Guru"
+    })),
+    quests: questRows.map((item) => ({
+      ...item,
+      teacherName: userRows.find((u) => u.id === item.teacherUserId)?.fullName ?? "Guru"
+    }))
+  });
+});
+
+app.post("/teacher/bank-requests", requireRole(["teacher", "admin"]), async (c) => {
+  const user = c.get("authUser");
+  const body = (await c.req.json().catch(() => ({}))) as {
+    itemType: "material" | "quest";
+    itemId: string;
+    targetClassId: string;
+  };
+
+  if (!body.itemType || !body.itemId || !body.targetClassId) return c.json({ message: "Payload tidak lengkap." }, 400);
+
+  let ownerUserId: string | null = null;
+  if (body.itemType === "material") {
+    const [item] = await db.select().from(materials).where(eq(materials.id, body.itemId)).limit(1);
+    if (!item || item.bankStatus !== "approved") return c.json({ message: "Materi tidak tersedia di bank." }, 404);
+    if (item.teacherUserId === user.id) return c.json({ message: "Anda tidak perlu meminta materi Anda sendiri." }, 400);
+    ownerUserId = item.teacherUserId;
+  } else {
+    const [item] = await db.select().from(ideQuests).where(eq(ideQuests.id, body.itemId)).limit(1);
+    if (!item || item.bankStatus !== "approved") return c.json({ message: "IdeQuest tidak tersedia di bank." }, 404);
+    if (item.teacherUserId === user.id) return c.json({ message: "Anda tidak perlu meminta IdeQuest Anda sendiri." }, 400);
+    ownerUserId = item.teacherUserId;
+  }
+
+  const [targetClass] = await db.select().from(classes).where(eq(classes.id, body.targetClassId)).limit(1);
+  if (!targetClass || targetClass.teacherUserId !== user.id) return c.json({ message: "Kelas target tidak valid." }, 400);
+
+  const now = new Date();
+  const [request] = await db.insert(bankRequests).values({
+    id: `breq_${crypto.randomUUID()}`,
+    requesterUserId: user.id,
+    ownerUserId,
+    targetClassId: body.targetClassId,
+    itemType: body.itemType,
+    itemId: body.itemId,
+    status: "pending",
+    createdAt: now,
+    updatedAt: now
+  }).returning();
+
+  return c.json({ request }, 201);
+});
+
+app.get("/teacher/bank-requests", requireRole(["teacher", "admin"]), async (c) => {
+  const user = c.get("authUser");
+  const [incoming, outgoing, userRows, materialRows, questRows] = await Promise.all([
+    db.select().from(bankRequests).where(eq(bankRequests.ownerUserId, user.id)).orderBy(desc(bankRequests.createdAt)),
+    db.select().from(bankRequests).where(eq(bankRequests.requesterUserId, user.id)).orderBy(desc(bankRequests.createdAt)),
+    db.select().from(users),
+    db.select().from(materials),
+    db.select().from(ideQuests)
+  ]);
+
+  const mapRequest = (req: any) => {
+    const requester = userRows.find((u) => u.id === req.requesterUserId);
+    const owner = userRows.find((u) => u.id === req.ownerUserId);
+    const item = req.itemType === "material" 
+      ? materialRows.find(m => m.id === req.itemId) 
+      : questRows.find(q => q.id === req.itemId);
+    
+    return {
+      ...req,
+      requesterName: requester?.fullName ?? requester?.name ?? "Guru",
+      ownerName: owner?.fullName ?? owner?.name ?? "Guru",
+      itemTitle: item?.title ?? "Item tidak diketahui"
+    };
+  };
+
+  return c.json({
+    incoming: incoming.map(mapRequest),
+    outgoing: outgoing.map(mapRequest)
+  });
+});
+
+app.patch("/teacher/bank-requests/:id", requireRole(["teacher", "admin"]), async (c) => {
+  const user = c.get("authUser");
+  const id = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as { status: "approved" | "rejected" };
+  if (!id || (body.status !== "approved" && body.status !== "rejected")) return c.json({ message: "Invalid payload." }, 400);
+
+  const [request] = await db.select().from(bankRequests).where(eq(bankRequests.id, id)).limit(1);
+  if (!request) return c.json({ message: "Permintaan tidak ditemukan." }, 404);
+  if (request.ownerUserId !== user.id) return c.json({ message: "Anda tidak berhak memproses permintaan ini." }, 403);
+  if (request.status !== "pending") return c.json({ message: "Permintaan sudah diproses." }, 400);
+
+  await db.update(bankRequests).set({ status: body.status, updatedAt: new Date() }).where(eq(bankRequests.id, id));
+
+  if (body.status === "approved") {
+    const now = new Date();
+    if (request.itemType === "material") {
+      const [item] = await db.select().from(materials).where(eq(materials.id, request.itemId)).limit(1);
+      if (item) {
+        await db.insert(materials).values({
+          id: `mat_${crypto.randomUUID()}`,
+          teacherUserId: request.requesterUserId,
+          classId: request.targetClassId,
+          title: `${item.title} (Clone)`,
+          type: item.type,
+          description: item.description,
+          content: item.content,
+          options: item.options,
+          status: "published",
+          bankStatus: "none",
+          createdAt: now,
+          updatedAt: now
+        });
+      }
+    } else {
+      const [item] = await db.select().from(ideQuests).where(eq(ideQuests.id, request.itemId)).limit(1);
+      if (item) {
+        await db.insert(ideQuests).values({
+          id: `iq_${crypto.randomUUID()}`,
+          teacherUserId: request.requesterUserId,
+          classId: request.targetClassId,
+          materialId: null,
+          title: `${item.title} (Clone)`,
+          mission: item.mission,
+          points: item.points,
+          dueDate: item.dueDate,
+          status: "published",
+          bankStatus: "none",
+          createdAt: now,
+          updatedAt: now
+        });
+      }
+    }
+  }
+
+  return c.json({ ok: true });
 });
 
 async function getStudentClassIds(userId: string) {

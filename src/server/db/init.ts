@@ -111,6 +111,7 @@ export function initializeDatabase() {
       content TEXT,
       options TEXT,
       status TEXT NOT NULL DEFAULT 'published',
+      bank_status TEXT NOT NULL DEFAULT 'none',
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
@@ -125,6 +126,7 @@ export function initializeDatabase() {
       points INTEGER NOT NULL DEFAULT 100,
       due_date TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'published',
+      bank_status TEXT NOT NULL DEFAULT 'none',
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
@@ -162,6 +164,18 @@ export function initializeDatabase() {
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS bank_requests (
+      id TEXT PRIMARY KEY,
+      requester_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      owner_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      target_class_id TEXT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+      item_type TEXT NOT NULL,
+      item_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `);
 
   ensureColumn("users", "full_name", "TEXT");
@@ -172,6 +186,8 @@ export function initializeDatabase() {
   ensureColumn("classes", "class_code", "TEXT");
   ensureColumn("materials", "content", "TEXT");
   ensureColumn("materials", "options", "TEXT");
+  ensureColumn("materials", "bank_status", "TEXT NOT NULL DEFAULT 'none'");
+  ensureColumn("ide_quests", "bank_status", "TEXT NOT NULL DEFAULT 'none'");
   rawDb.exec("CREATE UNIQUE INDEX IF NOT EXISTS classes_class_code_idx ON classes(class_code);");
 }
 
