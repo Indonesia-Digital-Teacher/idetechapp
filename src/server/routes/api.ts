@@ -471,13 +471,14 @@ app.post("/teacher/materials", requireRole(["teacher", "admin"]), requirePermiss
 app.patch("/teacher/materials/:id", requireRole(["teacher", "admin"]), requirePermission("material.create"), async (c) => {
   const user = c.get("authUser");
   const id = c.req.param("id");
+  if (!id) return c.json({ message: "ID materi wajib diisi." }, 400);
   const body = (await c.req.json().catch(() => ({}))) as {
     title?: string;
     type?: "lesson" | "video" | "document" | "quiz";
     description?: string;
     content?: string;
     options?: unknown;
-    status?: "draft" | "published" | "archived";
+    status?: "draft" | "published";
   };
 
   const [targetMaterial] = await db.select().from(materials).where(eq(materials.id, id));
@@ -566,6 +567,7 @@ app.post("/teacher/idequests", requireRole(["teacher", "admin"]), requirePermiss
 app.patch("/teacher/idequests/:id", requireRole(["teacher", "admin"]), requirePermission("quest.manage"), async (c) => {
   const user = c.get("authUser");
   const id = c.req.param("id");
+  if (!id) return c.json({ message: "ID IdeQuest wajib diisi." }, 400);
   const body = (await c.req.json().catch(() => ({}))) as {
     materialId?: string | null;
     title?: string;
