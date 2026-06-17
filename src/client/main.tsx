@@ -15,6 +15,7 @@ import {
   House,
   LayoutDashboard,
   LogOut,
+  Lock,
   Map,
   MoreHorizontal,
   Pencil,
@@ -1374,6 +1375,7 @@ function StudentContentModal({
 }) {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [classCode, setClassCode] = useState("");
+  const [showClasses, setShowClasses] = useState(false);
   const title = roleMenuLabels.student[active];
   const summary = {
     studio: "Materi dari guru yang bisa dipelajari siswa.",
@@ -1397,7 +1399,7 @@ function StudentContentModal({
   }
 
   return (
-    <div className="student-profile-modal student-content-modal" role="dialog" aria-modal="true" aria-labelledby="student-content-title">
+    <div className={`student-profile-modal student-content-modal ${active === "studio" ? "is-centered" : ""}`} role="dialog" aria-modal="true" aria-labelledby="student-content-title">
       <div className="student-profile-modal__backdrop" onClick={onClose} />
       <section className={active === "studio" ? "student-profile-modal__panel student-content-modal__panel is-task-panel" : "student-profile-modal__panel student-content-modal__panel"}>
         {active !== "studio" ? (
@@ -1475,31 +1477,37 @@ function StudentContentModal({
         ) : null}
 
         {active === "quest" ? (
-          <div className="student-content-grid">
-            {quests.length ? null : <p className="student-content-empty">Belum ada IdeQuest aktif. Masuk ke kelas guru atau tunggu quest dipublikasikan.</p>}
+          <div className="student-task-card-grid">
+            {quests.length ? null : <p className="student-content-empty text-slate-100 col-span-3 text-center">Belum ada IdeQuest aktif.</p>}
             {quests.map((quest) => {
               const relatedMaterial = materials.find((material) => material.id === quest.materialId);
               const materialDone = !quest.materialId || (relatedMaterial?.progress ?? 0) >= 100;
+              const isDone = quest.progress >= 100;
+              const isUnavailable = !materialDone;
 
               return (
-                <article key={quest.id} className="student-content-card is-quest">
-                  <span className="student-content-card__icon">
-                    <Puzzle className="h-8 w-8" strokeWidth={2.8} />
+                <button
+                  key={quest.id}
+                  type="button"
+                  className={[
+                    "student-task-card is-quest-card",
+                    isDone ? "is-done" : "",
+                    isUnavailable ? "is-unavailable" : "",
+                    selectedTaskId === quest.id ? "is-selected" : ""
+                  ].filter(Boolean).join(" ")}
+                  disabled={isUnavailable}
+                  onClick={() => setSelectedTaskId(quest.id)}
+                >
+                  <span className="student-task-card__star">
+                    <Star className="h-6 w-6" fill="currentColor" strokeWidth={2.4} />
                   </span>
-                  <div>
-                    <small>{quest.dueDate} | {quest.points} poin</small>
-                    <h3>{quest.title}</h3>
-                    <p>{quest.mission}</p>
-                    {relatedMaterial ? <em>Materi: {relatedMaterial.title}</em> : null}
-                  </div>
-                  <div className="student-content-progress">
-                    <span>{quest.progress}%</span>
-                    <i style={{ width: `${quest.progress}%` }} />
-                  </div>
-                  <button type="button" disabled={busy || quest.progress >= 100 || !materialDone} onClick={() => onCompleteQuest(quest.id)}>
-                    {quest.progress >= 100 ? "Terkumpul" : materialDone ? "Kumpulkan Quest" : "Selesaikan Materi"}
-                  </button>
-                </article>
+                  <span className="student-task-card__bonus">+{quest.points}</span>
+                  <span className="student-task-card__art">
+                    <Puzzle className="h-14 w-14" strokeWidth={2.8} />
+                  </span>
+                  <span className="student-task-card__label">{quest.title}</span>
+                  <span className="student-task-card__status">{isDone ? "Selesai" : isUnavailable ? "Terkunci" : "Terbuka"}</span>
+                </button>
               );
             })}
           </div>
@@ -1515,20 +1523,25 @@ function StudentContentModal({
               <strong>{meta?.completedMaterials ?? 0}</strong>
               <span>Materi Selesai</span>
             </div>
-            <div className="student-content-grid">
-              {achievements.map((achievement) => (
-                <article key={achievement.id} className={achievement.unlocked ? "student-content-card is-trophy is-unlocked" : "student-content-card is-trophy"}>
-                  <span className="student-content-card__icon">
-                    <Trophy className="h-8 w-8" strokeWidth={2.8} />
-                  </span>
-                  <div>
-                    <small>{achievement.unlocked ? "Unlocked" : "Locked"}</small>
-                    <h3>{achievement.title}</h3>
-                    <p>{achievement.description}</p>
-                  </div>
-                  <b>{achievement.value}</b>
-                </article>
-              ))}
+            <div className="student-badges-grid">
+              {achievements.length ? null : <p className="student-content-empty">Belum ada pencapaian yang bisa diraih.</p>}
+              {achievements.map((achievement, idx) => {
+                const colors = ['is-gold', 'is-purple', 'is-green', 'is-blue'];
+                const colorClass = colors[idx % 4];
+                return (
+                  <article key={achievement.id} className="student-badge-item">
+                    <div className="student-badge-shield-wrap">
+                      <div className={`student-badge-shield ${colorClass} ${achievement.unlocked ? 'is-unlocked' : 'is-locked'}`} title={achievement.description}>
+                        <div className="student-badge-shield__inner">
+                          <Star className="h-6 w-6" strokeWidth={3} fill="currentColor" />
+                        </div>
+                      </div>
+                    </div>
+                    <strong>{achievement.title}</strong>
+                    <span>{achievement.description}</span>
+                  </article>
+                );
+              })}
             </div>
           </div>
         ) : null}
@@ -1536,9 +1549,19 @@ function StudentContentModal({
         {active === "map" ? (
           <div className="student-class-join-wrap">
             <form className="student-class-join" onSubmit={submitClassCode}>
-              <div>
-                <strong>Masuk kelas</strong>
-                <span>Masukkan ClassID dari guru untuk membuka materi dan IdeQuest kelas.</span>
+              <div className="flex justify-between items-start w-full">
+                <div>
+                  <strong>Masuk kelas</strong>
+                  <span>Masukkan ClassID dari guru untuk membuka materi dan IdeQuest kelas.</span>
+                </div>
+                <button 
+                  type="button" 
+                  onClick={() => setShowClasses(!showClasses)}
+                  className="text-[11px] bg-[#ffd320] hover:bg-[#ffdf55] text-[#7d2f0f] px-3 py-1.5 rounded-full font-black ml-2 shrink-0 border-b-[3px] border-[#d69818] transition-colors"
+                  style={{ textShadow: "none", boxShadow: "0 2px 4px rgba(125, 47, 15, 0.15)" }}
+                >
+                  {showClasses ? "Sembunyikan" : `Kelas (${classes.length})`}
+                </button>
               </div>
               <div className="student-class-join__control">
                 <input
@@ -1550,41 +1573,70 @@ function StudentContentModal({
                   Gabung
                 </button>
               </div>
+
+              {showClasses && (
+                <div className="student-class-list mt-2 pt-4 border-t-2 border-[#e6b12a] w-full">
+                  {classes.length ? null : <p className="text-[#7d2f0f] text-sm font-bold text-center">Belum tergabung di kelas.</p>}
+                  {classes.map((kelas) => (
+                    <article key={kelas.id} className="student-class-card">
+                      <span>{kelas.classCode ?? kelas.nextSession}</span>
+                      <strong>{kelas.name}</strong>
+                      <small>{kelas.subject} - Kelas {kelas.grade} · {kelas.students} siswa</small>
+                    </article>
+                  ))}
+                </div>
+              )}
             </form>
 
-            <div className="student-class-list">
-              {classes.length ? null : <p className="student-content-empty">Belum tergabung di kelas. Minta ClassID dari guru.</p>}
-              {classes.map((kelas) => (
-                <article key={kelas.id} className="student-class-card">
-                  <span>{kelas.classCode ?? kelas.nextSession}</span>
-                  <strong>{kelas.name}</strong>
-                  <small>{kelas.subject} - Kelas {kelas.grade} · {kelas.students} siswa</small>
-                </article>
-              ))}
-            </div>
-
-            <div className="student-map-path">
+            <div className="student-map-path-saga">
               {[...materials, ...quests].length ? null : <p className="student-content-empty">Materi dan IdeQuest akan muncul setelah kamu masuk kelas.</p>}
-              {materials.map((material, index) => {
-                const linkedQuests = quests.filter((quest) => quest.materialId === material.id);
-                return (
-                  <article key={material.id} className="student-map-node">
-                    <span className="student-map-node__step">{index + 1}</span>
-                    <div>
-                      <small>Materi Guru</small>
-                      <h3>{material.title}</h3>
-                      <p>{material.progress >= 100 ? "Materi selesai. Lanjutkan ke IdeQuest." : "Pelajari materi ini untuk membuka misi."}</p>
-                    </div>
-                    {linkedQuests.map((quest) => (
-                      <div key={quest.id} className="student-map-node__quest">
-                        <Puzzle className="h-5 w-5" />
-                        <span>{quest.title}</span>
-                        <strong>{quest.progress >= 100 ? "Selesai" : `${quest.points} poin`}</strong>
+              
+              <div className="saga-path-container">
+                {(() => {
+                  const pathNodes: { type: 'material'|'quest', data: any, id: string, title: string, progress: number }[] = [];
+                  materials.forEach(m => {
+                    pathNodes.push({ type: 'material', data: m, id: m.id, title: m.title, progress: m.progress });
+                    quests.filter(q => q.materialId === m.id).forEach(q => {
+                      pathNodes.push({ type: 'quest', data: q, id: q.id, title: q.title, progress: q.progress });
+                    });
+                  });
+                  quests.filter(q => !q.materialId).forEach(q => {
+                    pathNodes.push({ type: 'quest', data: q, id: q.id, title: q.title, progress: q.progress });
+                  });
+
+                  return pathNodes.map((node, i) => {
+                    const isCompleted = node.progress >= 100;
+                    const prevCompleted = i === 0 || pathNodes[i-1].progress >= 100;
+                    const isLocked = !isCompleted && !prevCompleted;
+                    const statusClass = isCompleted ? 'is-completed' : isLocked ? 'is-locked' : 'is-active';
+                    
+                    const positions = ['pos-center', 'pos-right', 'pos-center', 'pos-left'];
+                    const alignClass = positions[i % 4];
+
+                    return (
+                      <div key={node.id} className={`saga-node-wrapper ${alignClass}`}>
+                        <button 
+                          className={`saga-node-btn ${statusClass}`}
+                          onClick={() => {
+                            if (!isLocked && node.type === 'material') {
+                                setSelectedTaskId(node.id);
+                            }
+                          }}
+                          aria-label={node.title}
+                        >
+                           <div className="saga-node-btn__inner">
+                             {isLocked ? <Lock className="w-6 h-6" /> : (node.type === 'quest' ? <Puzzle className="w-6 h-6" /> : <BookOpen className="w-6 h-6" />)}
+                           </div>
+                        </button>
+                        <div className="saga-node-label">
+                          <small>{node.type === 'material' ? 'Materi' : 'Quest'}</small>
+                          <span>{node.title}</span>
+                        </div>
                       </div>
-                    ))}
-                  </article>
-                );
-              })}
+                    )
+                  });
+                })()}
+              </div>
             </div>
           </div>
         ) : null}
@@ -1599,37 +1651,37 @@ function StudentContentModal({
             <button className="student-task-detail__close" type="button" onClick={() => setSelectedTaskId(null)} aria-label="Tutup detail tugas">
               <X className="h-5 w-5" strokeWidth={4} />
             </button>
-            <small>{selectedTask.type}</small>
+            <small>{(selectedTask as any).type || 'IdeQuest'}</small>
             <h3>{selectedTask.title}</h3>
-            <p>{selectedTask.description}</p>
+            <p>{(selectedTask as any).description || (selectedTask as any).mission}</p>
             
-            {selectedTask.content && (
+            { (selectedTask as any).content && (
               <div className="mt-4 mb-6 bg-slate-50 border border-slate-200 rounded-xl p-4 overflow-hidden shadow-inner">
-                {selectedTask.type === 'lesson' && (
+                {(selectedTask as any).type === 'lesson' && (
                   <div className="prose prose-sm prose-blue max-w-none text-slate-700 overflow-y-auto max-h-[300px] pr-2">
-                    <ReactMarkdown rehypePlugins={[rehypeRaw]}>{selectedTask.content}</ReactMarkdown>
+                    <ReactMarkdown rehypePlugins={[rehypeRaw]}>{(selectedTask as any).content}</ReactMarkdown>
                   </div>
                 )}
-                {selectedTask.type === 'video' && (
+                {(selectedTask as any).type === 'video' && (
                   <div className="aspect-video w-full bg-black rounded-lg overflow-hidden relative shadow-md">
                     <iframe 
-                      src={selectedTask.content.includes("watch?v=") ? selectedTask.content.replace("watch?v=", "embed/") : selectedTask.content}
+                      src={(selectedTask as any).content.includes("watch?v=") ? (selectedTask as any).content.replace("watch?v=", "embed/") : (selectedTask as any).content}
                       title="Video Viewer"
                       className="absolute inset-0 w-full h-full border-0"
                       allowFullScreen
                     />
                   </div>
                 )}
-                {selectedTask.type === 'document' && (
+                {(selectedTask as any).type === 'document' && (
                   <div className="flex flex-col items-center justify-center p-6 bg-white border border-slate-200 rounded-lg">
                     <ScrollText className="h-10 w-10 text-slate-400 mb-2" />
                     <p className="text-slate-600 text-sm mb-4 font-medium text-center">Dokumen PDF siap dibaca oleh siswa.</p>
-                    <a href={selectedTask.content} target="_blank" rel="noreferrer" className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-sm transition-colors shadow-sm shadow-blue-500/20">
+                    <a href={(selectedTask as any).content} target="_blank" rel="noreferrer" className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-sm transition-colors shadow-sm shadow-blue-500/20">
                       Buka Dokumen
                     </a>
                   </div>
                 )}
-                {selectedTask.type === 'quiz' && (
+                {(selectedTask as any).type === 'quiz' && (
                   <div className="flex flex-col items-center justify-center py-8">
                     <Puzzle className="h-12 w-12 text-yellow-500 mb-4 drop-shadow-sm" />
                     <p className="text-slate-800 font-bold text-lg mb-2">Kuis Interaktif</p>
@@ -1643,8 +1695,22 @@ function StudentContentModal({
               <span>{selectedTask.progress}%</span>
               <i style={{ width: `${selectedTask.progress}%` }} />
             </div>
-            <button type="button" disabled={busy || selectedTask.progress >= 100} onClick={() => onCompleteMaterial(selectedTask.id)}>
-              {selectedTask.progress >= 100 ? "Tugas Selesai" : selectedTask.type === "lesson" ? "Saya Sudah Membaca Materi Ini" : "Buka dan Kerjakan"}
+            <button 
+              type="button" 
+              disabled={busy || selectedTask.progress >= 100} 
+              onClick={() => {
+                if ('mission' in selectedTask) {
+                  onCompleteQuest(selectedTask.id);
+                } else {
+                  onCompleteMaterial(selectedTask.id);
+                }
+              }}
+            >
+              {selectedTask.progress >= 100 
+                ? "Tugas Selesai" 
+                : ('mission' in selectedTask 
+                  ? "Kumpulkan Quest" 
+                  : ((selectedTask as any).type === "lesson" ? "Saya Sudah Membaca Materi Ini" : "Buka dan Kerjakan"))}
             </button>
           </article>
         </div>
