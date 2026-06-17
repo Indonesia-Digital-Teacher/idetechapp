@@ -2755,8 +2755,8 @@ body {
   flex: 0 0 auto;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
-  margin: -78px 6px 122px;
-  transform: translateY(-12px);
+  margin: -78px 6px 152px;
+  transform: translateY(-24px);
 }
 
 .student-compact-actions .game-chapter-panel,
