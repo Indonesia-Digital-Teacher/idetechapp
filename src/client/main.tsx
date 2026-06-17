@@ -2546,6 +2546,12 @@ function TeacherStudioManager({
 
   const [showBankModal, setShowBankModal] = React.useState(false);
   const [bankTab, setBankTab] = React.useState<"material" | "quest">("material");
+  const [toastMessage, setToastMessage] = React.useState<string | null>(null);
+
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
   return (
     <section className="teacher-studio-manager">
@@ -2835,7 +2841,7 @@ function TeacherStudioManager({
                 <span className="text-xs text-slate-500">{item.type} - {classes.find((kelas) => kelas.id === item.classId)?.name ?? "Kelas"}</span>
               </div>
               <div className="flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                <button type="button" onClick={() => alert("Permintaan dikirim! Materi ini akan ditinjau oleh tim IdeTech sebelum masuk ke Bank Materi.")} className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors" title="Kirim ke Bank Materi">
+                <button type="button" onClick={() => showToast("Materi ini akan ditinjau oleh tim IdeTech sebelum masuk ke Bank Materi.")} className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors" title="Kirim ke Bank Materi">
                   <Upload className="h-4 w-4" />
                 </button>
                 {onEditMaterial && (
@@ -2856,7 +2862,7 @@ function TeacherStudioManager({
                 <span className="text-xs text-slate-500">{item.points} poin - {item.dueDate}</span>
               </div>
               <div className="flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                <button type="button" onClick={() => alert("Permintaan dikirim! IdeQuest ini akan ditinjau oleh tim IdeTech sebelum masuk ke Bank IdeQuest.")} className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors" title="Kirim ke Bank IdeQuest">
+                <button type="button" onClick={() => showToast("IdeQuest ini akan ditinjau oleh tim IdeTech sebelum masuk ke Bank IdeQuest.")} className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors" title="Kirim ke Bank IdeQuest">
                   <Upload className="h-4 w-4" />
                 </button>
                 {onEditQuest && (
@@ -2967,6 +2973,15 @@ function TeacherStudioManager({
                 Tutup Bank
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {toastMessage && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[110] animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <div className="bg-slate-800 text-white px-5 py-3 rounded-full shadow-lg flex items-center gap-3 text-sm font-medium border border-slate-700">
+            <CheckCircle2 className="w-5 h-5 text-green-400" />
+            {toastMessage}
           </div>
         </div>
       )}
@@ -3840,6 +3855,7 @@ function AdminControlCenter({
       <div className="grid gap-6">
         <AdminSystemConfig access={access} />
         <AdminPermissionPanel access={access} busy={busy} onUpdateRolePermissions={onUpdateRolePermissions} />
+        <AdminBankApprovalPanel />
       </div>
     </section>
   );
@@ -4739,6 +4755,104 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
         </div>
       )}
     </div>
+  );
+}
+
+function AdminBankApprovalPanel() {
+  const [tab, setTab] = React.useState<"material" | "quest">("material");
+  const [toastMessage, setToastMessage] = React.useState<string | null>(null);
+
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const dummyMaterials = [
+    { id: "1", title: "Pengenalan Algoritma", teacher: "Budi Santoso", date: "2026-06-15" },
+    { id: "2", title: "Dasar Pemrograman Web", teacher: "Siti Aminah", date: "2026-06-16" }
+  ];
+
+  const dummyQuests = [
+    { id: "1", title: "Membangun Web Sederhana", teacher: "Budi Santoso", points: 150 },
+    { id: "2", title: "Kuis Logika Cepat", teacher: "Ahmad Fauzi", points: 50 }
+  ];
+
+  return (
+    <Card className="professional-card p-5 relative overflow-hidden">
+      <div className="professional-card__header mb-4">
+        <div>
+          <h3 className="professional-card__title flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-blue-500" />
+            Persetujuan Bank IdeTech
+          </h3>
+          <p className="professional-card__hint">Tinjau dan setujui materi/quest yang dikirim guru untuk diterbitkan ke publik.</p>
+        </div>
+      </div>
+
+      <div className="flex border-b border-slate-100 mb-4">
+        <button
+          type="button"
+          onClick={() => setTab("material")}
+          className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors ${tab === "material" ? "border-blue-500 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+        >
+          Antrean Materi
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("quest")}
+          className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors ${tab === "quest" ? "border-blue-500 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+        >
+          Antrean IdeQuest
+        </button>
+      </div>
+
+      <div className="grid gap-3">
+        {tab === "material" ? (
+          dummyMaterials.map(item => (
+            <div key={item.id} className="flex justify-between items-center p-3 border border-slate-100 rounded-lg hover:border-blue-100 bg-slate-50/50">
+              <div>
+                <strong className="text-sm text-slate-700 block">{item.title}</strong>
+                <span className="text-xs text-slate-500">Oleh: {item.teacher} • {item.date}</span>
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" onClick={() => showToast(`Materi '${item.title}' disetujui.`)} className="px-3 py-1.5 text-xs bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800 border-none shadow-sm">
+                  <CheckCircle2 className="w-3.5 h-3.5 mr-1 inline" /> Setujui
+                </Button>
+                <Button type="button" onClick={() => showToast(`Materi '${item.title}' ditolak.`)} className="px-3 py-1.5 text-xs bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800 border-none shadow-sm">
+                  <X className="w-3.5 h-3.5 mr-1 inline" /> Tolak
+                </Button>
+              </div>
+            </div>
+          ))
+        ) : (
+          dummyQuests.map(item => (
+            <div key={item.id} className="flex justify-between items-center p-3 border border-slate-100 rounded-lg hover:border-blue-100 bg-slate-50/50">
+              <div>
+                <strong className="text-sm text-slate-700 block">{item.title}</strong>
+                <span className="text-xs text-slate-500">Oleh: {item.teacher} • {item.points} poin</span>
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" onClick={() => showToast(`IdeQuest '${item.title}' disetujui.`)} className="px-3 py-1.5 text-xs bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800 border-none shadow-sm">
+                  <CheckCircle2 className="w-3.5 h-3.5 mr-1 inline" /> Setujui
+                </Button>
+                <Button type="button" onClick={() => showToast(`IdeQuest '${item.title}' ditolak.`)} className="px-3 py-1.5 text-xs bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800 border-none shadow-sm">
+                  <X className="w-3.5 h-3.5 mr-1 inline" /> Tolak
+                </Button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {toastMessage && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 animate-in fade-in slide-in-from-bottom-2">
+          <div className="bg-slate-800 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 text-sm whitespace-nowrap">
+            <CheckCircle2 className="w-4 h-4 text-green-400" />
+            {toastMessage}
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }
 
