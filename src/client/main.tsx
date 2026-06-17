@@ -1094,9 +1094,14 @@ function StudentCompactDashboard({
           </div>
 
           <div className="student-compact-center">
-            <div className="game-island compact">
-              <div className="game-island__rock" />
-              <div className="game-island__gate">
+            <div className="flex flex-col items-center justify-center pt-8">
+              <img 
+                src="/karaktergame3d.webp" 
+                alt="Karakter Utama" 
+                className="w-56 h-56 object-contain drop-shadow-2xl animate-bounce"
+                style={{ animationDuration: '3s' }}
+              />
+              <div className="game-island__gate mt-[-20px] relative z-10">
                 <span>{content.badge}</span>
               </div>
             </div>
@@ -2351,6 +2356,7 @@ function TeacherStudioManager({
   onCreateQuest: (event: React.FormEvent<HTMLFormElement>) => void;
 }) {
   const [activeTab, setActiveTab] = React.useState<"material" | "quest">("material");
+  const [showMarkdownGuide, setShowMarkdownGuide] = React.useState(false);
   const selectedClassMaterials = materials.filter((material) => material.classId === questForm.classId);
 
   return (
@@ -2427,9 +2433,15 @@ function TeacherStudioManager({
           <label>
             <span className="flex items-center gap-2">
               Isi Lesson (Teks/Markdown)
-              <div className="tooltip tooltip-right" data-tip="Gunakan Markdown: **tebal**, *miring*, - list, [link](url)">
-                <Info className="h-4 w-4 text-blue-500/70 hover:text-blue-500 cursor-help transition-colors" />
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowMarkdownGuide(true)}
+                className="text-blue-500/70 hover:text-blue-500 transition-colors focus:outline-none rounded-full p-0.5 hover:bg-blue-50"
+                aria-label="Petunjuk penulisan Markdown"
+                title="Petunjuk penulisan Markdown"
+              >
+                <Info className="h-4 w-4" />
+              </button>
             </span>
             <textarea
               rows={6}
@@ -2575,6 +2587,50 @@ function TeacherStudioManager({
           ))}
         </div>
       </div>
+
+      {showMarkdownGuide && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <Info className="h-5 w-5 text-blue-500" />
+                Panduan Markdown
+              </h3>
+              <button type="button" onClick={() => setShowMarkdownGuide(false)} className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-md hover:bg-slate-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-5 overflow-y-auto text-slate-600 text-sm space-y-4">
+              <p>Anda dapat menggunakan sintaks Markdown untuk mengatur format teks materi secara cepat:</p>
+              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-100 text-xs sm:text-sm">
+                <div><strong>**Tebal**</strong></div>
+                <div><span className="font-bold">Tebal</span></div>
+                
+                <div><em>*Miring*</em></div>
+                <div><span className="italic">Miring</span></div>
+                
+                <div># Heading 1</div>
+                <div className="text-lg font-bold">Heading 1</div>
+                
+                <div>## Heading 2</div>
+                <div className="text-base font-bold">Heading 2</div>
+                
+                <div>- Item 1<br/>- Item 2</div>
+                <ul className="list-disc pl-4 m-0"><li>Item 1</li><li>Item 2</li></ul>
+                
+                <div>[Teks](https://...)</div>
+                <div className="text-blue-500 underline">Teks Tautan</div>
+                
+                <div>![Gambar](url)</div>
+                <div className="text-slate-500 flex items-center gap-1"><ImageIcon className="h-3 w-3"/> Gambar</div>
+              </div>
+              <div className="pt-4 flex justify-end">
+                <Button type="button" onClick={() => setShowMarkdownGuide(false)}>Tutup Panduan</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

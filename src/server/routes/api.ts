@@ -823,10 +823,8 @@ app.get("/student/indicators", requireRole(["student"]), async (c) => {
     : studentQuestCatalog.filter((quest) => quest.progress >= 100).length;
   const totalUnits = visibleMaterials.length + (dbQuests.length || studentQuestCatalog.length);
   const completedUnits = completedMaterials + completedQuests;
-  const gradeNumber = Number.parseInt(activeClass?.grade ?? "1", 10);
-  const normalizedGrade = Number.isFinite(gradeNumber) && gradeNumber > 0 ? gradeNumber : 1;
-  const levelValue = Math.max(1, normalizedGrade * 10 + completedUnits + Math.floor(totalPoints / 100));
-  const chapterValue = activeClass ? normalizedGrade : 0;
+  const levelValue = Math.max(1, dbQuests.length * 10 + completedUnits + Math.floor(totalPoints / 100));
+  const chapterValue = activeClass ? visibleMaterials.length : 0;
   const chapterLabel = activeClass ? `Chapter ${chapterValue}` : "Belum Masuk Kelas";
   const chapterProgressLabel = totalUnits > 0 ? `${completedUnits}/${totalUnits}` : "0/0";
   const progressPercent = totalUnits > 0 ? Math.round((completedUnits / totalUnits) * 100) : 0;
