@@ -51,7 +51,9 @@ import {
   AlignCenter,
   List,
   ListOrdered,
-  AlignJustify
+  AlignJustify,
+  MessageCircle,
+  Send
 } from "lucide-react";
 import { Button, Card, SecondaryButton, Select, StatusPill } from "./components/ui";
 import "./styles.css";
@@ -2011,6 +2013,7 @@ function TeacherSpaceDashboard({
   const [classSummary, setClassSummary] = useState<TeacherClassSummary | null>(null);
   const [activeClassFilter, setActiveClassFilter] = useState<string>("all");
   const [activeFeature, setActiveFeature] = useState<string | null>(null);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [classForm, setClassForm] = useState({
     name: "",
     subject: "",
@@ -2463,6 +2466,17 @@ function TeacherSpaceDashboard({
           </footer>
         </article>
       </section>
+
+      <TeacherChatWidget isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+      
+      {!isChatOpen && (
+        <button 
+          onClick={() => setIsChatOpen(true)}
+          className="fixed bottom-24 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/50 md:bottom-8 md:right-8 transition-transform hover:scale-105"
+        >
+          <MessageCircle className="h-6 w-6" />
+        </button>
+      )}
 
       <TeacherBottomNav active={activeMenu} onChange={onChangeMenu} />
     </main>
@@ -4960,6 +4974,108 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function TeacherChatWidget({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const [messages, setMessages] = React.useState<{ role: "user" | "bot"; text: string }[]>([
+    { role: "bot", text: "Halo Kak! Saya asisten AI Cybra. Ada yang bisa saya bantu untuk hari ini?" }
+  ]);
+  const [input, setInput] = React.useState("");
+  const [isLoading, setIsLoading] = React.useState(false);
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, isOpen]);
+
+  if (!isOpen) return null;
+
+  async function handleSend(e: React.FormEvent) {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+
+    const userMessage = input.trim();
+    setInput("");
+    setMessages((prev) => [...prev, { role: "user", text: userMessage }]);
+    setIsLoading(true);
+
+    try {
+      const history = messages.slice(1).map((m) => ({ role: m.role === "bot" ? "assistant" : "user", content: m.text }));
+      const response = await fetch("/api/teacher/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMessage, history })
+      });
+      const data = await response.json();
+      
+      if (!response.ok) throw new Error(data.message || "Gagal menghubungi AI");
+      
+      setMessages((prev) => [...prev, { role: "bot", text: data.reply || "Maaf, tidak ada respons." }]);
+    } catch (err) {
+      console.error(err);
+      setMessages((prev) => [...prev, { role: "bot", text: "Maaf, koneksi ke asisten AI terputus." }]);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed bottom-24 right-6 z-50 flex h-[480px] w-[340px] flex-col overflow-hidden rounded-2xl bg-[#0f172a] shadow-2xl ring-1 ring-white/10 md:bottom-24 md:right-8 md:w-[400px] animate-in slide-in-from-bottom-8 fade-in duration-300">
+      <div className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3 text-white shadow-sm">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20">
+            <Sparkles className="h-4 w-4 text-yellow-300" />
+          </div>
+          <div>
+            <h3 className="font-bold text-sm leading-none">Asisten IdeTech</h3>
+            <p className="text-[10px] text-blue-200 mt-0.5">Powered by Cybra AI</p>
+          </div>
+        </div>
+        <button onClick={onClose} className="rounded-full p-1.5 hover:bg-white/20 transition-colors">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 text-sm bg-[#0a0f1c]">
+        {messages.map((m, i) => (
+          <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 shadow-sm ${m.role === "user" ? "bg-blue-600 text-white rounded-br-sm" : "bg-white/10 text-slate-200 border border-white/5 rounded-bl-sm"}`}>
+              <ReactMarkdown className="prose prose-invert prose-sm max-w-none">{m.text}</ReactMarkdown>
+            </div>
+          </div>
+        ))}
+        {isLoading && (
+          <div className="flex justify-start">
+            <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-white/10 px-4 py-2 text-slate-400 border border-white/5 flex gap-1">
+              <span className="animate-bounce">.</span><span className="animate-bounce delay-75">.</span><span className="animate-bounce delay-150">.</span>
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      <form onSubmit={handleSend} className="border-t border-white/10 bg-[#0f172a] p-3">
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Tanya asisten AI..."
+            className="flex-1 rounded-xl bg-white/5 border border-white/10 px-4 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+          />
+          <button
+            type="submit"
+            disabled={!input.trim() || isLoading}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-50 transition-all"
+          >
+            <Send className="h-4 w-4" />
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

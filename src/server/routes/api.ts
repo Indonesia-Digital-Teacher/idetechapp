@@ -672,6 +672,30 @@ app.get("/teacher/journals", requireRole(["teacher", "admin"]), async (c) => {
   return c.json({ journals });
 });
 
+app.post("/teacher/chat", requireRole(["teacher", "admin"]), async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as { message?: string; history?: any[] };
+  if (!body.message) return c.json({ message: "Pesan tidak boleh kosong." }, 400);
+
+  try {
+    const cybraUrl = process.env.CYBRA_API_URL || "https://cybrabot.ferilee.gurumuda.eu.org";
+    const response = await fetch(`${cybraUrl}/api/integration/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      return c.json({ message: "Gagal terhubung ke AI (CybraFeriBot)." }, 502);
+    }
+
+    const data = await response.json();
+    return c.json(data);
+  } catch (err) {
+    console.error("Cybra integration error:", err);
+    return c.json({ message: "Koneksi ke backend CybraFeriBot gagal." }, 500);
+  }
+});
+
 app.post("/teacher/bank-submit", requireRole(["teacher", "admin"]), async (c) => {
   const user = c.get("authUser");
   const body = (await c.req.json().catch(() => ({}))) as { type: "material" | "quest"; id: string };
