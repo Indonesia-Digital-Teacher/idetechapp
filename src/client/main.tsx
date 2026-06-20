@@ -5005,9 +5005,8 @@ function TeacherChatWidget({ isOpen, onClose }: { isOpen: boolean; onClose: () =
 
     try {
       const history = messages.slice(1).map((m) => ({ role: m.role === "bot" ? "assistant" : "user", content: m.text }));
-      const response = await fetch("/api/teacher/chat", {
+      const response = await fetch("https://cybrabot.ferilee.gurumuda.eu.org/api/integration/chat", {
         method: "POST",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userMessage, history })
       });
