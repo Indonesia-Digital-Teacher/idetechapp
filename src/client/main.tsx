@@ -5005,14 +5005,21 @@ function TeacherChatWidget({ isOpen, onClose }: { isOpen: boolean; onClose: () =
 
     try {
       const history = messages.slice(1).map((m) => ({ role: m.role === "bot" ? "assistant" : "user", content: m.text }));
-      const data = await api<any>("/api/teacher/chat", {
+      const response = await fetch("/api/teacher/chat", {
         method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userMessage, history })
       });
       
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        throw new Error(`HTTP ${response.status}: ${text.slice(0, 100)}`);
+      }
+      const data = await response.json();
       setMessages((prev) => [...prev, { role: "bot", text: data.reply || "Maaf, tidak ada respons." }]);
     } catch (err: any) {
-      console.error(err);
+      console.error("Chat Error:", err);
       setMessages((prev) => [...prev, { role: "bot", text: err.message || "Maaf, koneksi ke asisten AI terputus." }]);
     } finally {
       setIsLoading(false);
