@@ -680,19 +680,24 @@ app.post("/teacher/chat", requireRole(["teacher", "admin"]), async (c) => {
     const cybraUrl = process.env.CYBRA_API_URL || "https://cybrabot.ferilee.gurumuda.eu.org";
     const response = await fetch(`${cybraUrl}/api/integration/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (IdeTech Server) AppleWebKit/537.36"
+      },
       body: JSON.stringify(body)
     });
 
     if (!response.ok) {
-      return c.json({ message: "Gagal terhubung ke AI (CybraFeriBot)." }, 502);
+      const errorText = await response.text().catch(() => "");
+      console.error(`Cybra error ${response.status}:`, errorText);
+      return c.json({ message: `Gagal terhubung ke AI (CybraFeriBot). Status: ${response.status}` }, 502);
     }
 
     const data = await response.json();
     return c.json(data);
-  } catch (err) {
+  } catch (err: any) {
     console.error("Cybra integration error:", err);
-    return c.json({ message: "Koneksi ke backend CybraFeriBot gagal." }, 500);
+    return c.json({ message: `Koneksi ke backend CybraFeriBot gagal: ${err.message}` }, 500);
   }
 });
 

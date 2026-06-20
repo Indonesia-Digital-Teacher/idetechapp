@@ -5011,9 +5011,9 @@ function TeacherChatWidget({ isOpen, onClose }: { isOpen: boolean; onClose: () =
       });
       
       setMessages((prev) => [...prev, { role: "bot", text: data.reply || "Maaf, tidak ada respons." }]);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setMessages((prev) => [...prev, { role: "bot", text: "Maaf, koneksi ke asisten AI terputus." }]);
+      setMessages((prev) => [...prev, { role: "bot", text: err.message || "Maaf, koneksi ke asisten AI terputus." }]);
     } finally {
       setIsLoading(false);
     }
