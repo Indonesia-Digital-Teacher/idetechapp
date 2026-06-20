@@ -4986,11 +4986,36 @@ function TeacherChatWidget({ isOpen, onClose }: { isOpen: boolean; onClose: () =
   const [isLoading, setIsLoading] = React.useState(false);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
+  const [quotaInfo, setQuotaInfo] = React.useState<{ remaining: number; resetAt: string; limit: number } | null>(null);
+  const [timeLeft, setTimeLeft] = React.useState<string>("");
+
   React.useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, isOpen]);
+
+  React.useEffect(() => {
+    if (isOpen && !quotaInfo) {
+      api<any>("/api/teacher/chat-quota").then(setQuotaInfo).catch(console.error);
+    }
+  }, [isOpen, quotaInfo]);
+
+  React.useEffect(() => {
+    if (!quotaInfo?.resetAt) return;
+    const interval = setInterval(() => {
+      const ms = new Date(quotaInfo.resetAt).getTime() - Date.now();
+      if (ms <= 0) {
+        setTimeLeft("Reset sekarang");
+        return;
+      }
+      const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const mins = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+      setTimeLeft(days > 0 ? `${days}h ${hours}j` : `${hours}j ${mins}m`);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [quotaInfo?.resetAt]);
 
   if (!isOpen) return null;
 
@@ -5004,6 +5029,16 @@ function TeacherChatWidget({ isOpen, onClose }: { isOpen: boolean; onClose: () =
     setIsLoading(true);
 
     try {
+      const quotaCheck = await api<any>("/api/teacher/chat-consume", { method: "POST" }).catch((err) => {
+        throw new Error(err.message || "Gagal memverifikasi kuota obrolan.");
+      });
+
+      if (!quotaCheck.allowed) {
+        setQuotaInfo({ remaining: 0, resetAt: quotaCheck.resetAt, limit: quotaCheck.limit || 5 });
+        throw new Error(quotaCheck.message || "Kuota obrolan habis.");
+      }
+      setQuotaInfo({ remaining: quotaCheck.remaining, resetAt: quotaCheck.resetAt, limit: quotaCheck.limit || 5 });
+
       const history = messages.slice(1).map((m) => ({ role: m.role === "bot" ? "assistant" : "user", content: m.text }));
       const response = await fetch("https://cybrabot.ferilee.gurumuda.eu.org/api/integration/chat", {
         method: "POST",
@@ -5060,18 +5095,32 @@ function TeacherChatWidget({ isOpen, onClose }: { isOpen: boolean; onClose: () =
         <div ref={messagesEndRef} />
       </div>
 
-      <form onSubmit={handleSend} className="border-t border-white/10 bg-[#0f172a] p-3">
+      {quotaInfo && (
+        <div className="bg-[#0f172a] border-t border-white/10 px-4 py-2 flex justify-between items-center text-[11px] text-slate-400">
+          <span className={quotaInfo.remaining === 0 ? "text-red-400 font-medium" : ""}>
+            Sisa obrolan: {quotaInfo.remaining}/{quotaInfo.limit}
+          </span>
+          {(quotaInfo.remaining < quotaInfo.limit) && (
+            <span className={quotaInfo.remaining === 0 ? "text-red-400" : ""}>
+              Reset: {timeLeft}
+            </span>
+          )}
+        </div>
+      )}
+
+      <form onSubmit={handleSend} className="bg-[#0f172a] p-3 pb-4">
         <div className="flex items-center gap-2">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Tanya asisten AI..."
-            className="flex-1 rounded-xl bg-white/5 border border-white/10 px-4 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+            disabled={quotaInfo?.remaining === 0}
+            placeholder={quotaInfo?.remaining === 0 ? "Kuota habis. Menunggu reset..." : "Tanya asisten AI..."}
+            className="flex-1 rounded-xl bg-white/5 border border-white/10 px-4 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 transition-colors"
           />
           <button
             type="submit"
-            disabled={!input.trim() || isLoading}
+            disabled={!input.trim() || isLoading || quotaInfo?.remaining === 0}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-50 transition-all"
           >
             <Send className="h-4 w-4" />

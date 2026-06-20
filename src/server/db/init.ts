@@ -176,6 +176,13 @@ export function initializeDatabase() {
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS chat_quotas (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      messages_count INTEGER NOT NULL DEFAULT 0,
+      window_start_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `);
 
   ensureColumn("users", "full_name", "TEXT");

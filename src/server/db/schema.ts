@@ -250,6 +250,14 @@ export const bankRequests = sqliteTable("bank_requests", {
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull()
 });
 
+export const chatQuotas = sqliteTable("chat_quotas", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  messagesCount: integer("messages_count").notNull().default(0),
+  windowStartAt: integer("window_start_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull()
+});
+
 export const userRelations = relations(users, ({ many }) => ({
   oauthAccounts: many(oauthAccounts),
   userRoles: many(userRoles),

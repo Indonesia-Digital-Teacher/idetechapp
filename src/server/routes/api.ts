@@ -5,6 +5,7 @@ import { nanoid } from "nanoid";
 import { db } from "../db/client";
 import {
   bankRequests,
+  chatQuotas,
   classes,
   classStudents,
   ideQuests,
@@ -670,6 +671,71 @@ app.get("/teacher/journals", requireRole(["teacher", "admin"]), async (c) => {
     .orderBy(desc(teacherJournals.createdAt));
 
   return c.json({ journals });
+});
+
+app.get("/teacher/chat-quota", requireRole(["teacher", "admin"]), async (c) => {
+  const user = c.get("authUser");
+  const now = new Date();
+  const QUOTA_LIMIT = 5;
+  const WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
+
+  let [quota] = await db.select().from(chatQuotas).where(eq(chatQuotas.userId, user.id)).limit(1);
+
+  if (!quota) {
+    return c.json({ remaining: QUOTA_LIMIT, resetAt: new Date(now.getTime() + WINDOW_MS).toISOString(), limit: QUOTA_LIMIT });
+  }
+
+  const isExpired = now.getTime() - quota.windowStartAt.getTime() > WINDOW_MS;
+  if (isExpired) {
+    return c.json({ remaining: QUOTA_LIMIT, resetAt: new Date(now.getTime() + WINDOW_MS).toISOString(), limit: QUOTA_LIMIT });
+  }
+
+  const resetAt = new Date(quota.windowStartAt.getTime() + WINDOW_MS).toISOString();
+  return c.json({ remaining: Math.max(0, QUOTA_LIMIT - quota.messagesCount), resetAt, limit: QUOTA_LIMIT });
+});
+
+app.post("/teacher/chat-consume", requireRole(["teacher", "admin"]), async (c) => {
+  const user = c.get("authUser");
+  const now = new Date();
+  const QUOTA_LIMIT = 5;
+  const WINDOW_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
+
+  let [quota] = await db.select().from(chatQuotas).where(eq(chatQuotas.userId, user.id)).limit(1);
+
+  if (!quota) {
+    await db.insert(chatQuotas).values({
+      id: `cq_${nanoid(12)}`,
+      userId: user.id,
+      messagesCount: 1,
+      windowStartAt: now,
+      updatedAt: now
+    });
+    return c.json({ allowed: true, remaining: QUOTA_LIMIT - 1, resetAt: new Date(now.getTime() + WINDOW_MS).toISOString() });
+  }
+
+  const isExpired = now.getTime() - quota.windowStartAt.getTime() > WINDOW_MS;
+
+  if (isExpired) {
+    await db.update(chatQuotas).set({
+      messagesCount: 1,
+      windowStartAt: now,
+      updatedAt: now
+    }).where(eq(chatQuotas.id, quota.id));
+    return c.json({ allowed: true, remaining: QUOTA_LIMIT - 1, resetAt: new Date(now.getTime() + WINDOW_MS).toISOString() });
+  }
+
+  const resetAt = new Date(quota.windowStartAt.getTime() + WINDOW_MS).toISOString();
+
+  if (quota.messagesCount >= QUOTA_LIMIT) {
+    return c.json({ allowed: false, message: `Kuota obrolan habis. Anda mendapat ${QUOTA_LIMIT} pesan setiap 3 hari.` }, 429);
+  }
+
+  await db.update(chatQuotas).set({
+    messagesCount: quota.messagesCount + 1,
+    updatedAt: now
+  }).where(eq(chatQuotas.id, quota.id));
+
+  return c.json({ allowed: true, remaining: QUOTA_LIMIT - (quota.messagesCount + 1), resetAt });
 });
 
 app.post("/teacher/chat", requireRole(["teacher", "admin"]), async (c) => {
