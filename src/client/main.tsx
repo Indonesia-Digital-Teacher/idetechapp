@@ -5,6 +5,7 @@ import rehypeRaw from "rehype-raw";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
+import ReactPlayer from "react-player/lazy";
 import {
   BadgeCheck,
   Bell,
@@ -1414,6 +1415,15 @@ function StudentContentModal({
   }[active];
   
   const [taskPage, setTaskPage] = useState(0);
+  const [readingProgress, setReadingProgress] = useState(0);
+  const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
+  const [showQuizResults, setShowQuizResults] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
   const totalTaskPages = Math.max(1, Math.ceil(activeMaterials.length / 9));
   const taskSlots = Array.from({ length: 9 }, (_, index) => activeMaterials[index + taskPage * 9] ?? null);
   const completedTasks = taskSlots.filter((material) => material && material.progress >= 100).length;
@@ -1423,6 +1433,19 @@ function StudentContentModal({
     setSelectedTaskId(null);
     setTaskPage(0);
   }, [active, activeClassId]);
+
+  useEffect(() => {
+    setReadingProgress(0);
+    setQuizAnswers({});
+    setShowQuizResults(false);
+    const timer = setTimeout(() => {
+      const el = document.getElementById("lesson-scroll-container");
+      if (el && el.scrollHeight <= el.clientHeight) {
+        setReadingProgress(100);
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [selectedTaskId]);
 
   function submitClassCode(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1710,6 +1733,13 @@ function StudentContentModal({
         {busy ? <div className="student-content-loading">Memproses...</div> : null}
       </section>
 
+      {toastMessage && (
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-5 py-3 rounded-full shadow-2xl z-[100] text-sm font-bold flex items-center gap-3 animate-in fade-in slide-in-from-bottom-6">
+          <Info className="w-5 h-5 text-yellow-400" />
+          {toastMessage}
+        </div>
+      )}
+
       {selectedTask ? (
         <div className="student-task-detail-modal" role="dialog" aria-modal="true" aria-label={`Detail tugas ${selectedTask.title}`}>
           <div className="student-task-detail-modal__backdrop" onClick={() => setSelectedTaskId(null)} />
@@ -1724,17 +1754,33 @@ function StudentContentModal({
             { (selectedTask as any).content && (
               <div className="mt-4 mb-6 bg-slate-50 border border-slate-200 rounded-xl p-4 overflow-hidden shadow-inner">
                 {(selectedTask as any).type === 'lesson' && (
-                  <div className="prose prose-sm prose-blue max-w-none text-slate-700 overflow-y-auto max-h-[300px] pr-2">
-                    <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeRaw, rehypeKatex]}>{(selectedTask as any).content}</ReactMarkdown>
+                  <div 
+                    id="lesson-scroll-container"
+                    className="prose prose-sm prose-blue max-w-none text-slate-700 overflow-y-auto max-h-[300px] pr-2"
+                    onScroll={(e) => {
+                      const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+                      if (scrollHeight <= clientHeight) {
+                        setReadingProgress(100);
+                      } else {
+                        setReadingProgress(Math.min(100, Math.round((scrollTop / (scrollHeight - clientHeight)) * 100)));
+                      }
+                    }}
+                  >
+                    <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex, rehypeRaw]}>{(selectedTask as any).content}</ReactMarkdown>
                   </div>
                 )}
                 {(selectedTask as any).type === 'video' && (
                   <div className="aspect-video w-full bg-black rounded-lg overflow-hidden relative shadow-md">
-                    <iframe 
-                      src={(selectedTask as any).content.includes("watch?v=") ? (selectedTask as any).content.replace("watch?v=", "embed/") : (selectedTask as any).content}
-                      title="Video Viewer"
-                      className="absolute inset-0 w-full h-full border-0"
-                      allowFullScreen
+                    <ReactPlayer 
+                      url={(selectedTask as any).content}
+                      width="100%"
+                      height="100%"
+                      controls={true}
+                      onProgress={(progress: { played: number }) => {
+                        setReadingProgress(Math.min(100, Math.round(progress.played * 100)));
+                      }}
+                      onEnded={() => setReadingProgress(100)}
+                      className="absolute inset-0"
                     />
                   </div>
                 )}
@@ -1742,29 +1788,126 @@ function StudentContentModal({
                   <div className="flex flex-col items-center justify-center p-6 bg-white border border-slate-200 rounded-lg">
                     <ScrollText className="h-10 w-10 text-slate-400 mb-2" />
                     <p className="text-slate-600 text-sm mb-4 font-medium text-center">Dokumen PDF siap dibaca oleh siswa.</p>
-                    <a href={(selectedTask as any).content} target="_blank" rel="noreferrer" className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-sm transition-colors shadow-sm shadow-blue-500/20">
+                    <a href={(selectedTask as any).content} target="_blank" rel="noreferrer" className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-sm transition-colors shadow-sm shadow-blue-500/20" onClick={() => setReadingProgress(100)}>
                       Buka Dokumen
                     </a>
                   </div>
                 )}
                 {(selectedTask as any).type === 'quiz' && (
-                  <div className="flex flex-col items-center justify-center py-8">
-                    <Puzzle className="h-12 w-12 text-yellow-500 mb-4 drop-shadow-sm" />
-                    <p className="text-slate-800 font-bold text-lg mb-2">Kuis Interaktif</p>
-                    <button className="px-6 py-3 bg-yellow-400 hover:bg-yellow-500 text-yellow-950 font-black tracking-wide rounded-xl transition-colors shadow-md shadow-yellow-500/20">Mulai Kerjakan Kuis</button>
+                  <div className="flex flex-col w-full p-4 bg-white border border-slate-200 rounded-lg">
+                    {(() => {
+                      let data: { soal: string; jawaban: string[]; pembahasan?: string }[] = [];
+                      try {
+                        data = JSON.parse((selectedTask as any).content || "[]");
+                      } catch (e) {}
+
+                      if (!Array.isArray(data) || data.length === 0) {
+                         return <p className="text-center text-slate-500 py-4">Kuis ini belum memiliki soal.</p>;
+                      }
+
+                      return (
+                        <div className="w-full text-left">
+                          <h4 className="font-bold text-lg mb-4 text-slate-800 flex items-center gap-2">
+                            <Puzzle className="w-5 h-5 text-yellow-500" /> Kuis Interaktif
+                          </h4>
+                          <div 
+                            className="space-y-4 max-h-[300px] overflow-y-auto pr-2" 
+                            id="lesson-scroll-container"
+                            onScroll={(e) => {
+                              const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+                              if (scrollHeight <= clientHeight) {
+                                setReadingProgress(100);
+                              } else {
+                                setReadingProgress(Math.min(100, Math.round((scrollTop / (scrollHeight - clientHeight)) * 100)));
+                              }
+                            }}
+                          >
+                            {data.map((q, i) => {
+                               const userAnswer = quizAnswers[i] || "";
+                               const isCorrect = showQuizResults ? q.jawaban.some(ans => ans.trim().toLowerCase() === userAnswer.trim().toLowerCase()) : null;
+                               
+                               return (
+                               <div key={i} className={`p-4 rounded-lg border ${showQuizResults ? (isCorrect ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200') : 'bg-slate-50 border-slate-100'}`}>
+                                 <div className="font-medium text-slate-700 mb-3 flex items-start gap-2">
+                                   <span className="text-slate-400">{i+1}.</span>
+                                   <div className="prose prose-sm prose-blue max-w-none prose-p:my-0 flex-1">
+                                     <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex, rehypeRaw]}>{q.soal}</ReactMarkdown>
+                                   </div>
+                                 </div>
+                                 <input 
+                                   type="text" 
+                                   placeholder="Ketik jawabanmu di sini..." 
+                                   className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${showQuizResults ? (isCorrect ? 'border-green-300 bg-green-100 text-green-900' : 'border-red-300 bg-red-100 text-red-900') : 'border-slate-200'}`}
+                                   value={userAnswer}
+                                   onChange={(e) => setQuizAnswers(prev => ({...prev, [i]: e.target.value}))}
+                                   disabled={showQuizResults}
+                                 />
+                                 {showQuizResults && (
+                                    <div className="mt-3 text-sm">
+                                      {isCorrect ? (
+                                        <p className="font-bold text-green-600 mb-1">✓ Jawaban Benar!</p>
+                                      ) : (
+                                        <p className="font-bold text-red-600 mb-1">✗ Jawaban Salah. Kunci: {q.jawaban.join(" atau ")}</p>
+                                      )}
+                                      {q.pembahasan && (
+                                        <div className="mt-2 p-2 bg-white/60 rounded text-slate-600 text-xs border border-slate-200/50">
+                                          <strong className="block mb-1">Pembahasan:</strong> 
+                                          <div className="prose prose-sm prose-blue max-w-none prose-p:my-0">
+                                            <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex, rehypeRaw]}>{q.pembahasan}</ReactMarkdown>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                 )}
+                               </div>
+                               );
+                            })}
+                          </div>
+                          <div className="mt-4 pt-4 border-t border-slate-100 flex justify-end">
+                            {!showQuizResults ? (
+                              <button 
+                                type="button" 
+                                className="px-5 py-2 bg-yellow-400 hover:bg-yellow-500 text-yellow-950 font-bold rounded-lg text-sm shadow-sm transition-colors" 
+                                onClick={() => { 
+                                  setShowQuizResults(true);
+                                  setReadingProgress(100); 
+                                }}
+                              >
+                                Cek Jawaban & Simpan
+                              </button>
+                            ) : (
+                              <p className="text-green-600 font-bold text-sm">Jawaban tersimpan. Klik tombol submit di bawah untuk menyelesaikan kuis.</p>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })()}
                   </div>
                 )}
               </div>
             )}
 
             <div className="student-content-progress">
-              <span>{selectedTask.progress}%</span>
-              <i style={{ width: `${selectedTask.progress}%` }} />
+              <span>{((selectedTask as any).type === 'lesson' || (selectedTask as any).type === 'video' || (selectedTask as any).type === 'document' || (selectedTask as any).type === 'quiz') && selectedTask.progress < 100 ? readingProgress : selectedTask.progress}%</span>
+              <i style={{ width: `${((selectedTask as any).type === 'lesson' || (selectedTask as any).type === 'video' || (selectedTask as any).type === 'document' || (selectedTask as any).type === 'quiz') && selectedTask.progress < 100 ? readingProgress : selectedTask.progress}%` }} />
             </div>
             <button 
               type="button" 
-              disabled={busy || selectedTask.progress >= 100} 
-              onClick={() => {
+              disabled={busy || selectedTask.progress >= 100}
+              className={(((selectedTask as any).type === 'lesson' || (selectedTask as any).type === 'video' || (selectedTask as any).type === 'document' || (selectedTask as any).type === 'quiz') && selectedTask.progress < 100 && readingProgress < 100) ? "opacity-50 grayscale cursor-not-allowed" : ""}
+              onClick={(e) => {
+                const isContent = ((selectedTask as any).type === 'lesson' || (selectedTask as any).type === 'video' || (selectedTask as any).type === 'document' || (selectedTask as any).type === 'quiz');
+                const isIncomplete = isContent && selectedTask.progress < 100 && readingProgress < 100;
+                
+                if (isIncomplete) {
+                  e.preventDefault();
+                  if ((selectedTask as any).type === 'lesson') showToast("Baca materi sampai selesai");
+                  else if ((selectedTask as any).type === 'video') showToast("Tonton video sampai akhir");
+                  else if ((selectedTask as any).type === 'document') showToast("Buka dokumen untuk menyelesaikan materi");
+                  else if ((selectedTask as any).type === 'quiz') showToast("Selesaikan kuis terlebih dahulu");
+                  return;
+                }
+
                 if ('mission' in selectedTask) {
                   onCompleteQuest(selectedTask.id);
                 } else {
@@ -1776,7 +1919,15 @@ function StudentContentModal({
                 ? "Tugas Selesai" 
                 : ('mission' in selectedTask 
                   ? "Kumpulkan Quest" 
-                  : ((selectedTask as any).type === "lesson" ? "Saya Sudah Membaca Materi Ini" : "Buka dan Kerjakan"))}
+                  : ((selectedTask as any).type === "lesson" 
+                     ? "Saya Sudah Membaca Materi Ini" 
+                     : ((selectedTask as any).type === "video"
+                        ? "Saya Sudah Menonton Video Ini"
+                        : ((selectedTask as any).type === "document"
+                           ? "Saya Sudah Membaca Materi Ini"
+                           : ((selectedTask as any).type === "quiz"
+                              ? "Saya Sudah Mengerjakan Kuis Ini"
+                              : "Buka dan Kerjakan")))))}
             </button>
           </article>
         </div>
@@ -2548,7 +2699,7 @@ function TeacherSpaceDashboard({
             </h3>
             <div className="prose prose-sm text-slate-600 overflow-y-auto max-h-[60vh] pr-2">
               {guideModal === "quest" && (
-                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeRaw, rehypeKatex]}>
+                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex, rehypeRaw]}>
                   {`
 **Membuat Kelas:**
 1. Masukkan nama kelas, mata pelajaran, dan jenjang.
@@ -2563,7 +2714,7 @@ function TeacherSpaceDashboard({
                 </ReactMarkdown>
               )}
               {guideModal === "studio" && (
-                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeRaw, rehypeKatex]}>
+                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex, rehypeRaw]}>
                   {`
 **Membuat Materi:**
 1. Pilih tab 'Materi' dan buat materi baru.
@@ -2578,7 +2729,7 @@ function TeacherSpaceDashboard({
                 </ReactMarkdown>
               )}
               {guideModal === "rank" && (
-                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeRaw, rehypeKatex]}>
+                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex, rehypeRaw]}>
                   {`
 **Radar Pintar:**
 Fitur ini menganalisis semua aktivitas siswa di kelas Anda:
@@ -2658,7 +2809,7 @@ function TeacherStudioManager({
   };
   const selectedClassMaterials = materials.filter((material) => material.classId === questForm.classId);
 
-  let quizData: { soal: string; jawaban: string[] }[] = [];
+  let quizData: { soal: string; jawaban: string[]; pembahasan?: string }[] = [];
   if (materialForm.type === "quiz") {
     try {
       quizData = JSON.parse(materialForm.content || "[]");
@@ -2668,7 +2819,7 @@ function TeacherStudioManager({
     }
   }
 
-  const updateQuizData = (newData: { soal: string; jawaban: string[] }[]) => {
+  const updateQuizData = (newData: { soal: string; jawaban: string[]; pembahasan?: string }[]) => {
     onMaterialFormChange((current) => ({ ...current, content: JSON.stringify(newData) }));
   };
 
@@ -2934,11 +3085,22 @@ function TeacherStudioManager({
                   }}
                   className="w-full text-sm border-slate-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 py-2 px-3 bg-white"
                 />
+                <textarea
+                  placeholder="Pembahasan materi / Penjelasan jawaban (opsional)"
+                  value={q.pembahasan || ""}
+                  onChange={(e) => {
+                    const newQ = [...quizData];
+                    newQ[i].pembahasan = e.target.value;
+                    updateQuizData(newQ);
+                  }}
+                  rows={2}
+                  className="w-full text-sm border-slate-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 py-2 px-3 bg-white resize-none"
+                />
               </div>
             ))}
             <button
               type="button"
-              onClick={() => updateQuizData([...quizData, { soal: "", jawaban: [] }])}
+              onClick={() => updateQuizData([...quizData, { soal: "", jawaban: [], pembahasan: "" }])}
               className="flex items-center justify-center gap-2 w-full py-3 mt-1 border-2 border-dashed border-slate-300 text-slate-500 rounded-lg hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-all text-sm font-bold shadow-sm"
             >
               <Plus className="h-5 w-5" /> Tambah Soal Kuis
