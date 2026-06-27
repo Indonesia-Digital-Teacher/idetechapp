@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom/client";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 import {
   BadgeCheck,
   Bell,
@@ -1409,13 +1412,17 @@ function StudentContentModal({
     map: "Jalur belajar yang menghubungkan materi guru ke IdeQuest.",
     quest: "Misi IdeQuest dari guru yang bisa dikumpulkan siswa."
   }[active];
-  const taskSlots = Array.from({ length: 9 }, (_, index) => materials[index] ?? null);
+  
+  const [taskPage, setTaskPage] = useState(0);
+  const totalTaskPages = Math.max(1, Math.ceil(activeMaterials.length / 9));
+  const taskSlots = Array.from({ length: 9 }, (_, index) => activeMaterials[index + taskPage * 9] ?? null);
   const completedTasks = taskSlots.filter((material) => material && material.progress >= 100).length;
   const selectedTask = selectedTaskId ? materials.find((material) => material.id === selectedTaskId) ?? null : null;
 
   useEffect(() => {
     setSelectedTaskId(null);
-  }, [active]);
+    setTaskPage(0);
+  }, [active, activeClassId]);
 
   function submitClassCode(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1498,6 +1505,30 @@ function StudentContentModal({
                 );
               })}
             </div>
+
+            {totalTaskPages > 1 && (
+              <div className="flex items-center justify-center gap-4 mt-8">
+                <button 
+                  type="button"
+                  onClick={() => setTaskPage(p => Math.max(0, p - 1))}
+                  disabled={taskPage === 0}
+                  className="p-2 rounded-full bg-slate-800 text-white disabled:opacity-50 hover:bg-slate-700 transition-all flex items-center justify-center w-10 h-10 shadow-lg"
+                >
+                  <ChevronRight className="h-5 w-5 rotate-180" />
+                </button>
+                <span className="text-sm font-medium text-slate-300">
+                  {taskPage + 1} / {totalTaskPages}
+                </span>
+                <button 
+                  type="button"
+                  onClick={() => setTaskPage(p => Math.min(totalTaskPages - 1, p + 1))}
+                  disabled={taskPage >= totalTaskPages - 1}
+                  className="p-2 rounded-full bg-slate-800 text-white disabled:opacity-50 hover:bg-slate-700 transition-all flex items-center justify-center w-10 h-10 shadow-lg"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </div>
+            )}
 
           </section>
         ) : null}
@@ -1694,7 +1725,7 @@ function StudentContentModal({
               <div className="mt-4 mb-6 bg-slate-50 border border-slate-200 rounded-xl p-4 overflow-hidden shadow-inner">
                 {(selectedTask as any).type === 'lesson' && (
                   <div className="prose prose-sm prose-blue max-w-none text-slate-700 overflow-y-auto max-h-[300px] pr-2">
-                    <ReactMarkdown rehypePlugins={[rehypeRaw]}>{(selectedTask as any).content}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeRaw, rehypeKatex]}>{(selectedTask as any).content}</ReactMarkdown>
                   </div>
                 )}
                 {(selectedTask as any).type === 'video' && (
@@ -2517,7 +2548,7 @@ function TeacherSpaceDashboard({
             </h3>
             <div className="prose prose-sm text-slate-600 overflow-y-auto max-h-[60vh] pr-2">
               {guideModal === "quest" && (
-                <ReactMarkdown rehypePlugins={[rehypeRaw]}>
+                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeRaw, rehypeKatex]}>
                   {`
 **Membuat Kelas:**
 1. Masukkan nama kelas, mata pelajaran, dan jenjang.
@@ -2532,7 +2563,7 @@ function TeacherSpaceDashboard({
                 </ReactMarkdown>
               )}
               {guideModal === "studio" && (
-                <ReactMarkdown rehypePlugins={[rehypeRaw]}>
+                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeRaw, rehypeKatex]}>
                   {`
 **Membuat Materi:**
 1. Pilih tab 'Materi' dan buat materi baru.
@@ -2547,7 +2578,7 @@ function TeacherSpaceDashboard({
                 </ReactMarkdown>
               )}
               {guideModal === "rank" && (
-                <ReactMarkdown rehypePlugins={[rehypeRaw]}>
+                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeRaw, rehypeKatex]}>
                   {`
 **Radar Pintar:**
 Fitur ini menganalisis semua aktivitas siswa di kelas Anda:
@@ -5234,7 +5265,7 @@ function TeacherChatWidget({ isOpen, onClose }: { isOpen: boolean; onClose: () =
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 shadow-sm ${m.role === "user" ? "bg-blue-600 text-white rounded-br-sm" : "bg-white/10 text-slate-200 border border-white/5 rounded-bl-sm prose prose-invert prose-sm max-w-none"}`}>
-              {m.role === "user" ? m.text : <ReactMarkdown>{m.text}</ReactMarkdown>}
+              {m.role === "user" ? m.text : <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{m.text}</ReactMarkdown>}
             </div>
           </div>
         ))}
