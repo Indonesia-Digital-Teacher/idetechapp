@@ -43,6 +43,7 @@ import {
   Image as ImageIcon,
   CheckCircle2,
   ChevronLeft,
+  ChevronDown,
   Info,
   Heading,
   Bold,
