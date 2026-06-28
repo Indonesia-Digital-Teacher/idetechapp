@@ -62,6 +62,8 @@ import {
   Calendar,
   Timer,
   Send,
+  Menu,
+  ShoppingCart,
 } from "lucide-react";
 import { Button, Card, SecondaryButton, Select, StatusPill } from "./components/ui";
 import "./styles.css";
@@ -4262,85 +4264,441 @@ function LoginScreen({
   error: string | null;
   onDemoLogin: (email: string) => void;
 }) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeView, setActiveView] = useState<"home" | "shop" | "demo" | "usecases" | "contact">("home");
+  const [shopSearch, setShopSearch] = useState("");
+  const [shopSort, setShopSort] = useState<"asc" | "desc">("asc");
+  const [selectedShopItem, setSelectedShopItem] = useState<any | null>(null);
+
+  const [showTestimoniModal, setShowTestimoniModal] = useState(false);
+  const [testimoniForm, setTestimoniForm] = useState({ name: "", role: "Guru", message: "" });
+  const [testimoniStatus, setTestimoniStatus] = useState<"idle" | "submitted">("idle");
+
+  const [activeTestimoniIndex, setActiveTestimoniIndex] = useState(0);
+
+  const testimonials = [
+    { name: "Budi Santoso", role: "Guru Matematika", message: "IdeTech benar-benar mengubah cara saya mengajar. Pembuatan RPP jadi sangat cepat dan IdeQuest membuat murid lebih aktif!" },
+    { name: "Siti Rahma", role: "Kepala Sekolah", message: "Dashboard admin memberikan pandangan menyeluruh yang sangat saya butuhkan untuk evaluasi kurikulum dan kinerja sekolah kami." },
+    { name: "Andi Wijaya", role: "Siswa SMA", message: "Belajar lewat IdeQuest seperti main game! Saya jadi lebih semangat mengumpulkan poin dan naik level tiap selesai materi." },
+    { name: "Maya Indah", role: "Orang Tua", message: "Sekarang saya bisa dengan mudah melihat perkembangan anak saya dan tugas apa saja yang belum dikerjakan dari HP." }
+  ];
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveTestimoniIndex((prev) => (prev + 1) % testimonials.length);
+    }, 10000);
+    return () => clearInterval(timer);
+  }, [testimonials.length]);
+
+  const nextTestimoni = () => setActiveTestimoniIndex((prev) => (prev + 1) % testimonials.length);
+  const prevTestimoni = () => setActiveTestimoniIndex((prev) => (prev - 1 + testimonials.length) % testimonials.length);
+
+  const handleTestimoniSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setTestimoniStatus("submitted");
+    setTimeout(() => {
+      setShowTestimoniModal(false);
+      setTestimoniStatus("idle");
+      setTestimoniForm({ name: "", role: "Guru", message: "" });
+    }, 3000);
+  };
+
+  const shopItems = useMemo(() => {
+    const items = [
+      { id: 1, title: "RPP Kurikulum Merdeka Terpadu", priceValue: 50000, price: "Rp 50.000", type: "Dokumen", image: "https://placehold.co/400x300/3b82f6/ffffff?text=RPP+Terpadu", description: "Dokumen RPP komprehensif untuk mendukung implementasi Kurikulum Merdeka di sekolah Anda. Berisi panduan lengkap, rubrik penilaian, dan referensi materi." },
+      { id: 2, title: "Bank Soal HOTS Matematika", priceValue: 35000, price: "Rp 35.000", type: "PDF", image: "https://placehold.co/400x300/10b981/ffffff?text=Bank+Soal", description: "Kumpulan soal High Order Thinking Skills (HOTS) untuk mata pelajaran Matematika. Dirancang khusus untuk melatih nalar kritis siswa." },
+      { id: 3, title: "Template Presentasi Premium", priceValue: 75000, price: "Rp 75.000", type: "PPTX", image: "https://placehold.co/400x300/8b5cf6/ffffff?text=Template+PPT", description: "Template presentasi interaktif dan profesional yang dapat disesuaikan untuk berbagai mata pelajaran. Dilengkapi animasi dan tata letak modern." },
+      { id: 4, title: "Modul Ajar IPA Interaktif", priceValue: 45000, price: "Rp 45.000", type: "E-Book", image: "https://placehold.co/400x300/ec4899/ffffff?text=Modul+IPA", description: "E-Book modul ajar Ilmu Pengetahuan Alam dengan pendekatan interaktif, lengkap dengan gambar ilustrasi dan eksperimen sederhana." },
+      { id: 5, title: "Kumpulan Jurnal Refleksi Guru", priceValue: 20000, price: "Rp 20.000", type: "Dokumen", image: "https://placehold.co/400x300/f59e0b/ffffff?text=Jurnal+Guru", description: "Buku panduan dan template untuk menulis jurnal refleksi harian guru. Sangat cocok untuk dokumentasi pengembangan diri." },
+      { id: 6, title: "Video Animasi Tata Surya", priceValue: 120000, price: "Rp 120.000", type: "Video", image: "https://placehold.co/400x300/6366f1/ffffff?text=Video+Animasi", description: "Video edukasi animasi berkualitas HD tentang Tata Surya. Memudahkan visualisasi materi astronomi untuk siswa." },
+      { id: 7, title: "Soal Persiapan Ujian Nasional", priceValue: 40000, price: "Rp 40.000", type: "PDF", image: "https://placehold.co/400x300/14b8a6/ffffff?text=Soal+UN", description: "Paket soal simulasi Ujian Nasional dari berbagai tahun ajaran, lengkap dengan kunci jawaban dan pembahasan." },
+      { id: 8, title: "Flashcard Edukasi Bahasa Inggris", priceValue: 60000, price: "Rp 60.000", type: "Printable", image: "https://placehold.co/400x300/ef4444/ffffff?text=Flashcard", description: "Kartu pintar yang dapat dicetak untuk mengajarkan kosakata bahasa Inggris dasar kepada anak dengan metode visual yang menyenangkan." }
+    ];
+    let filtered = items.filter(item => 
+      item.title.toLowerCase().includes(shopSearch.toLowerCase()) || 
+      item.type.toLowerCase().includes(shopSearch.toLowerCase())
+    );
+    
+    filtered.sort((a, b) => {
+      if (shopSort === "asc") return a.priceValue - b.priceValue;
+      return b.priceValue - a.priceValue;
+    });
+
+    return filtered;
+  }, [shopSearch, shopSort]);
+
   return (
     <main className="landing-shell min-h-screen">
       <div className="landing-bg" aria-hidden="true" />
       <div className="landing-shell__glow" />
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-7 sm:px-6 lg:px-8">
-        <header className="landing-nav">
+        <header className="landing-nav relative">
           <div className="landing-brand">
             <IdeTechLogo className="landing-brand__logo" />
             <p className="landing-brand__name">IdeTech</p>
           </div>
 
-          <nav className="landing-links" aria-label="Navigasi utama">
-            <a href="#home">Home</a>
-            <a href="#usecases">Usecases</a>
-            <a href="#roles">Roles</a>
-            <a href="#demo">Demo</a>
-            <a href="#contact">Contact</a>
+          <nav className="landing-links hidden lg:flex" aria-label="Navigasi utama">
+            <a href="#" onClick={(e) => { e.preventDefault(); setActiveView("home"); }} className={`flex items-center gap-2 hover:text-blue-600 ${activeView === 'home' ? '!text-blue-600' : ''}`}><House className="w-4 h-4"/> Home</a>
+            <a href="#" onClick={(e) => { e.preventDefault(); setActiveView("usecases"); }} className={`flex items-center gap-2 hover:text-blue-600 ${activeView === 'usecases' ? '!text-blue-600' : ''}`}><BookOpen className="w-4 h-4"/> Usecases</a>
+            <a href="#" onClick={(e) => { e.preventDefault(); setActiveView("shop"); }} className={`flex items-center gap-2 hover:text-blue-600 ${activeView === 'shop' ? '!text-blue-600' : ''}`}><ShoppingCart className="w-4 h-4"/> Shop</a>
+            <a href="#" onClick={(e) => { e.preventDefault(); setActiveView("demo"); }} className={`flex items-center gap-2 hover:text-blue-600 ${activeView === 'demo' ? '!text-blue-600' : ''}`}><LayoutDashboard className="w-4 h-4"/> Demo</a>
+            <a href="#" onClick={(e) => { e.preventDefault(); setActiveView("contact"); }} className={`flex items-center gap-2 hover:text-blue-600 ${activeView === 'contact' ? '!text-blue-600' : ''}`}><MessageCircle className="w-4 h-4"/> Contact</a>
           </nav>
 
-          <div className="landing-nav__cta">
+          <div className="landing-nav__cta hidden lg:block">
             <a href="/api/auth/google" className="landing-start-button">
               Login
             </a>
           </div>
+
+          <div className="lg:hidden flex items-center">
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 text-slate-700 rounded-md hover:bg-slate-100 transition-colors"
+            >
+              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          </div>
         </header>
 
-        <section className="landing-hero" id="home">
-          <div className="landing-hero__copy">
-            <div className="landing-chip">
-              <Sparkles className="h-4 w-4" />
-              Platform belajar interaktif untuk sekolah modern
+        {mobileMenuOpen && (
+          <div className="lg:hidden absolute top-24 left-4 right-4 z-50 p-4 bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-200/50 flex flex-col space-y-4">
+            <a href="#" onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); setActiveView("home"); }} className={`flex items-center gap-2 font-medium hover:text-blue-600 px-2 py-1 ${activeView === 'home' ? 'text-blue-600' : 'text-slate-700'}`}><House className="w-4 h-4"/> Home</a>
+            <a href="#" onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); setActiveView("usecases"); }} className={`flex items-center gap-2 font-medium hover:text-blue-600 px-2 py-1 ${activeView === 'usecases' ? 'text-blue-600' : 'text-slate-700'}`}><BookOpen className="w-4 h-4"/> Usecases</a>
+            <a href="#" onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); setActiveView("shop"); }} className={`flex items-center gap-2 font-medium hover:text-blue-600 px-2 py-1 ${activeView === 'shop' ? 'text-blue-600' : 'text-slate-700'}`}><ShoppingCart className="w-4 h-4"/> Shop</a>
+            <a href="#" onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); setActiveView("demo"); }} className={`flex items-center gap-2 font-medium hover:text-blue-600 px-2 py-1 ${activeView === 'demo' ? 'text-blue-600' : 'text-slate-700'}`}><LayoutDashboard className="w-4 h-4"/> Demo</a>
+            <a href="#" onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); setActiveView("contact"); }} className={`flex items-center gap-2 font-medium hover:text-blue-600 px-2 py-1 ${activeView === 'contact' ? 'text-blue-600' : 'text-slate-700'}`}><MessageCircle className="w-4 h-4"/> Contact</a>
+          </div>
+        )}
+
+        {activeView === "home" && (
+          <section className="landing-hero lg:grid-cols-2" id="home">
+            <div className="landing-hero__copy">
+              <div className="landing-chip">
+                <Sparkles className="h-4 w-4" />
+                Platform belajar interaktif untuk sekolah modern
+              </div>
+              <h1 className="landing-title">
+                Learn with
+                <br />
+                ease.
+              </h1>
+              <p className="landing-description">
+                IdeTech membantu guru membuat materi, siswa menjalankan IdeQuest, orang tua memantau progres,
+                dan admin menjaga sistem tetap rapi.
+              </p>
+              <div className="landing-actions">
+                <a href="/api/auth/google">
+                  <Button className="landing-primary-button" disabled={busy}>
+                    <BadgeCheck className="h-4 w-4" />
+                    Masuk dengan Google
+                  </Button>
+                </a>
+                <button className="landing-secondary-button" type="button" onClick={() => setActiveView("usecases")} disabled={busy}>
+                  Lihat Panduan
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
+              {error ? <ErrorBanner message={error} /> : null}
             </div>
-            <h1 className="landing-title">
-              Learn with
-              <br />
-              ease.
-            </h1>
-            <p className="landing-description">
-              IdeTech membantu guru membuat materi, siswa menjalankan IdeQuest, orang tua memantau progres,
-              dan admin menjaga sistem tetap rapi.
-            </p>
-            <div className="landing-actions">
-              <a href="/api/auth/google">
-                <Button className="landing-primary-button" disabled={busy}>
-                  <BadgeCheck className="h-4 w-4" />
-                  Masuk dengan Google
+            
+            <div className="flex flex-col gap-4 w-full max-w-md mx-auto lg:ml-auto lg:mr-0 relative z-10 pt-12 lg:pt-0">
+              <div className="flex items-center justify-between mb-2">
+                <div className="bg-white/90 backdrop-blur-md px-4 py-2 rounded-xl shadow-md border border-slate-200/50">
+                  <h3 className="text-xl font-black text-blue-700">Apa kata mereka?</h3>
+                </div>
+                <button onClick={() => setShowTestimoniModal(true)} className="text-sm font-bold text-blue-600 bg-white/80 hover:bg-white px-4 py-2 rounded-full shadow-sm border border-white/50 backdrop-blur-md transition-all">
+                  + Tulis Testimoni
+                </button>
+              </div>
+              
+              <div className="relative group">
+                <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl border border-slate-200/50 shadow-xl relative overflow-hidden min-h-[180px] flex flex-col justify-center">
+                  <div className="absolute top-0 right-0 p-4 opacity-10 text-slate-800 pointer-events-none">
+                    <MessageCircle className="w-20 h-20" />
+                  </div>
+                  
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl shadow-md">
+                      {testimonials[activeTestimoniIndex].name.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-800 text-lg leading-tight">{testimonials[activeTestimoniIndex].name}</p>
+                      <p className="text-sm font-semibold text-blue-600">{testimonials[activeTestimoniIndex].role}</p>
+                    </div>
+                  </div>
+                  <p className="text-slate-700 text-base leading-relaxed italic relative z-10">"{testimonials[activeTestimoniIndex].message}"</p>
+                </div>
+                
+                {/* Navigation arrows */}
+                <div className="flex items-center justify-center gap-4 mt-4">
+                  <button onClick={prevTestimoni} className="p-2 rounded-full bg-white/80 hover:bg-white text-slate-700 shadow-sm border border-slate-200/50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <div className="flex gap-1.5">
+                    {testimonials.map((_, idx) => (
+                      <div key={idx} className={`h-1.5 rounded-full transition-all duration-300 ${idx === activeTestimoniIndex ? 'w-6 bg-blue-600' : 'w-2 bg-slate-300'}`} />
+                    ))}
+                  </div>
+                  <button onClick={nextTestimoni} className="p-2 rounded-full bg-white/80 hover:bg-white text-slate-700 shadow-sm border border-slate-200/50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {showTestimoniModal && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+                <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col p-6 relative">
+                  <button onClick={() => setShowTestimoniModal(false)} className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors">
+                    <X className="w-5 h-5" />
+                  </button>
+                  
+                  {testimoniStatus === "submitted" ? (
+                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                      <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
+                        <CheckCircle2 className="w-8 h-8" />
+                      </div>
+                      <h3 className="text-xl font-black text-slate-800 mb-2">Terima Kasih!</h3>
+                      <p className="text-slate-600">Testimoni Anda telah dikirim dan menunggu validasi dari admin sebelum ditampilkan.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <h3 className="text-xl font-black text-slate-800 mb-1">Tulis Testimoni</h3>
+                      <p className="text-sm text-slate-500 mb-6">Bagikan pengalaman Anda menggunakan IdeTech.</p>
+                      
+                      <form onSubmit={handleTestimoniSubmit} className="flex flex-col gap-4">
+                        <div>
+                          <label className="block text-sm font-bold text-slate-700 mb-1">Nama Lengkap</label>
+                          <input type="text" required value={testimoniForm.name} onChange={e => setTestimoniForm({...testimoniForm, name: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="Nama Anda" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-bold text-slate-700 mb-1">Peran</label>
+                          <select value={testimoniForm.role} onChange={e => setTestimoniForm({...testimoniForm, role: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                            <option value="Guru">Guru</option>
+                            <option value="Siswa">Siswa</option>
+                            <option value="Orang Tua">Orang Tua</option>
+                            <option value="Kepala Sekolah">Kepala Sekolah</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-bold text-slate-700 mb-1">Pesan Testimoni</label>
+                          <textarea required value={testimoniForm.message} onChange={e => setTestimoniForm({...testimoniForm, message: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 min-h-[100px]" placeholder="Bagaimana IdeTech membantu Anda?"></textarea>
+                        </div>
+                        <button type="submit" className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-sm shadow-blue-200">
+                          Kirim Testimoni
+                        </button>
+                      </form>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {activeView === "shop" && (
+          <section className="landing-demo-panel mt-12" id="shop">
+            <div className="landing-demo-panel__header mb-4 flex-col sm:flex-row gap-4 items-start sm:items-center">
+              <div className="flex items-center gap-2">
+                <p className="landing-demo-panel__eyebrow !mb-0">IdeTech Shop</p>
+                <ShoppingCart className="h-5 w-5 text-slate-700" />
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto sm:ml-auto">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input 
+                    type="text" 
+                    placeholder="Cari lembar kerja..." 
+                    className="w-full sm:w-64 bg-white/80 border border-slate-200 rounded-lg pl-9 pr-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    value={shopSearch}
+                    onChange={(e) => setShopSearch(e.target.value)}
+                  />
+                </div>
+                <div className="relative">
+                  <select 
+                    className="w-full sm:w-auto appearance-none bg-white/80 border border-slate-200 rounded-lg pl-4 pr-10 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                    value={shopSort}
+                    onChange={(e) => setShopSort(e.target.value as "asc" | "desc")}
+                  >
+                    <option value="asc">Harga: Termurah</option>
+                    <option value="desc">Harga: Termahal</option>
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-2">
+              {shopItems.length > 0 ? shopItems.map((item) => (
+                <div key={item.id} className="border border-slate-200/50 rounded-2xl bg-white/60 backdrop-blur-sm flex flex-col hover:shadow-lg transition-shadow overflow-hidden">
+                  <div className="h-40 w-full bg-slate-200 relative">
+                    <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+                    <span className="absolute top-2 right-2 text-xs font-bold px-2 py-1 bg-white/90 text-slate-800 rounded-full shadow-sm">{item.type}</span>
+                  </div>
+                  <div className="p-4 flex flex-col justify-between flex-1">
+                    <div>
+                      <h3 className="font-bold text-slate-800 text-sm leading-tight mb-2 line-clamp-2">{item.title}</h3>
+                      <span className="font-black text-blue-600">{item.price}</span>
+                    </div>
+                    <div className="flex justify-between items-center mt-4 gap-2">
+                      <button onClick={() => setSelectedShopItem(item)} className="flex-1 flex items-center justify-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-100 px-3 py-2 rounded-lg hover:bg-slate-200 transition-colors border border-slate-200">
+                        <Info className="w-3.5 h-3.5" /> Detail
+                      </button>
+                      <button className="flex-1 flex items-center justify-center gap-1.5 text-xs font-bold text-white bg-slate-900 px-3 py-2 rounded-lg hover:bg-slate-800 transition-colors">
+                        <ShoppingCart className="w-3.5 h-3.5" /> Beli
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )) : (
+                <div className="col-span-full py-12 text-center text-slate-500 font-medium">
+                  Perangkat tidak ditemukan.
+                </div>
+              )}
+            </div>
+
+            {selectedShopItem && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+                <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                  <div className="relative h-64 w-full bg-slate-100 flex-shrink-0">
+                    <img src={selectedShopItem.image} alt={selectedShopItem.title} className="w-full h-full object-cover" />
+                    <button onClick={() => setSelectedShopItem(null)} className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-md transition-colors">
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className="p-6 overflow-y-auto">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-xs font-bold px-2 py-1 bg-blue-100 text-blue-700 rounded-full">{selectedShopItem.type}</span>
+                    </div>
+                    <h2 className="text-xl font-black text-slate-900 mb-2">{selectedShopItem.title}</h2>
+                    <p className="text-slate-600 text-sm leading-relaxed mb-6">{selectedShopItem.description}</p>
+                    
+                    <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                      <span className="text-2xl font-black text-blue-600">{selectedShopItem.price}</span>
+                      <button className="flex items-center gap-2 text-sm font-bold text-white bg-blue-600 px-6 py-2.5 rounded-xl hover:bg-blue-700 transition-colors shadow-sm shadow-blue-200">
+                        <ShoppingCart className="w-4 h-4" /> Beli Sekarang
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {activeView === "demo" && (
+          <section className="landing-demo-panel mt-12" id="demo">
+            <div className="landing-demo-panel__header flex-col items-start gap-3 mb-6">
+              <div className="flex items-center gap-2">
+                <p className="landing-demo-panel__eyebrow !mb-0">Demo role</p>
+                <LayoutDashboard className="h-5 w-5 text-slate-700" />
+              </div>
+              <p className="text-sm text-slate-600 bg-blue-50/80 px-4 py-3 rounded-lg border border-blue-100 w-full leading-relaxed">
+                <Info className="w-4 h-4 inline-block mr-2 text-blue-500 mb-0.5" />
+                Halaman ini disediakan khusus untuk keperluan <strong>demonstrasi</strong>. Silakan pilih salah satu role di bawah ini untuk masuk sebagai akun percobaan dan melihat pratinjau antarmuka aplikasi tanpa menggunakan data asli Anda.
+              </p>
+            </div>
+            <div className="landing-demo-grid">
+              {demoUsers.map((demo) => (
+                <button
+                  key={demo.email}
+                  className="landing-demo-card"
+                  disabled={busy}
+                  onClick={() => onDemoLogin(demo.email)}
+                >
+                  <div>
+                    <span className="landing-demo-card__label">{demo.label}</span>
+                    <span className="landing-demo-card__email">{demo.email}</span>
+                  </div>
+                  <span className="landing-demo-card__role">{demo.role}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-12 text-center p-8 bg-white/60 backdrop-blur-md border border-slate-200/50 rounded-3xl shadow-lg relative overflow-hidden">
+              <div className="absolute top-0 right-0 -mr-8 -mt-8 opacity-10">
+                <Rocket className="w-32 h-32" />
+              </div>
+              <h3 className="text-2xl font-black text-slate-800 mb-6 drop-shadow-sm relative z-10">Apakah Anda siap untuk memulai?</h3>
+              <a href="/api/auth/google" className="relative z-10">
+                <Button className="landing-primary-button !px-8 !py-4 !text-base" disabled={busy}>
+                  Mulai
+                  <ArrowRight className="h-5 w-5" />
                 </Button>
               </a>
-              <button className="landing-secondary-button" type="button" onClick={() => onDemoLogin("guru@idetech.local")} disabled={busy}>
-                Lihat demo guru
-                <ArrowRight className="h-4 w-4" />
-              </button>
             </div>
-            {error ? <ErrorBanner message={error} /> : null}
-          </div>
-        </section>
+          </section>
+        )}
 
-        <section className="landing-demo-panel" id="demo">
-          <div className="landing-demo-panel__header">
-            <p className="landing-demo-panel__eyebrow">Demo role</p>
-            <LayoutDashboard className="h-5 w-5 text-slate-700" />
-          </div>
-          <div className="landing-demo-grid">
-            {demoUsers.map((demo) => (
-              <button
-                key={demo.email}
-                className="landing-demo-card"
-                disabled={busy}
-                onClick={() => onDemoLogin(demo.email)}
-              >
-                <div>
-                  <span className="landing-demo-card__label">{demo.label}</span>
-                  <span className="landing-demo-card__email">{demo.email}</span>
+        {activeView === "usecases" && (
+          <section className="landing-demo-panel mt-12" id="usecases">
+            <div className="landing-demo-panel__header mb-4">
+              <p className="landing-demo-panel__eyebrow">Usecases</p>
+              <BookOpen className="h-5 w-5 text-slate-700" />
+            </div>
+            <div className="grid gap-6 md:grid-cols-2 p-2">
+              <div className="bg-white/60 backdrop-blur-sm p-6 rounded-2xl border border-slate-200/50">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2 bg-blue-100 text-blue-600 rounded-lg shadow-sm"><UserCog className="w-5 h-5" /></div>
+                  <h3 className="text-lg font-black text-slate-800">Untuk Guru</h3>
                 </div>
-                <span className="landing-demo-card__role">{demo.role}</span>
-              </button>
-            ))}
-          </div>
-        </section>
+                <p className="text-slate-600 text-sm leading-relaxed text-justify">IdeTech membantu guru menghemat waktu dalam membuat rencana pembelajaran (RPP), merancang soal ujian yang interaktif, dan melacak progres siswa secara otomatis menggunakan Radar Pintar. Guru dapat lebih fokus pada pengajaran daripada administrasi.</p>
+              </div>
+              <div className="bg-white/60 backdrop-blur-sm p-6 rounded-2xl border border-slate-200/50">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg shadow-sm"><House className="w-5 h-5" /></div>
+                  <h3 className="text-lg font-black text-slate-800">Untuk Sekolah</h3>
+                </div>
+                <p className="text-slate-600 text-sm leading-relaxed text-justify">Sekolah dapat memantau efektivitas pembelajaran di seluruh kelas melalui dashboard admin. Sistem kami memudahkan distribusi materi standar, evaluasi kurikulum, dan memberikan transparansi laporan akademik kepada orang tua siswa.</p>
+              </div>
+              <div className="bg-white/60 backdrop-blur-sm p-6 rounded-2xl border border-slate-200/50">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2 bg-amber-100 text-amber-600 rounded-lg shadow-sm"><GraduationCap className="w-5 h-5" /></div>
+                  <h3 className="text-lg font-black text-slate-800">Untuk Siswa</h3>
+                </div>
+                <p className="text-slate-600 text-sm leading-relaxed text-justify">Pembelajaran menjadi lebih menyenangkan dengan IdeQuest yang menerapkan gamifikasi. Siswa bisa menyelesaikan misi, mengumpulkan poin, dan melihat perkembangan belajar mereka di berbagai mata pelajaran dalam satu portal interaktif.</p>
+              </div>
+              <div className="bg-white/60 backdrop-blur-sm p-6 rounded-2xl border border-slate-200/50">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2 bg-rose-100 text-rose-600 rounded-lg shadow-sm"><Heart className="w-5 h-5" /></div>
+                  <h3 className="text-lg font-black text-slate-800">Untuk Orang Tua</h3>
+                </div>
+                <p className="text-slate-600 text-sm leading-relaxed text-justify">Orang tua akan selalu terhubung dengan kegiatan akademik anak-anak. Lewat akses khusus wali, orang tua bisa melihat rekapitulasi nilai, jadwal penugasan (due date), dan intervensi yang disarankan oleh guru.</p>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {activeView === "contact" && (
+          <section className="landing-demo-panel mt-12" id="contact">
+            <div className="landing-demo-panel__header mb-4">
+              <p className="landing-demo-panel__eyebrow">Hubungi Kami</p>
+              <MessageCircle className="h-5 w-5 text-slate-700" />
+            </div>
+            <div className="max-w-2xl mx-auto p-4 bg-white/60 backdrop-blur-sm rounded-2xl border border-slate-200/50">
+              <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); alert("Pesan berhasil dikirim!"); }}>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Nama Lengkap</label>
+                  <input type="text" className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="Masukkan nama Anda" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Email</label>
+                  <input type="email" className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="nama@email.com" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Pesan</label>
+                  <textarea className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 min-h-[120px]" placeholder="Bagaimana kami bisa membantu Anda?" required></textarea>
+                </div>
+                <button type="submit" className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors flex justify-center items-center gap-2">
+                  <Send className="w-4 h-4" /> Kirim Pesan
+                </button>
+              </form>
+            </div>
+          </section>
+        )}
       </div>
 
     </main>
