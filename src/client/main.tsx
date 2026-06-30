@@ -6,6 +6,8 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import ReactPlayer from "react-player/lazy";
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 import {
   BadgeCheck,
   Bell,
@@ -13,6 +15,8 @@ import {
   Boxes,
   ArrowRight,
   ChevronRight,
+  HelpCircle,
+  Download,
   CircleDollarSign,
   Gauge,
   GraduationCap,
@@ -2313,9 +2317,12 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
   const currentRealYear = currentRealDate.getFullYear();
   const todayDay = currentRealDate.getDate();
 
-  const [selectedMonth, setSelectedMonth] = useState(5); // Default to June (5) for mock
-  const [selectedYear, setSelectedYear] = useState(2026); // Default to 2026 for mock
-  const [weekStartIndex, setWeekStartIndex] = useState(21);
+  const initialOffset = (new Date(currentRealYear, currentRealMonth, 1).getDay() + 6) % 7;
+  const initialWeekIndex = Math.floor((initialOffset + todayDay - 1) / 7) * 7;
+
+  const [selectedMonth, setSelectedMonth] = useState(currentRealMonth);
+  const [selectedYear, setSelectedYear] = useState(currentRealYear);
+  const [weekStartIndex, setWeekStartIndex] = useState(initialWeekIndex);
 
   const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
   const days = ["SEN", "SEL", "RAB", "KAM", "JUM", "SAB", "MIN"];
@@ -2412,7 +2419,7 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
 
   return (
     <>
-      <div className="mb-8 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
+      <div className="mt-8 mb-8 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
         <div className="mb-4">
           <h2 className="text-xl font-bold text-white tracking-tight">Agenda Terdekat</h2>
           <p className="text-white/70 text-sm">Kalender kegiatan sekolah. Klik tanggal yang ditandai untuk melihat detail.</p>
@@ -2435,13 +2442,6 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <button 
-                type="button"
-                onClick={goToCurrentMonth}
-                className="h-9 md:h-10 px-3 md:px-4 rounded-xl border border-slate-200 text-slate-600 text-xs md:text-sm font-bold hover:bg-slate-50 transition-colors"
-              >
-                Bulan Ini
-              </button>
               <div className="flex items-center gap-1">
                 <button 
                   type="button"
@@ -2449,6 +2449,13 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
                   className="h-9 w-9 md:h-10 md:w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200 transition-colors"
                 >
                   <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
+                </button>
+                <button 
+                  type="button"
+                  onClick={goToCurrentMonth}
+                  className="h-9 md:h-10 px-3 md:px-4 rounded-xl border border-slate-200 text-slate-600 text-xs md:text-sm font-bold hover:bg-slate-50 transition-colors"
+                >
+                  Bulan Ini
                 </button>
                 <button 
                   type="button"
@@ -2496,12 +2503,12 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
                   }}
                   className={`
                     relative h-14 md:h-20 rounded-xl md:rounded-2xl border p-2 flex flex-col justify-start transition-all ${hasEvent ? 'cursor-pointer' : 'cursor-default'}
-                    ${hasEvent ? "bg-orange-50/50 border-orange-200 hover:bg-orange-50" : 
-                      isSelected ? "bg-white border-blue-500 shadow-[0_0_0_2px_rgba(59,130,246,0.2)]" : 
-                      "bg-slate-50/30 border-slate-100 hover:bg-slate-50"}
+                    ${isSelected 
+                        ? (hasEvent ? "bg-orange-50/50 border-blue-500 shadow-[0_0_0_2px_rgba(59,130,246,0.4)] hover:bg-orange-100" : "bg-blue-50/50 border-blue-500 shadow-[0_0_0_2px_rgba(59,130,246,0.4)] hover:bg-blue-50") 
+                        : (hasEvent ? "bg-orange-50/50 border-orange-200 hover:bg-orange-50" : "bg-slate-50/30 border-slate-100 hover:bg-slate-50")}
                   `}
                 >
-                  <div className={`text-xs md:text-sm font-bold ${hasEvent ? "bg-orange-500 text-white w-6 h-6 md:w-7 md:h-7 flex items-center justify-center rounded-full" : "text-slate-600 p-0.5"}`}>
+                  <div className={`text-xs md:text-sm font-bold flex items-center justify-center rounded-full ${isSelected ? "w-6 h-6 md:w-7 md:h-7 bg-blue-600 text-white shadow-md ring-2 ring-blue-200" : hasEvent ? "w-6 h-6 md:w-7 md:h-7 bg-orange-500 text-white" : "text-slate-600 w-6 h-6 md:w-7 md:h-7"}`}>
                     {date}
                   </div>
                   {hasEvent && (
@@ -2876,8 +2883,11 @@ function TeacherSpaceDashboard({
       return;
     }
 
-    if (featureName.includes("progres") || featureName.includes("Radar") || featureName.includes("Peringatan") || featureName.includes("Grading")) {
+    if (featureName.includes("Radar") || featureName.includes("Peringatan") || featureName.includes("Grading")) {
       setActiveFeature("radar");
+      return;
+    } else if (featureName.includes("progres") || featureName.includes("Laporan")) {
+      setActiveFeature("report");
       return;
     }
 
@@ -3022,8 +3032,8 @@ function TeacherSpaceDashboard({
 
           {activeFeature === "jurnal" ? (
             <TeacherJournalView onClose={() => { setActiveFeature(null); onChangeMenu("map"); }} />
-          ) : activeFeature === "radar" ? (
-            <TeacherRadarView onClose={() => setActiveFeature(null)} />
+          ) : activeFeature === "radar" || activeFeature === "report" ? (
+            <TeacherRadarView onClose={() => setActiveFeature(null)} mode={activeFeature as "radar" | "report"} />
           ) : activeMenu === "studio" ? (
             <TeacherStudioManager
               classes={teacherClasses}
@@ -3060,7 +3070,9 @@ function TeacherSpaceDashboard({
             <TeacherProfileView user={user} />
           ) : (
             <>
-              <TeacherAgendaCalendar materials={materials} quests={ideQuestRows} classes={teacherClasses} />
+              {activeMenu === "map" && (
+                <TeacherAgendaCalendar materials={materials} quests={ideQuestRows} classes={teacherClasses} />
+              )}
               <section className="teacher-space-card-grid">
                 {exploreCards.map((feature, index) => (
                   <button
@@ -3230,7 +3242,33 @@ function TeacherStudioManager({
 }) {
   const [activeTab, setActiveTab] = React.useState<"material" | "quest">("material");
   const [showMarkdownGuide, setShowMarkdownGuide] = React.useState(false);
+  const [showAdvancedMaterial, setShowAdvancedMaterial] = React.useState(false);
+  const [showAdvancedQuest, setShowAdvancedQuest] = React.useState(false);
+  const [isSearchModalOpen, setIsSearchModalOpen] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [searchFilter, setSearchFilter] = React.useState<"all" | "material" | "quest">("all");
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+
+  React.useEffect(() => {
+    if (!localStorage.getItem("ideTechTourDone")) {
+      const d = driver({
+        showProgress: true,
+        nextBtnText: 'Lanjut',
+        prevBtnText: 'Kembali',
+        doneBtnText: 'Selesai',
+        steps: [
+          { element: '#tour-step-1', popover: { title: 'Selamat Datang!', description: 'Ini adalah Studio Pembuatan, tempat Anda meracik materi dan IdeQuest untuk siswa.' } },
+          { element: '#tour-step-2', popover: { title: 'Pilih Tipe Materi', description: 'Gunakan tipe Lesson (Teks), Video, Kuis, atau Dokumen PDF sesuai kebutuhan belajar.' } },
+          { element: '#tour-step-3', popover: { title: 'Daftar Terbit', description: 'Semua materi & tugas yang sudah diterbitkan akan muncul di papan ini dan otomatis masuk ke akun siswa Anda.' } }
+        ],
+        onDestroyStarted: () => {
+          localStorage.setItem("ideTechTourDone", "true");
+          d.destroy();
+        }
+      });
+      setTimeout(() => d.drive(), 500);
+    }
+  }, []);
 
   const insertMarkdown = (prefix: string, suffix: string = "") => {
     if (!textareaRef.current) return;
@@ -3384,7 +3422,7 @@ function TeacherStudioManager({
       </div>
 
       {activeTab === "material" && (
-        <form className="teacher-studio-form" onSubmit={onCreateMaterial}>
+        <form id="tour-step-1" className="teacher-studio-form" onSubmit={onCreateMaterial}>
         <div className="teacher-studio-form__header">
           <BookOpen className="h-6 w-6" />
           <div>
@@ -3415,6 +3453,7 @@ function TeacherStudioManager({
           <label>
             <span>Tipe</span>
             <select
+              id="tour-step-2"
               value={materialForm.type}
               onChange={(event) => onMaterialFormChange((current) => ({ ...current, type: event.target.value as TeacherMaterial["type"] }))}
             >
@@ -3425,14 +3464,7 @@ function TeacherStudioManager({
             </select>
           </label>
         </div>
-        <label>
-          <span>Deskripsi Singkat</span>
-          <textarea
-            value={materialForm.description}
-            placeholder="Ringkasan materi untuk siswa..."
-            onChange={(event) => onMaterialFormChange((current) => ({ ...current, description: event.target.value }))}
-          />
-        </label>
+
         
         {materialForm.type === 'lesson' && (
           <label>
@@ -3552,14 +3584,39 @@ function TeacherStudioManager({
           </div>
         )}
 
-        <label>
-          <span>Batas Waktu (Opsional)</span>
-          <input
-            type="datetime-local"
-            value={materialForm.dueDate}
-            onChange={(event) => onMaterialFormChange((current) => ({ ...current, dueDate: event.target.value }))}
-          />
-        </label>
+        <div className="mt-2 mb-4">
+          <button 
+            type="button"
+            onClick={() => setShowAdvancedMaterial(!showAdvancedMaterial)}
+            className="flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors"
+          >
+            {showAdvancedMaterial ? "Sembunyikan Opsi Lanjutan" : "Tampilkan Opsi Lanjutan"}
+            <ChevronDown className={`w-4 h-4 transition-transform ${showAdvancedMaterial ? "rotate-180" : ""}`} />
+          </button>
+          
+          {showAdvancedMaterial && (
+            <div className="flex flex-col gap-3 mt-3 p-4 bg-slate-50 border border-slate-200 rounded-lg animate-in fade-in slide-in-from-top-2 duration-200">
+              <label className="!mb-0">
+                <span className="flex items-center gap-1.5 text-slate-700">Deskripsi Singkat <HelpCircle className="w-3.5 h-3.5 text-slate-400" title="Ringkasan yang muncul di bawah judul materi" /></span>
+                <textarea
+                  value={materialForm.description}
+                  placeholder="Ringkasan materi untuk siswa..."
+                  onChange={(event) => onMaterialFormChange((current) => ({ ...current, description: event.target.value }))}
+                  className="mt-1"
+                />
+              </label>
+              <label className="!mb-0">
+                <span className="flex items-center gap-1.5 text-slate-700">Batas Waktu (Opsional) <HelpCircle className="w-3.5 h-3.5 text-slate-400" title="Batas akhir pengerjaan khusus tipe Kuis atau Tugas" /></span>
+                <input
+                  type="datetime-local"
+                  value={materialForm.dueDate}
+                  onChange={(event) => onMaterialFormChange((current) => ({ ...current, dueDate: event.target.value }))}
+                  className="mt-1"
+                />
+              </label>
+            </div>
+          )}
+        </div>
 
         {error && activeTab === "material" ? <p className="teacher-class-error mb-4">{error}</p> : null}
         <div className="flex gap-2">
@@ -3593,16 +3650,13 @@ function TeacherStudioManager({
             </select>
           </label>
           <label>
-            <span>Materi terkait</span>
-            <select
-              value={questForm.materialId}
-              onChange={(event) => onQuestFormChange((current) => ({ ...current, materialId: event.target.value }))}
-            >
-              <option value="">Tanpa materi</option>
-              {selectedClassMaterials.map((item) => (
-                <option key={item.id} value={item.id}>{item.title}</option>
-              ))}
-            </select>
+            <span>Poin Reward</span>
+            <input
+              min="0"
+              type="number"
+              value={questForm.points}
+              onChange={(event) => onQuestFormChange((current) => ({ ...current, points: event.target.value }))}
+            />
           </label>
         </div>
         <label>
@@ -3621,24 +3675,42 @@ function TeacherStudioManager({
             onChange={(event) => onQuestFormChange((current) => ({ ...current, mission: event.target.value }))}
           />
         </label>
-        <div className="teacher-studio-form__grid">
-          <label>
-            <span>Poin</span>
-            <input
-              min="0"
-              type="number"
-              value={questForm.points}
-              onChange={(event) => onQuestFormChange((current) => ({ ...current, points: event.target.value }))}
-            />
-          </label>
-          <label>
-            <span>Deadline</span>
-            <input
-              type="datetime-local"
-              value={questForm.dueDate}
-              onChange={(event) => onQuestFormChange((current) => ({ ...current, dueDate: event.target.value }))}
-            />
-          </label>
+        <div className="mt-2 mb-4">
+          <button 
+            type="button"
+            onClick={() => setShowAdvancedQuest(!showAdvancedQuest)}
+            className="flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors"
+          >
+            {showAdvancedQuest ? "Sembunyikan Opsi Lanjutan" : "Tampilkan Opsi Lanjutan"}
+            <ChevronDown className={`w-4 h-4 transition-transform ${showAdvancedQuest ? "rotate-180" : ""}`} />
+          </button>
+          
+          {showAdvancedQuest && (
+            <div className="flex flex-col gap-3 mt-3 p-4 bg-slate-50 border border-slate-200 rounded-lg animate-in fade-in slide-in-from-top-2 duration-200">
+              <label className="!mb-0">
+                <span className="flex items-center gap-1.5 text-slate-700">Materi Terkait <HelpCircle className="w-3.5 h-3.5 text-slate-400" title="Hubungkan quest ini dengan materi tertentu agar siswa membaca materi sebelum mengerjakan" /></span>
+                <select
+                  value={questForm.materialId}
+                  onChange={(event) => onQuestFormChange((current) => ({ ...current, materialId: event.target.value }))}
+                  className="mt-1"
+                >
+                  <option value="">Tanpa materi</option>
+                  {selectedClassMaterials.map((item) => (
+                    <option key={item.id} value={item.id}>{item.title}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="!mb-0">
+                <span className="flex items-center gap-1.5 text-slate-700">Tenggat Waktu / Deadline</span>
+                <input
+                  type="datetime-local"
+                  value={questForm.dueDate}
+                  onChange={(event) => onQuestFormChange((current) => ({ ...current, dueDate: event.target.value }))}
+                  className="mt-1"
+                />
+              </label>
+            </div>
+          )}
         </div>
         {error && activeTab === "quest" ? <p className="teacher-class-error">{error}</p> : null}
         <div className="flex gap-2">
@@ -3650,75 +3722,198 @@ function TeacherStudioManager({
       </form>
       )}
 
-      <div className="teacher-studio-board">
+      <div id="tour-step-3" className="teacher-studio-board">
         <div>
-          <h3>Materi Terbit</h3>
-          {materials.slice(0, 4).map((item) => (
-            <article key={item.id} className="flex justify-between items-center group relative p-3 bg-white rounded-lg border border-slate-100 shadow-sm hover:border-blue-200 transition-colors">
-              <div className="flex flex-col">
-                <strong>{item.title}</strong>
-                <span className="text-xs text-slate-500">{item.type} - {classes.find((kelas) => kelas.id === item.classId)?.name ?? "Kelas"}</span>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="!mb-0">Materi Terbit</h3>
+            <button type="button" onClick={() => { setIsSearchModalOpen(true); setSearchFilter("material"); }} className="p-1.5 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors" title="Cari Materi Terbit">
+              <Search className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex flex-col gap-2 max-h-[340px] overflow-y-auto pr-1">
+            {materials.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 px-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 text-center">
+                <div className="w-12 h-12 bg-blue-100 text-blue-500 rounded-full flex items-center justify-center mb-3">
+                  <BookOpen className="w-6 h-6" />
+                </div>
+                <h4 className="text-slate-700 font-semibold mb-1">Belum Ada Materi</h4>
+                <p className="text-xs text-slate-500 max-w-[200px] mb-3">Bagikan modul atau referensi bacaan untuk kelas Anda.</p>
+                <button type="button" onClick={() => setActiveTab("material")} className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-full transition-colors">Buat Sekarang</button>
               </div>
-              <div className="flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                <button type="button" onClick={async () => {
-                  try {
-                    await api("/api/teacher/bank-submit", { method: "POST", body: JSON.stringify({ type: "material", id: item.id }) });
-                    showToast("Materi ini akan ditinjau oleh tim IdeTech sebelum masuk ke Bank Materi.");
-                  } catch (err) {
-                    showToast(err instanceof Error ? err.message : "Gagal mengirim ke bank.");
-                  }
-                }} className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors" title="Kirim ke Bank Materi">
-                  <Upload className="h-4 w-4" />
-                </button>
-                {onEditMaterial && (
-                  <button type="button" onClick={() => onEditMaterial(item)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="Edit Materi">
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                )}
-                {onDeleteMaterial && (
-                  <button type="button" onClick={() => onDeleteMaterial(item.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Hapus Materi">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            </article>
-          ))}
+            ) : materials.map((item) => (
+              <article key={item.id} className="flex flex-col shrink-0 min-h-[96px] group relative p-3 bg-white rounded-lg border border-slate-100 shadow-sm hover:border-blue-200 transition-all">
+                <div className="flex flex-col my-auto">
+                  <strong className="leading-tight">{item.title}</strong>
+                  <span className="text-[11px] text-slate-500 mt-0.5">{item.type} - {classes.find((kelas) => kelas.id === item.classId)?.name ?? "Kelas"}</span>
+                </div>
+                <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-all duration-300 ease-in-out">
+                  <div className="overflow-hidden min-h-0">
+                    <div className="flex items-center justify-end gap-1 pt-2 mt-2 border-t border-slate-100 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
+                      <button type="button" onClick={async () => {
+                        try {
+                          await api("/api/teacher/bank-submit", { method: "POST", body: JSON.stringify({ type: "material", id: item.id }) });
+                          showToast("Materi ini akan ditinjau oleh tim IdeTech sebelum masuk ke Bank Materi.");
+                        } catch (err) {
+                          showToast(err instanceof Error ? err.message : "Gagal mengirim ke bank.");
+                        }
+                      }} className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors" title="Kirim ke Bank Materi">
+                        <Upload className="h-4 w-4" />
+                      </button>
+                      {onEditMaterial && (
+                        <button type="button" onClick={() => onEditMaterial(item)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="Edit Materi">
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                      )}
+                      {onDeleteMaterial && (
+                        <button type="button" onClick={() => onDeleteMaterial(item.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Hapus Materi">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
         <div>
-          <h3>IdeQuest Terbit</h3>
-          {quests.slice(0, 4).map((item) => (
-            <article key={item.id} className="flex justify-between items-center group relative p-3 bg-white rounded-lg border border-slate-100 shadow-sm hover:border-blue-200 transition-colors">
-              <div className="flex flex-col">
-                <strong>{item.title}</strong>
-                <span className="text-xs text-slate-500">{item.points} poin - {item.dueDate}</span>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="!mb-0">IdeQuest Terbit</h3>
+            <button type="button" onClick={() => { setIsSearchModalOpen(true); setSearchFilter("quest"); }} className="p-1.5 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors" title="Cari IdeQuest Terbit">
+              <Search className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex flex-col gap-2 max-h-[340px] overflow-y-auto pr-1">
+            {quests.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 px-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 text-center">
+                <div className="w-12 h-12 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mb-3">
+                  <Target className="w-6 h-6" />
+                </div>
+                <h4 className="text-slate-700 font-semibold mb-1">Belum Ada IdeQuest</h4>
+                <p className="text-xs text-slate-500 max-w-[200px] mb-3">Buat misi seru berhadiah poin untuk memotivasi murid.</p>
+                <button type="button" onClick={() => setActiveTab("quest")} className="text-xs font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-full transition-colors">Buat Sekarang</button>
               </div>
-              <div className="flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                <button type="button" onClick={async () => {
-                  try {
-                    await api("/api/teacher/bank-submit", { method: "POST", body: JSON.stringify({ type: "quest", id: item.id }) });
-                    showToast("IdeQuest ini akan ditinjau oleh tim IdeTech sebelum masuk ke Bank IdeQuest.");
-                  } catch (err) {
-                    showToast(err instanceof Error ? err.message : "Gagal mengirim ke bank.");
-                  }
-                }} className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors" title="Kirim ke Bank IdeQuest">
-                  <Upload className="h-4 w-4" />
-                </button>
-                {onEditQuest && (
-                  <button type="button" onClick={() => onEditQuest(item)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="Edit IdeQuest">
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                )}
-                {onDeleteQuest && (
-                  <button type="button" onClick={() => onDeleteQuest(item.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Hapus IdeQuest">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            </article>
-          ))}
+            ) : quests.map((item) => (
+              <article key={item.id} className="flex flex-col shrink-0 min-h-[96px] group relative p-3 bg-white rounded-lg border border-slate-100 shadow-sm hover:border-blue-200 transition-all">
+                <div className="flex flex-col my-auto">
+                  <strong className="leading-tight">{item.title}</strong>
+                  <span className="text-[11px] text-slate-500 mt-0.5">{item.points} poin - {item.dueDate}</span>
+                </div>
+                <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-all duration-300 ease-in-out">
+                  <div className="overflow-hidden min-h-0">
+                    <div className="flex items-center justify-end gap-1 pt-2 mt-2 border-t border-slate-100 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
+                      <button type="button" onClick={async () => {
+                        try {
+                          await api("/api/teacher/bank-submit", { method: "POST", body: JSON.stringify({ type: "quest", id: item.id }) });
+                          showToast("IdeQuest ini akan ditinjau oleh tim IdeTech sebelum masuk ke Bank IdeQuest.");
+                        } catch (err) {
+                          showToast(err instanceof Error ? err.message : "Gagal mengirim ke bank.");
+                        }
+                      }} className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors" title="Kirim ke Bank IdeQuest">
+                        <Upload className="h-4 w-4" />
+                      </button>
+                      {onEditQuest && (
+                        <button type="button" onClick={() => onEditQuest(item)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="Edit IdeQuest">
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                      )}
+                      {onDeleteQuest && (
+                        <button type="button" onClick={() => onDeleteQuest(item.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Hapus IdeQuest">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
       </div>
-
+      {isSearchModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 m-0">
+                <Search className="h-5 w-5 text-blue-500" />
+                Cari Materi & IdeQuest
+              </h3>
+              <button type="button" className="text-slate-400 hover:text-slate-600 bg-white hover:bg-slate-100 rounded-full p-1.5 transition-colors shadow-sm" onClick={() => { setIsSearchModalOpen(false); setSearchQuery(""); }}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-4 border-b border-slate-100">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Ketik kata kunci pencarian..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-700"
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-2 mt-3">
+                <button type="button" onClick={() => setSearchFilter("all")} className={`px-3 py-1.5 text-xs font-bold rounded-full transition-colors ${searchFilter === "all" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>Semua</button>
+                <button type="button" onClick={() => setSearchFilter("material")} className={`px-3 py-1.5 text-xs font-bold rounded-full transition-colors ${searchFilter === "material" ? "bg-blue-600 text-white" : "bg-blue-50 text-blue-600 hover:bg-blue-100"}`}>Materi</button>
+                <button type="button" onClick={() => setSearchFilter("quest")} className={`px-3 py-1.5 text-xs font-bold rounded-full transition-colors ${searchFilter === "quest" ? "bg-orange-500 text-white" : "bg-orange-50 text-orange-600 hover:bg-orange-100"}`}>IdeQuest</button>
+              </div>
+            </div>
+            <div className="p-4 overflow-y-auto flex-1 bg-slate-50/50 max-h-[400px]">
+              {searchQuery.trim() === "" ? (
+                <div className="text-center py-10 text-slate-400">
+                  <Search className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                  <p>Ketik sesuatu untuk mulai mencari</p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3 teacher-studio-board-search">
+                  {(searchFilter === "all" || searchFilter === "material") && materials.filter(m => m.title.toLowerCase().includes(searchQuery.toLowerCase()) || m.type.toLowerCase().includes(searchQuery.toLowerCase())).map(item => (
+                    <article key={`search-m-${item.id}`} className="flex flex-col shrink-0 min-h-[96px] group relative p-3 bg-white rounded-lg border border-slate-100 shadow-sm hover:border-blue-200 transition-all">
+                      <div className="flex flex-col my-auto">
+                        <strong className="leading-tight text-slate-800">{item.title}</strong>
+                        <span className="text-[11px] text-slate-500 mt-0.5">{item.type} - {classes.find((kelas) => kelas.id === item.classId)?.name ?? "Kelas"}</span>
+                      </div>
+                      <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-all duration-300 ease-in-out">
+                        <div className="overflow-hidden min-h-0">
+                          <div className="flex items-center justify-end gap-1 pt-2 mt-2 border-t border-slate-100 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
+                            <button type="button" onClick={async () => { try { await api("/api/teacher/bank-submit", { method: "POST", body: JSON.stringify({ type: "material", id: item.id }) }); showToast("Materi ini akan ditinjau oleh tim IdeTech."); } catch (err) { showToast(err instanceof Error ? err.message : "Gagal mengirim ke bank."); } }} className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors" title="Kirim ke Bank Materi"><Upload className="h-4 w-4" /></button>
+                            {onEditMaterial && <button type="button" onClick={() => { setIsSearchModalOpen(false); onEditMaterial(item); }} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="Edit Materi"><Pencil className="h-4 w-4" /></button>}
+                            {onDeleteMaterial && <button type="button" onClick={() => onDeleteMaterial(item.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Hapus Materi"><Trash2 className="h-4 w-4" /></button>}
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                  {(searchFilter === "all" || searchFilter === "quest") && quests.filter(q => q.title.toLowerCase().includes(searchQuery.toLowerCase())).map(item => (
+                    <article key={`search-q-${item.id}`} className="flex flex-col shrink-0 min-h-[96px] group relative p-3 bg-white rounded-lg border border-slate-100 shadow-sm hover:border-blue-200 transition-all">
+                      <div className="flex flex-col my-auto">
+                        <strong className="leading-tight text-slate-800">{item.title}</strong>
+                        <span className="text-[11px] text-slate-500 mt-0.5">{item.points} poin - {item.dueDate}</span>
+                      </div>
+                      <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-all duration-300 ease-in-out">
+                        <div className="overflow-hidden min-h-0">
+                          <div className="flex items-center justify-end gap-1 pt-2 mt-2 border-t border-slate-100 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
+                            <button type="button" onClick={async () => { try { await api("/api/teacher/bank-submit", { method: "POST", body: JSON.stringify({ type: "quest", id: item.id }) }); showToast("IdeQuest ini akan ditinjau oleh tim IdeTech."); } catch (err) { showToast(err instanceof Error ? err.message : "Gagal mengirim ke bank."); } }} className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors" title="Kirim ke Bank IdeQuest"><Upload className="h-4 w-4" /></button>
+                            {onEditQuest && <button type="button" onClick={() => { setIsSearchModalOpen(false); onEditQuest(item); }} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="Edit IdeQuest"><Pencil className="h-4 w-4" /></button>}
+                            {onDeleteQuest && <button type="button" onClick={() => onDeleteQuest(item.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Hapus IdeQuest"><Trash2 className="h-4 w-4" /></button>}
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                  {((searchFilter === "all" || searchFilter === "material") && materials.filter(m => m.title.toLowerCase().includes(searchQuery.toLowerCase()) || m.type.toLowerCase().includes(searchQuery.toLowerCase())).length === 0) &&
+                   ((searchFilter === "all" || searchFilter === "quest") && quests.filter(q => q.title.toLowerCase().includes(searchQuery.toLowerCase())).length === 0) && (
+                     <div className="text-center py-8 text-slate-500">
+                       <p>Tidak ada hasil yang cocok dengan pencarian Anda.</p>
+                     </div>
+                   )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {showMarkdownGuide && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -5281,7 +5476,7 @@ function AdminUserVerificationGrid({
   onDeleteUser?: (id: string) => void;
 }) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {users.map((item) => {
         const selectedRoles = item.roles.map((role) => role.name as RoleName);
         return (
@@ -5783,29 +5978,7 @@ function ErrorBanner({ message }: { message: string }) {
 function IdeTechLogo({ className = "" }: { className?: string }) {
   return (
     <span className={`idetech-logo ${className}`} aria-hidden="true">
-      <svg viewBox="0 0 100 100" role="img">
-        <defs>
-          <linearGradient id="idetech-gold" x1="18" x2="82" y1="16" y2="86">
-            <stop offset="0" stopColor="#fff7b8" />
-            <stop offset="0.28" stopColor="#d2a73f" />
-            <stop offset="0.58" stopColor="#fff1a0" />
-            <stop offset="1" stopColor="#8c651d" />
-          </linearGradient>
-          <radialGradient id="idetech-shine" cx="30%" cy="28%" r="45%">
-            <stop offset="0" stopColor="#fff8c8" />
-            <stop offset="0.42" stopColor="#c7922e" />
-            <stop offset="1" stopColor="#6f4b13" />
-          </radialGradient>
-        </defs>
-        <rect x="5" y="5" width="90" height="90" rx="22" fill="#090d10" stroke="url(#idetech-gold)" strokeWidth="6" />
-        <circle cx="25" cy="29" r="8" fill="url(#idetech-shine)" />
-        <path
-          d="M18 58 C31 37 48 30 70 32 C57 38 51 45 48 55 C57 49 67 47 80 51 C68 64 55 72 41 72 C30 72 22 67 18 58 Z"
-          fill="url(#idetech-gold)"
-        />
-        <path d="M24 42 C42 54 59 57 78 47 C65 65 42 68 20 52" fill="none" stroke="#f7d979" strokeWidth="5" strokeLinecap="round" />
-        <path d="M36 72 C45 80 59 80 70 69" fill="none" stroke="url(#idetech-gold)" strokeWidth="3" strokeLinecap="round" />
-      </svg>
+      <img src="/logoidetech.webp" alt="IdeTech Logo" className="w-full h-full object-contain" />
     </span>
   );
 }
@@ -6436,9 +6609,31 @@ type StudentProgressReport = {
   quests: { id: string; title: string; type: string; progress: number; completedAt: string | null; dueDate: string | null; isLate: boolean }[];
 };
 
-function TeacherRadarView({ onClose }: { onClose: () => void }) {
+function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mode?: "radar" | "report" }) {
   const [data, setData] = useState<StudentProgressReport[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterClass, setFilterClass] = useState("all");
+  const [filterRisk, setFilterRisk] = useState("all");
+
+  const filteredData = React.useMemo(() => {
+    return data.filter(student => {
+      const matchSearch = student.studentName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          student.studentEmail.toLowerCase().includes(searchQuery.toLowerCase());
+      if (!matchSearch) return false;
+      if (filterClass !== "all" && student.className !== filterClass) return false;
+      if (filterRisk !== "all") {
+        const allTasks = [...student.materials, ...student.quests];
+        const hasLate = allTasks.some(t => t.progress >= 100 && t.isLate);
+        if (filterRisk === "at-risk" && !hasLate) return false;
+        if (filterRisk === "safe" && hasLate) return false;
+      }
+      return true;
+    });
+  }, [data, searchQuery, filterClass, filterRisk]);
+
+  const uniqueClasses = Array.from(new Set(data.map(s => s.className)));
 
   useEffect(() => {
     async function fetchProgress() {
@@ -6454,19 +6649,100 @@ function TeacherRadarView({ onClose }: { onClose: () => void }) {
     fetchProgress();
   }, []);
 
+  const exportToCSV = () => {
+    if (filteredData.length === 0) return;
+    
+    const headers = ["Nama Siswa", "Email", "Kelas", "Materi Selesai Tepat Waktu", "Materi Terlambat", "Materi Belum Selesai", "IdeQuest Selesai Tepat Waktu", "IdeQuest Terlambat", "IdeQuest Belum Selesai"];
+    
+    const rows = filteredData.map(student => {
+      const matCompleted = student.materials.filter(m => m.progress >= 100 && !m.isLate).length;
+      const matLate = student.materials.filter(m => m.progress >= 100 && m.isLate).length;
+      const matIncomplete = student.materials.filter(m => m.progress < 100).length;
+      
+      const qCompleted = student.quests.filter(q => q.progress >= 100 && !q.isLate).length;
+      const qLate = student.quests.filter(q => q.progress >= 100 && q.isLate).length;
+      const qIncomplete = student.quests.filter(q => q.progress < 100).length;
+      
+      return [
+        `"${student.studentName}"`,
+        `"${student.studentEmail}"`,
+        `"${student.className}"`,
+        matCompleted,
+        matLate,
+        matIncomplete,
+        qCompleted,
+        qLate,
+        qIncomplete
+      ].join(",");
+    });
+    
+    const csvContent = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Laporan_Hasil_Belajar_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="bg-white rounded-t-3xl min-h-[60vh] p-4 md:p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] relative mt-4 animate-in slide-in-from-bottom-10">
       <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-slate-200 rounded-full" />
       
       <div className="flex justify-between items-center mt-4 mb-6">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">Radar Pintar (Progres Siswa)</h2>
-          <p className="text-sm text-slate-500">Analisis progres belajar, materi, dan IdeQuest siswa</p>
+          <h2 className="text-xl font-bold text-slate-800">{mode === "report" ? "Laporan Hasil Belajar" : "Radar Pintar (Progres Siswa)"}</h2>
+          <p className="text-sm text-slate-500">{mode === "report" ? "Rekapitulasi persentase penyelesaian tugas siswa" : "Analisis progres belajar, intervensi, dan risiko siswa"}</p>
         </div>
-        <button type="button" onClick={onClose} className="p-2 bg-slate-100 text-slate-600 rounded-full hover:bg-slate-200">
-          <X className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            type="button" 
+            onClick={exportToCSV}
+            disabled={loading || filteredData.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 font-bold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline">Unduh Laporan</span>
+          </button>
+          <button type="button" onClick={onClose} className="p-2 bg-slate-100 text-slate-600 rounded-full hover:bg-slate-200" title="Tutup Radar">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
       </div>
+
+      {!loading && data.length > 0 && (
+        <div className="flex flex-col sm:flex-row gap-3 mb-6 bg-slate-50 p-3 rounded-xl border border-slate-200 animate-in fade-in slide-in-from-top-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="Cari nama atau email siswa..." 
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400"
+            />
+          </div>
+          <select 
+            value={filterClass} 
+            onChange={e => setFilterClass(e.target.value)}
+            className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">Semua Kelas</option>
+            {uniqueClasses.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select 
+            value={filterRisk} 
+            onChange={e => setFilterRisk(e.target.value)}
+            className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">Semua Status</option>
+            <option value="at-risk">Beresiko (Terlambat)</option>
+            <option value="safe">Aman (Tepat Waktu)</option>
+          </select>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-12">
@@ -6480,9 +6756,70 @@ function TeacherRadarView({ onClose }: { onClose: () => void }) {
           </div>
           <p className="text-slate-500">Belum ada siswa di kelas Anda.</p>
         </div>
+      ) : filteredData.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+          <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mb-4">
+            <Search className="h-8 w-8" />
+          </div>
+          <p className="text-slate-500 mb-4">Siswa tidak ditemukan berdasarkan filter pencarian.</p>
+          <button type="button" onClick={() => { setSearchQuery(""); setFilterClass("all"); setFilterRisk("all"); }} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm">
+            Reset Filter
+          </button>
+        </div>
+      ) : mode === "report" ? (
+        <div className="overflow-x-auto mt-6 bg-white border border-slate-200 rounded-xl shadow-sm">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] sm:text-xs uppercase tracking-wider">
+                <th className="p-3 sm:p-4 font-bold">Nama Siswa</th>
+                <th className="p-3 sm:p-4 font-bold hidden sm:table-cell">Kelas</th>
+                <th className="p-3 sm:p-4 font-bold text-center">Materi Selesai</th>
+                <th className="p-3 sm:p-4 font-bold text-center">Quest Selesai</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredData.map(student => {
+                const matCompleted = student.materials.filter(m => m.progress >= 100).length;
+                const questCompleted = student.quests.filter(q => q.progress >= 100).length;
+                return (
+                  <tr key={student.studentId} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="p-3 sm:p-4">
+                      <div className="flex items-center gap-3">
+                        {student.avatarUrl ? (
+                          <img src={student.avatarUrl} className="w-8 h-8 rounded-full object-cover" alt="" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0">
+                            {student.studentName[0].toUpperCase()}
+                          </div>
+                        )}
+                        <div>
+                          <div className="font-bold text-slate-800 text-sm leading-tight">{student.studentName}</div>
+                          <div className="text-xs text-slate-500 hidden sm:block">{student.studentEmail}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-3 sm:p-4 text-sm text-slate-600 hidden sm:table-cell">{student.className}</td>
+                    <td className="p-3 sm:p-4 text-center">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-bold">
+                        <BookOpen className="w-3.5 h-3.5" />
+                        {matCompleted} / {student.materials.length}
+                      </div>
+                    </td>
+                    <td className="p-3 sm:p-4 text-center">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 text-xs font-bold">
+                        <Target className="w-3.5 h-3.5" />
+                        {questCompleted} / {student.quests.length}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       ) : (
         <div className="space-y-6">
-          {data.map(student => {
+          {filteredData.map(student => {
             const allTasks = [...student.materials, ...student.quests];
             const completed = allTasks.filter(t => t.progress >= 100);
             const lateCompleted = completed.filter(t => t.isLate);
@@ -6490,12 +6827,12 @@ function TeacherRadarView({ onClose }: { onClose: () => void }) {
             
             return (
               <div key={student.studentId} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 md:p-5">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                  <div className="flex items-center gap-4">
+                <div className="flex flex-col gap-3 mb-4">
+                  <div className="flex items-start sm:items-center gap-4">
                     {student.avatarUrl ? (
-                      <img src={student.avatarUrl} alt={student.studentName} className="w-12 h-12 rounded-full border-2 border-white shadow-sm object-cover" />
+                      <img src={student.avatarUrl} alt={student.studentName} referrerPolicy="no-referrer" className="w-12 h-12 rounded-full border-2 border-white shadow-sm object-cover shrink-0" />
                     ) : (
-                      <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg border-2 border-white shadow-sm">
+                      <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg border-2 border-white shadow-sm shrink-0">
                         {student.studentName.charAt(0).toUpperCase()}
                       </div>
                     )}
@@ -6504,28 +6841,34 @@ function TeacherRadarView({ onClose }: { onClose: () => void }) {
                       <p className="text-sm text-slate-500">{student.className} • {student.studentEmail}</p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <div className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs font-bold flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      {onTimeCompleted.length} Tepat Waktu
+                  <div className="flex flex-wrap gap-2">
+                    <div className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs font-bold flex items-center gap-1.5 whitespace-nowrap">
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                      <span>{onTimeCompleted.length} Tepat Waktu</span>
                     </div>
                     {lateCompleted.length > 0 && (
-                      <div className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-bold flex items-center gap-1.5">
-                        <Timer className="w-3.5 h-3.5" />
-                        {lateCompleted.length} Terlambat
+                      <div className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-bold flex items-center gap-1.5 whitespace-nowrap">
+                        <Timer className="w-3.5 h-3.5 shrink-0" />
+                        <span>{lateCompleted.length} Terlambat</span>
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Materi ({student.materials.length})</h4>
-                    <div className="space-y-2">
+                <div className="flex flex-col gap-3">
+                  <details className="group">
+                    <summary className="flex justify-between items-center cursor-pointer text-xs font-bold text-slate-500 uppercase tracking-wider bg-white p-3 rounded-xl border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors list-none [&::-webkit-details-marker]:hidden">
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="w-4 h-4 text-blue-500" />
+                        <span>Materi ({student.materials.length})</span>
+                      </div>
+                      <ChevronDown className="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform" />
+                    </summary>
+                    <div className="space-y-2 mt-2 pt-1 pl-2 border-l-2 border-slate-100">
                       {student.materials.map(m => (
                         <div key={m.id} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
                           <div className="flex items-center gap-2 overflow-hidden">
-                            <BookOpen className="w-4 h-4 text-blue-500 shrink-0" />
+                            <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
                             <span className="text-sm font-medium text-slate-700 truncate" title={m.title}>{m.title}</span>
                           </div>
                           <div className="flex items-center gap-2 shrink-0 ml-2">
@@ -6538,17 +6881,23 @@ function TeacherRadarView({ onClose }: { onClose: () => void }) {
                           </div>
                         </div>
                       ))}
-                      {student.materials.length === 0 && <p className="text-sm text-slate-400 italic">Belum ada materi</p>}
+                      {student.materials.length === 0 && <p className="text-sm text-slate-400 italic p-2">Belum ada materi</p>}
                     </div>
-                  </div>
+                  </details>
                   
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">IdeQuest ({student.quests.length})</h4>
-                    <div className="space-y-2">
+                  <details className="group">
+                    <summary className="flex justify-between items-center cursor-pointer text-xs font-bold text-slate-500 uppercase tracking-wider bg-white p-3 rounded-xl border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors list-none [&::-webkit-details-marker]:hidden">
+                      <div className="flex items-center gap-2">
+                        <Target className="w-4 h-4 text-purple-500" />
+                        <span>IdeQuest ({student.quests.length})</span>
+                      </div>
+                      <ChevronDown className="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform" />
+                    </summary>
+                    <div className="space-y-2 mt-2 pt-1 pl-2 border-l-2 border-slate-100">
                       {student.quests.map(q => (
                         <div key={q.id} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
                           <div className="flex items-center gap-2 overflow-hidden">
-                            <Target className="w-4 h-4 text-purple-500 shrink-0" />
+                            <div className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" />
                             <span className="text-sm font-medium text-slate-700 truncate" title={q.title}>{q.title}</span>
                           </div>
                           <div className="flex items-center gap-2 shrink-0 ml-2">
@@ -6561,9 +6910,9 @@ function TeacherRadarView({ onClose }: { onClose: () => void }) {
                           </div>
                         </div>
                       ))}
-                      {student.quests.length === 0 && <p className="text-sm text-slate-400 italic">Belum ada IdeQuest</p>}
+                      {student.quests.length === 0 && <p className="text-sm text-slate-400 italic p-2">Belum ada IdeQuest</p>}
                     </div>
-                  </div>
+                  </details>
                 </div>
               </div>
             );
