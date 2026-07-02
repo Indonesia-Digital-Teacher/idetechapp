@@ -17,7 +17,12 @@ import {
   studentQuestProgress,
   teacherJournals,
   userRoles,
-  users
+  users,
+  activityLogs,
+  globalAnnouncements,
+  masterSubjects,
+  masterGrades,
+  systemSettings
 } from "../db/schema";
 import type { RoleName } from "../db/schema";
 import { type AppEnv, authRequired, requirePermission, requireRole } from "../lib/auth";
@@ -41,9 +46,26 @@ app.use("/teacher/*", authRequired);
 app.use("/student/*", authRequired);
 app.use("/parent/*", authRequired);
 
-app.get("/dashboard", (c) => {
+app.get("/dashboard", async (c) => {
   const user = c.get("authUser");
-  const dashboard = dashboardCatalog[user.activeRole];
+  const baseDashboard = dashboardCatalog[user.activeRole];
+  const dashboard = JSON.parse(JSON.stringify(baseDashboard));
+
+  if (user.activeRole === "admin") {
+    const allUsers = await db.select().from(users);
+    const pendingUsersCount = allUsers.filter((u) => u.status === "pending").length;
+
+    const allClasses = await db.select().from(classes);
+    const activeClassesCount = allClasses.filter((cls) => cls.status === "active").length;
+
+    const allPermissions = await db.select().from(permissions);
+    const permissionsCount = allPermissions.length;
+
+    dashboard.metrics[0].value = pendingUsersCount.toString();
+    dashboard.metrics[1].value = activeClassesCount.toString();
+    dashboard.metrics[2].value = permissionsCount.toString();
+  }
+
   return c.json({ user, dashboard });
 });
 
@@ -1543,5 +1565,44 @@ function normalizeSchoolText(value: string) {
     .replace(/[^A-Z0-9]+/g, " ")
     .trim();
 }
+
+// --- New Admin Features ---
+
+app.get("/admin/activity-logs", requireRole(["admin"]), async (c) => {
+  const rows = await db.select().from(activityLogs).orderBy(desc(activityLogs.createdAt)).limit(100);
+  return c.json({ logs: rows });
+});
+
+app.get("/admin/announcements", requireRole(["admin", "teacher", "student", "parent"]), async (c) => {
+  const rows = await db.select().from(globalAnnouncements).orderBy(desc(globalAnnouncements.createdAt));
+  return c.json({ announcements: rows });
+});
+
+app.post("/admin/announcements", requireRole(["admin"]), async (c) => {
+  const user = c.get("authUser");
+  const body = (await c.req.json().catch(() => ({}))) as { title?: string; content?: string; type?: "info" | "warning" | "success" };
+  if (!body.title || !body.content) return c.json({ message: "Judul dan konten wajib diisi." }, 400);
+  
+  const now = new Date();
+  const [created] = await db.insert(globalAnnouncements).values({
+    id: `ann_${crypto.randomUUID()}`,
+    title: body.title.trim(),
+    content: body.content.trim(),
+    type: body.type ?? "info",
+    authorUserId: user.id,
+    createdAt: now,
+    updatedAt: now
+  }).returning();
+  return c.json({ announcement: created });
+});
+
+app.get("/admin/master-data", requireRole(["admin"]), async (c) => {
+  const [subjects, grades, settings] = await Promise.all([
+    db.select().from(masterSubjects),
+    db.select().from(masterGrades),
+    db.select().from(systemSettings)
+  ]);
+  return c.json({ subjects, grades, settings });
+});
 
 export default app;

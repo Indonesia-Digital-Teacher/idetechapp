@@ -319,4 +319,46 @@ export const studentQuestProgressRelations = relations(studentQuestProgress, ({ 
   quest: one(ideQuests, { fields: [studentQuestProgress.questId], references: [ideQuests.id] })
 }));
 
+export const activityLogs = sqliteTable("activity_logs", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  action: text("action").notNull(),
+  resourceType: text("resource_type").notNull(),
+  resourceId: text("resource_id"),
+  details: text("details"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull()
+});
+
+export const globalAnnouncements = sqliteTable("global_announcements", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  type: text("type", { enum: ["info", "warning", "success"] }).notNull().default("info"),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  authorUserId: text("author_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull()
+});
+
+export const masterSubjects = sqliteTable("master_subjects", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull()
+});
+
+export const masterGrades = sqliteTable("master_grades", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull()
+});
+
+export const systemSettings = sqliteTable("system_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  description: text("description"),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull()
+});
+
 export type RoleName = "admin" | "teacher" | "student" | "parent";

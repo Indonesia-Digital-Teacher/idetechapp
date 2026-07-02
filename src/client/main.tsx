@@ -14,6 +14,7 @@ import {
   BookOpen,
   Boxes,
   ArrowRight,
+  ArrowUp,
   ChevronRight,
   HelpCircle,
   Download,
@@ -133,7 +134,7 @@ type AdminClass = TeacherClass & {
   teacherEmail: string;
 };
 
-type AdminView = "home" | "users" | "classes" | "access" | "system";
+type AdminView = "home" | "users" | "classes" | "access" | "system" | "quick_action" | "advanced_features";
 
 type SchoolOption = {
   name: string;
@@ -2034,6 +2035,16 @@ function ProfessionalDashboard({
   onDeleteAdminClass: (id: string) => void;
 }) {
   const [adminView, setAdminView] = useState<AdminView>("home");
+  const [showBackToTop, setShowBackToTop] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowBackToTop(window.scrollY > 300);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   const features = roleFeatures[user.activeRole];
   const isTeacher = user.activeRole === "teacher";
   const activeLabel = roleMenuLabels[user.activeRole][activeMenu];
@@ -2050,7 +2061,9 @@ function ProfessionalDashboard({
     { label: "Verifikasi user baru", view: "users", description: "Aktifkan user dan atur role.", icon: UserCog },
     { label: "Kelola kelas global", view: "classes", description: "CRUD semua kelas yang dibuat guru.", icon: GraduationCap },
     { label: "Atur role dan permission", view: "access", description: "Kelola izin tiap role.", icon: ShieldCheck },
-    { label: "Pantau konfigurasi sistem", view: "system", description: "Lihat ringkasan konfigurasi.", icon: Settings }
+    { label: "Pantau konfigurasi sistem", view: "system", description: "Lihat ringkasan konfigurasi.", icon: Settings },
+    { label: "Persetujuan Bank Idetech", view: "quick_action", description: "Persetujuan Bank Idetech dan aksi instan lainnya.", icon: Rocket },
+    { label: "Pengaturan Lanjutan", view: "advanced_features", description: "Log aktivitas, pengumuman global, dan master data.", icon: Boxes }
   ];
 
   if (isTeacher) {
@@ -2147,6 +2160,7 @@ function ProfessionalDashboard({
             busy={busy}
             onBack={() => setAdminView("home")}
             onUpdateUser={onUpdateAdminUser}
+            onDeleteUser={onDeleteAdminUser}
             onUpdateRolePermissions={onUpdateRolePermissions}
             onCreateClass={onCreateAdminClass}
             onUpdateClass={onUpdateAdminClass}
@@ -2217,6 +2231,16 @@ function ProfessionalDashboard({
 
       {isTeacher ? <TeacherBottomNav active={activeMenu} onChange={onChangeMenu} /> : null}
       {user.activeRole === "admin" ? <AdminBottomNav activeView={adminView} onViewChange={setAdminView} actions={adminActions} /> : null}
+
+      {showBackToTop && user.activeRole === "admin" ? (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          className="fixed bottom-24 md:bottom-8 right-4 md:right-8 z-[100] p-3 bg-slate-800/90 hover:bg-slate-900 text-white rounded-full shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 focus:outline-none backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-300"
+          title="Kembali ke Atas"
+        >
+          <ArrowUp className="h-5 w-5 stroke-[2.5]" />
+        </button>
+      ) : null}
     </main>
   );
 }
@@ -4135,11 +4159,9 @@ function TeacherStudioManager({
       )}
 
       {toastMessage && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[110] animate-in slide-in-from-bottom-5 fade-in duration-300">
-          <div className="bg-slate-800 text-white px-5 py-3 rounded-full shadow-lg flex items-center gap-3 text-sm font-medium border border-slate-700">
-            <CheckCircle2 className="w-5 h-5 text-green-400" />
-            {toastMessage}
-          </div>
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-5 py-3 rounded-full shadow-2xl z-[100] text-sm font-bold flex items-center gap-3 animate-in fade-in slide-in-from-bottom-6">
+          <CheckCircle2 className="w-5 h-5 text-green-400" />
+          {toastMessage}
         </div>
       )}
     </section>
@@ -5371,7 +5393,7 @@ function AdminControlCenter({
   const pendingUsers = users.filter((item) => item.status === "pending");
 
   return (
-    <section className="grid gap-6 xl:grid-cols-[1.45fr_1fr]">
+    <section className="grid gap-6">
       <Card className="professional-card p-5">
         <div className="professional-card__header">
           <div>
@@ -5383,12 +5405,6 @@ function AdminControlCenter({
 
         <AdminUserVerificationGrid users={users} roles={access?.roles ?? []} busy={busy} onUpdateUser={onUpdateUser} onDeleteUser={onDeleteUser} />
       </Card>
-
-      <div className="grid gap-6">
-        <AdminSystemConfig access={access} />
-        <AdminPermissionPanel access={access} busy={busy} onUpdateRolePermissions={onUpdateRolePermissions} />
-        <AdminBankApprovalPanel />
-      </div>
     </section>
   );
 }
@@ -5425,14 +5441,16 @@ function AdminSubPage({
     classes: "Kelola kelas global",
     access: "Role & permission",
     system: "Konfigurasi sistem",
+    quick_action: "Persetujuan Bank Idetech",
+    advanced_features: "Pengaturan Lanjutan",
     home: "Beranda admin"
   }[view];
 
   return (
     <section className="admin-subpage">
       <div className="admin-subpage__bar">
-        <button type="button" className="admin-back-button" onClick={onBack}>
-          <ChevronRight className="h-4 w-4 rotate-180" />
+        <button type="button" className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-full shadow-md hover:shadow-lg transition-all active:scale-95" onClick={onBack}>
+          <ChevronRight className="h-5 w-5 rotate-180 stroke-[2.5]" />
           Beranda
         </button>
         <div>
@@ -5459,6 +5477,10 @@ function AdminSubPage({
       {view === "access" ? <AdminPermissionPanel access={access} busy={busy} onUpdateRolePermissions={onUpdateRolePermissions} /> : null}
 
       {view === "system" ? <AdminSystemConfig access={access} /> : null}
+
+      {view === "quick_action" ? <AdminBankApprovalPanel /> : null}
+
+      {view === "advanced_features" ? <AdminAdvancedFeaturesPanel /> : null}
     </section>
   );
 }
@@ -5477,7 +5499,7 @@ function AdminUserVerificationGrid({
   onDeleteUser?: (id: string) => void;
 }) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       {users.map((item) => {
         const selectedRoles = item.roles.map((role) => role.name as RoleName);
         return (
@@ -5720,11 +5742,22 @@ function AdminClassCard({
 
   return (
     <Card className="professional-card p-4 flex flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium opacity-70">Nama & Mapel</label>
-        <div className="flex gap-2">
-          <input className="w-full" value={draft.name} placeholder="Nama Kelas" onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} />
-          <input className="w-full" value={draft.subject} placeholder="Mapel" aria-label={`Mapel ${kelas.name}`} onChange={(event) => setDraft((current) => ({ ...current, subject: event.target.value }))} />
+      <div className="flex flex-col gap-1 border-b border-slate-100 pb-3 mb-1">
+        <input 
+          className="w-full text-xl font-extrabold text-slate-800 bg-transparent border-transparent hover:bg-slate-50 focus:bg-white rounded-md px-2 py-1 transition-all outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 placeholder-slate-300" 
+          value={draft.name} 
+          placeholder="Nama Kelas (Misal: IPA 7A)" 
+          onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} 
+        />
+        <div className="flex items-center gap-1.5 px-2">
+          <BookOpen className="h-4 w-4 text-blue-500 opacity-80" />
+          <input 
+            className="w-full text-sm font-semibold text-blue-600 bg-transparent border-transparent hover:bg-slate-50 focus:bg-white rounded-md px-1 py-0.5 transition-all outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 placeholder-blue-300/50" 
+            value={draft.subject} 
+            placeholder="Mata Pelajaran" 
+            aria-label={`Mapel ${kelas.name}`} 
+            onChange={(event) => setDraft((current) => ({ ...current, subject: event.target.value }))} 
+          />
         </div>
       </div>
       
@@ -5772,8 +5805,8 @@ function AdminClassCard({
       </div>
 
       <div className="flex gap-2 mt-2">
-        <button
-          className="flex-1"
+        <Button
+          className="flex-1 shadow-sm"
           type="button"
           disabled={busy}
           onClick={() =>
@@ -5789,9 +5822,9 @@ function AdminClassCard({
           }
         >
           Simpan
-        </button>
+        </Button>
         <button
-          className="flex-1 is-danger"
+          className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 font-semibold py-2 rounded-xl transition-colors border border-red-200/50 shadow-sm"
           type="button"
           disabled={busy}
           onClick={() => {
@@ -6517,7 +6550,7 @@ function AdminBankApprovalPanel() {
                 <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse border border-white"></span>
               )}
             </div>
-            Persetujuan Bank IdeTech
+            Persetujuan Bank Idetech
           </h3>
           <p className="professional-card__hint">Tinjau dan setujui materi/quest yang dikirim guru untuk diterbitkan ke publik.</p>
         </div>
@@ -6589,11 +6622,9 @@ function AdminBankApprovalPanel() {
       </div>
 
       {toastMessage && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 animate-in fade-in slide-in-from-bottom-2">
-          <div className="bg-slate-800 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 text-sm whitespace-nowrap border border-slate-700">
-            <CheckCircle2 className="w-4 h-4 text-green-400" />
-            {toastMessage}
-          </div>
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-5 py-3 rounded-full shadow-2xl z-[100] text-sm font-bold flex items-center gap-3 animate-in fade-in slide-in-from-bottom-6">
+          <CheckCircle2 className="w-5 h-5 text-green-400" />
+          {toastMessage}
         </div>
       )}
     </Card>
@@ -6920,6 +6951,48 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+function AdminAdvancedFeaturesPanel() {
+  const [tab, setTab] = React.useState<"logs" | "announcements" | "master">("announcements");
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 p-5">
+      <div className="mb-4">
+        <div>
+          <h2 className="text-lg font-bold text-slate-800">Pengaturan Lanjutan</h2>
+          <p className="text-sm text-slate-500">Kelola log aktivitas, pengumuman, dan data master sistem.</p>
+        </div>
+      </div>
+
+      <div className="flex border-b border-slate-100 mb-6">
+        <button
+          onClick={() => setTab("announcements")}
+          className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${tab === "announcements" ? "border-blue-500 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+        >
+          <Bell className="h-4 w-4" /> Pengumuman Global
+        </button>
+        <button
+          onClick={() => setTab("master")}
+          className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${tab === "master" ? "border-blue-500 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+        >
+          <Boxes className="h-4 w-4" /> Master Data
+        </button>
+        <button
+          onClick={() => setTab("logs")}
+          className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${tab === "logs" ? "border-blue-500 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+        >
+          <ScrollText className="h-4 w-4" /> Log Aktivitas
+        </button>
+      </div>
+
+      <div className="min-h-[300px] flex flex-col items-center justify-center text-center text-slate-500">
+        <Boxes className="h-12 w-12 text-slate-200 mb-4" />
+        <h3 className="font-semibold text-lg text-slate-700 mb-1">Struktur Database & API Telah Disiapkan</h3>
+        <p className="text-sm max-w-md">Fitur {tab === "logs" ? "Log Aktivitas" : tab === "master" ? "Master Data" : "Pengumuman Global"} saat ini sedang dalam pengembangan tampilan antarmuka lanjutan. Struktur tabel dan endpoint API sudah diimplementasikan.</p>
+      </div>
     </div>
   );
 }
