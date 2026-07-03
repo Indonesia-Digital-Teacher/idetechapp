@@ -1005,6 +1005,246 @@ describe("Backend API Endpoints", () => {
           expect(res.status).toBe(403);
         });
       });
+
+      describe("Bank submit → approve → clone flow", () => {
+        test("Teacher dapat submit materi ke bank, admin approve, dan guru lain clone ke kelasnya", async () => {
+          // Buat teacher2 (pemilik kelas target) terlebih dahulu agar teacher1
+          // yang dibuat terakhir menentukan permission akhir role teacher.
+          const { token: teacher2Token } = await createUserWithPermissions("teacher", ["class.manage"]);
+
+          const targetClassRes = await requestWithToken(teacher2Token, "/teacher/classes", "POST", {
+            name: "Kelas Target",
+            subject: "Fisika",
+            grade: "10"
+          });
+          const targetClassId = (await targetClassRes.json()).class.id;
+
+          const { token: teacher1Token } = await createUserWithPermissions("teacher", [
+            "class.manage",
+            "material.create",
+            "quest.manage",
+            "bank.manage"
+          ]);
+
+          const classRes = await requestWithToken(teacher1Token, "/teacher/classes", "POST", {
+            name: "Kelas Bank",
+            subject: "Fisika",
+            grade: "10"
+          });
+          const classJson = await classRes.json();
+          const classId = classJson.class.id;
+
+          const materialRes = await requestWithToken(teacher1Token, "/teacher/materials", "POST", {
+            classId,
+            title: "Materi Bank",
+            type: "lesson",
+            description: "Deskripsi bank"
+          });
+          const materialId = (await materialRes.json()).material.id;
+
+          const questRes = await requestWithToken(teacher1Token, "/teacher/idequests", "POST", {
+            classId,
+            title: "Quest Bank",
+            mission: "Misi bank",
+            points: 75,
+            dueDate: "3d",
+            status: "published"
+          });
+          const questId = (await questRes.json()).quest.id;
+
+          // Teacher1 submits material and quest to bank
+          const submitMatRes = await requestWithToken(teacher1Token, "/teacher/bank-submit", "POST", {
+            type: "material",
+            id: materialId
+          });
+          expect(submitMatRes.status).toBe(200);
+
+          const submitQuestRes = await requestWithToken(teacher1Token, "/teacher/bank-submit", "POST", {
+            type: "quest",
+            id: questId
+          });
+          expect(submitQuestRes.status).toBe(200);
+
+          // Material/quest should not be in public bank yet
+          const publicBeforeRes = await requestWithToken(teacher1Token, "/teacher/bank-public", "GET");
+          expect(publicBeforeRes.status).toBe(200);
+          const publicBefore = await publicBeforeRes.json();
+          expect(publicBefore.materials).not.toEqual(
+            expect.arrayContaining([expect.objectContaining({ id: materialId })])
+          );
+          expect(publicBefore.quests).not.toEqual(
+            expect.arrayContaining([expect.objectContaining({ id: questId })])
+          );
+
+          // Admin approves submissions
+          const { token: adminToken } = await createUserWithPermissions("admin", ["bank.manage"]);
+
+          const queueRes = await requestWithToken(adminToken, "/admin/bank-queue", "GET");
+          expect(queueRes.status).toBe(200);
+          const queue = await queueRes.json();
+          expect(queue.materials).toEqual(expect.arrayContaining([expect.objectContaining({ id: materialId })]));
+          expect(queue.quests).toEqual(expect.arrayContaining([expect.objectContaining({ id: questId })]));
+
+          const approveMatRes = await requestWithToken(adminToken, `/admin/bank-queue/material/${materialId}`, "PATCH", {
+            status: "approved"
+          });
+          expect(approveMatRes.status).toBe(200);
+
+          const approveQuestRes = await requestWithToken(adminToken, `/admin/bank-queue/quest/${questId}`, "PATCH", {
+            status: "approved"
+          });
+          expect(approveQuestRes.status).toBe(200);
+
+          // Public bank now contains approved items
+          const publicAfterRes = await requestWithToken(teacher1Token, "/teacher/bank-public", "GET");
+          expect(publicAfterRes.status).toBe(200);
+          const publicAfter = await publicAfterRes.json();
+          expect(publicAfter.materials).toEqual(expect.arrayContaining([expect.objectContaining({ id: materialId })]));
+          expect(publicAfter.quests).toEqual(expect.arrayContaining([expect.objectContaining({ id: questId })]));
+
+          // Teacher2 requests clone ke kelas target
+          const requestMatRes = await requestWithToken(teacher2Token, "/teacher/bank-requests", "POST", {
+            itemType: "material",
+            itemId: materialId,
+            targetClassId
+          });
+          expect(requestMatRes.status).toBe(201);
+          const materialRequestId = (await requestMatRes.json()).request.id;
+
+          const requestQuestRes = await requestWithToken(teacher2Token, "/teacher/bank-requests", "POST", {
+            itemType: "quest",
+            itemId: questId,
+            targetClassId
+          });
+          expect(requestQuestRes.status).toBe(201);
+          const questRequestId = (await requestQuestRes.json()).request.id;
+
+          // Teacher1 approves clone requests
+          const approveCloneMatRes = await requestWithToken(teacher1Token, `/teacher/bank-requests/${materialRequestId}`, "PATCH", {
+            status: "approved"
+          });
+          expect(approveCloneMatRes.status).toBe(200);
+
+          const approveCloneQuestRes = await requestWithToken(teacher1Token, `/teacher/bank-requests/${questRequestId}`, "PATCH", {
+            status: "approved"
+          });
+          expect(approveCloneQuestRes.status).toBe(200);
+
+          // Verify cloned items exist in teacher2's class
+          const teacher2MaterialsRes = await requestWithToken(teacher2Token, "/teacher/materials", "GET");
+          expect(teacher2MaterialsRes.status).toBe(200);
+          const teacher2Materials = await teacher2MaterialsRes.json();
+          expect(teacher2Materials.materials).toEqual(
+            expect.arrayContaining([expect.objectContaining({ title: "Materi Bank (Clone)", classId: targetClassId })])
+          );
+
+          const teacher2QuestsRes = await requestWithToken(teacher2Token, "/teacher/idequests", "GET");
+          expect(teacher2QuestsRes.status).toBe(200);
+          const teacher2Quests = await teacher2QuestsRes.json();
+          expect(teacher2Quests.quests).toEqual(
+            expect.arrayContaining([expect.objectContaining({ title: "Quest Bank (Clone)", classId: targetClassId })])
+          );
+        });
+
+        test("Teacher tidak bisa request clone item milik sendiri", async () => {
+          const { token: teacherToken } = await createUserWithPermissions("teacher", [
+            "class.manage",
+            "material.create",
+            "bank.manage"
+          ]);
+
+          const classRes = await requestWithToken(teacherToken, "/teacher/classes", "POST", {
+            name: "Kelas Sendiri",
+            subject: "Kimia",
+            grade: "11"
+          });
+          const classId = (await classRes.json()).class.id;
+
+          const materialRes = await requestWithToken(teacherToken, "/teacher/materials", "POST", {
+            classId,
+            title: "Materi Sendiri",
+            type: "lesson",
+            description: "Deskripsi"
+          });
+          const materialId = (await materialRes.json()).material.id;
+
+          await requestWithToken(teacherToken, "/teacher/bank-submit", "POST", { type: "material", id: materialId });
+
+          const { token: adminToken } = await createUserWithPermissions("admin", ["bank.manage"]);
+          await requestWithToken(adminToken, `/admin/bank-queue/material/${materialId}`, "PATCH", { status: "approved" });
+
+          const res = await requestWithToken(teacherToken, "/teacher/bank-requests", "POST", {
+            itemType: "material",
+            itemId: materialId,
+            targetClassId: classId
+          });
+          expect(res.status).toBe(400);
+        });
+
+        test("Non-owner tidak bisa menyetujui permintaan clone", async () => {
+          const { token: teacher1Token } = await createUserWithPermissions("teacher", [
+            "class.manage",
+            "material.create",
+            "bank.manage"
+          ]);
+
+          const classRes = await requestWithToken(teacher1Token, "/teacher/classes", "POST", {
+            name: "Kelas Owner",
+            subject: "Biologi",
+            grade: "9"
+          });
+          const classId = (await classRes.json()).class.id;
+
+          const materialRes = await requestWithToken(teacher1Token, "/teacher/materials", "POST", {
+            classId,
+            title: "Materi Owner",
+            type: "lesson",
+            description: "Deskripsi"
+          });
+          const materialId = (await materialRes.json()).material.id;
+
+          await requestWithToken(teacher1Token, "/teacher/bank-submit", "POST", { type: "material", id: materialId });
+
+          const { token: adminToken } = await createUserWithPermissions("admin", ["bank.manage"]);
+          await requestWithToken(adminToken, `/admin/bank-queue/material/${materialId}`, "PATCH", { status: "approved" });
+
+          const { token: teacher2Token } = await createUserWithPermissions("teacher", [
+            "class.manage",
+            "bank.manage"
+          ]);
+          const targetClassRes = await requestWithToken(teacher2Token, "/teacher/classes", "POST", {
+            name: "Kelas Requester",
+            subject: "Biologi",
+            grade: "9"
+          });
+          const targetClassId = (await targetClassRes.json()).class.id;
+
+          const requestRes = await requestWithToken(teacher2Token, "/teacher/bank-requests", "POST", {
+            itemType: "material",
+            itemId: materialId,
+            targetClassId
+          });
+          const requestId = (await requestRes.json()).request.id;
+
+          const { token: teacher3Token } = await createUserWithPermissions("teacher", ["bank.manage"]);
+          const res = await requestWithToken(teacher3Token, `/teacher/bank-requests/${requestId}`, "PATCH", {
+            status: "approved"
+          });
+          expect(res.status).toBe(403);
+        });
+
+        test("Teacher tanpa bank.manage ditolak submit ke bank", async () => {
+          const { token: teacherToken } = await createUserWithPermissions("teacher", [
+            "class.manage",
+            "material.create"
+          ]);
+          const res = await requestWithToken(teacherToken, "/teacher/bank-submit", "POST", {
+            type: "material",
+            id: "mat_test"
+          });
+          expect(res.status).toBe(403);
+        });
+      });
     });
   });
 });
