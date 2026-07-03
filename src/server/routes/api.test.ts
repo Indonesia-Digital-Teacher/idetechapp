@@ -1,8 +1,9 @@
-import { describe, expect, test, beforeAll, beforeEach, afterEach } from "bun:test";
+import { describe, expect, test, beforeAll, beforeEach, afterEach, spyOn } from "bun:test";
 import { eq, inArray } from "drizzle-orm";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import app from "./api";
 import { db } from "../db/client";
-import { users, roles, permissions, rolePermissions, userRoles, parentStudents, activityLogs, systemSettings } from "../db/schema";
+import { users, roles, permissions, rolePermissions, userRoles, parentStudents, activityLogs, systemSettings, classes, materials, studentMaterialProgress } from "../db/schema";
 import type { RoleName } from "../db/schema";
 import { nanoid } from "nanoid";
 import { sessionCookieName, createSession } from "../lib/auth";
@@ -767,6 +768,61 @@ describe("Backend API Endpoints", () => {
         expect(json.children[0]).toHaveProperty("relationship", "Ibu");
       });
 
+      test("Orang tua dapat melihat progres dan laporan anak (parent reports)", async () => {
+        const { userId: parentId, token: parentToken } = await createUserWithPermissions("parent", ["report.view"]);
+        const { userId: studentId, email: studentEmail } = await createUserWithPermissions("student", []);
+
+        await db.insert(parentStudents).values({
+          id: `ps_${nanoid(12)}`,
+          parentUserId: parentId,
+          studentUserId: studentId,
+          relationship: "Bapak",
+          createdAt: new Date()
+        });
+
+        const classId = `cls_${nanoid(12)}`;
+        await db.insert(classes).values({
+          id: classId,
+          teacherUserId: parentId,
+          name: "Test Class",
+          subject: "Test Subject",
+          grade: "10",
+          nextSession: "",
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+        
+        const materialId = `mat_${nanoid(12)}`;
+        await db.insert(materials).values({
+          id: materialId,
+          teacherUserId: parentId,
+          classId: classId,
+          title: "Test Material",
+          description: "Desc",
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+
+        await db.insert(studentMaterialProgress).values({
+          id: `smp_${nanoid(12)}`,
+          studentUserId: studentId,
+          materialId: materialId,
+          progress: 100,
+          completedAt: new Date(),
+          updatedAt: new Date()
+        });
+
+        const res = await requestWithToken(parentToken, "/parent/reports", "GET");
+        expect(res.status).toBe(200);
+        const json = await res.json();
+        
+        expect(json).toHaveProperty("children");
+        expect(json.children).toHaveLength(1);
+        expect(json.children[0]).toHaveProperty("name", "Test User");
+        expect(json.children[0]).toHaveProperty("progress", 100);
+        expect(json.children[0]).toHaveProperty("teacherNote", "Belum ada catatan guru.");
+      });
+
       test("Admin dapat membuat, mengubah, dan menghapus relasi", async () => {
         const { token: adminToken } = await createUserWithPermissions("admin", ["system.setting"]);
         const { userId: parentId } = await createUserWithPermissions("parent", []);
@@ -841,8 +897,52 @@ describe("Backend API Endpoints", () => {
         });
         expect(res.status).toBe(404);
       });
+    });
 
-      describe("Admin classes CRUD", () => {
+    describe("Teacher journals CRUD", () => {
+      test("Berhasil upload foto jurnal ke S3 jika konfigurasi lengkap", async () => {
+        const { token: teacherToken } = await createUserWithPermissions("teacher", ["journal.manage"]);
+
+        const originalS3Env = clearS3Env();
+        process.env.S3_ENDPOINT = "https://s3.example.com";
+        process.env.S3_ACCESS_KEY = "test_key";
+        process.env.S3_SECRET_KEY = "test_secret";
+        process.env.S3_PUBLIC_BASE_URL = "https://public.example.com";
+
+        const mockSend = spyOn(S3Client.prototype, "send").mockImplementation(async () => {
+          return {};
+        });
+
+        try {
+          const formData = new FormData();
+          formData.append("mood", "happy");
+          formData.append("success", "Mengajar matematika");
+          formData.append("photo", new Blob(["fake-image-content"], { type: "image/png" }), "photo.png");
+
+          const headers = new Headers();
+          headers.set("cookie", `${sessionCookieName}=${teacherToken}`);
+
+          const req = new Request("http://localhost/teacher/journals", {
+            method: "POST",
+            headers,
+            body: formData
+          });
+
+          const res = await app.request(req);
+          expect(res.status).toBe(200);
+          const json = await res.json();
+          expect(json).toHaveProperty("ok", true);
+          expect(json.photoUrl).toContain("https://public.example.com/journals/");
+          
+          expect(mockSend).toHaveBeenCalled();
+        } finally {
+          mockSend.mockRestore();
+          restoreS3Env(originalS3Env);
+        }
+      });
+    });
+
+    describe("Admin classes CRUD", () => {
         test("Admin dapat membuat, membaca, mengubah, dan menghapus kelas", async () => {
           const { token: adminToken } = await createUserWithPermissions("admin", ["class.manage"]);
           const { userId: teacherId } = await createUserWithPermissions("teacher", ["class.manage"]);
@@ -1456,4 +1556,4 @@ describe("Backend API Endpoints", () => {
       });
     });
   });
-});
+

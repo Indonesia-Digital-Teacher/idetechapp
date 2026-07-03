@@ -1719,6 +1719,61 @@ app.get("/parent/children", requireRole(["parent"]), requirePermission("report.v
   return c.json({ children: rows });
 });
 
+app.post("/parent/connect", requireRole(["parent"]), requirePermission("report.view"), async (c) => {
+  const user = c.get("authUser");
+  const body = (await c.req.json().catch(() => ({}))) as {
+    studentEmail?: string;
+    relationship?: string;
+  };
+
+  const studentEmail = body.studentEmail?.trim();
+  const relationship = body.relationship?.trim() || "Orang Tua";
+
+  if (!studentEmail) {
+    return c.json({ message: "Email siswa wajib diisi." }, 400);
+  }
+
+  const [student] = await db.select().from(users).where(eq(users.email, studentEmail)).limit(1);
+
+  if (!student) {
+    return c.json({ message: "User siswa dengan email tersebut tidak ditemukan." }, 404);
+  }
+
+  const [existing] = await db
+    .select()
+    .from(parentStudents)
+    .where(
+      and(eq(parentStudents.parentUserId, user.id), eq(parentStudents.studentUserId, student.id))
+    )
+    .limit(1);
+
+  if (existing) {
+    return c.json({ message: "Anda sudah terhubung dengan siswa ini." }, 409);
+  }
+
+  const now = new Date();
+  const id = `ps_${nanoid(12)}`;
+  await db.insert(parentStudents).values({
+    id,
+    parentUserId: user.id,
+    studentUserId: student.id,
+    relationship,
+    createdAt: now
+  });
+
+  const [created] = await db.select().from(parentStudents).where(eq(parentStudents.id, id)).limit(1);
+
+  await writeActivityLog({
+    userId: user.id,
+    action: "create",
+    resourceType: "parent_student",
+    resourceId: id,
+    details: { parentUserId: user.id, studentUserId: student.id, relationship }
+  });
+
+  return c.json({ connection: created }, 201);
+});
+
 app.get("/permissions/matrix", authRequired, async (c) => {
   const rows = await db
     .select({

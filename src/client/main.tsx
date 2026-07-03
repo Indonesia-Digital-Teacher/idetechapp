@@ -8,6 +8,7 @@ import "katex/dist/katex.min.css";
 import ReactPlayer from "react-player/lazy";
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
+import { ParentFriendlyDashboard } from "./ParentFriendlyDashboard";
 import {
   BadgeCheck,
   Bell,
@@ -135,7 +136,7 @@ type AdminClass = TeacherClass & {
   teacherEmail: string;
 };
 
-type AdminView = "home" | "users" | "classes" | "access" | "system" | "quick_action" | "advanced_features";
+type AdminView = "home" | "users" | "classes" | "access" | "system" | "quick_action" | "advanced_features" | "parent_students";
 
 type SchoolOption = {
   name: string;
@@ -807,6 +808,10 @@ function App() {
         onLogout={logout}
       />
     );
+  }
+
+  if (user.activeRole === "parent") {
+    return <ParentFriendlyDashboard user={user} onLogout={logout} />;
   }
 
   return (
@@ -2084,6 +2089,7 @@ function ProfessionalDashboard({
     { label: "Atur role dan permission", view: "access", description: "Kelola izin tiap role.", icon: ShieldCheck },
     { label: "Pantau konfigurasi sistem", view: "system", description: "Lihat ringkasan konfigurasi.", icon: Settings },
     { label: "Persetujuan Bank Idetech", view: "quick_action", description: "Persetujuan Bank Idetech dan aksi instan lainnya.", icon: Rocket },
+    { label: "Manajemen Orang Tua & Siswa", view: "parent_students", description: "Kelola relasi orang tua dan anak.", icon: Users },
     { label: "Pengaturan Lanjutan", view: "advanced_features", description: "Log aktivitas, pengumuman global, dan master data.", icon: Boxes }
   ];
 
@@ -2653,6 +2659,146 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
   );
 }
 
+function DianyssaWidget({ onClose }: { onClose: () => void }) {
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isLoading]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+
+    const userMessage = input.trim();
+    setInput("");
+    const newMessages = [...messages, { role: "user" as const, content: userMessage }];
+    setMessages(newMessages);
+    setIsLoading(true);
+
+    try {
+      const res = await fetch("https://asisten.ferilee.gurumuda.eu.org/api/integration/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: userMessage,
+          history: messages
+        })
+      });
+      const data = await res.json();
+      if (data.reply) {
+        setMessages([...newMessages, { role: "assistant", content: data.reply }]);
+      } else {
+        setMessages([...newMessages, { role: "assistant", content: "Maaf, terjadi kesalahan atau respon kosong dari server." }]);
+      }
+    } catch (err) {
+      console.error(err);
+      setMessages([...newMessages, { role: "assistant", content: "Maaf, gagal terhubung ke Asisten Dianyssa." }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed bottom-24 right-4 z-[999] w-[380px] max-w-[calc(100vw-2rem)] h-[600px] max-h-[70vh] bg-slate-950 rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-slate-800 animate-in slide-in-from-bottom-5">
+      <div className="flex justify-between items-center p-4 bg-slate-900 border-b border-slate-800 shadow-sm z-10">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center overflow-hidden border border-blue-400/30">
+            <img src="https://asisten.ferilee.gurumuda.eu.org/assets/DianyssaBot.webp" alt="Dianyssa" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+          </div>
+          <div>
+            <div className="font-bold text-sm text-white flex items-center gap-2">
+              Dianyssa <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+            </div>
+            <div className="text-[10px] text-slate-400">Asisten Pintar IdeTech</div>
+          </div>
+        </div>
+        <button onClick={onClose} className="text-slate-400 hover:text-white hover:bg-slate-800 p-2 rounded-full transition-colors"><X size={16} /></button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-950/50">
+        {messages.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-center px-4 animate-in fade-in zoom-in duration-500">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-600 to-purple-600 p-1 mb-4 shadow-lg shadow-blue-900/20">
+              <div className="w-full h-full bg-slate-900 rounded-xl overflow-hidden">
+                <img src="https://asisten.ferilee.gurumuda.eu.org/assets/DianyssaBot.webp" alt="Dianyssa" className="w-full h-full object-cover" />
+              </div>
+            </div>
+            <h3 className="text-lg font-bold text-white mb-2 font-outfit">Halo!</h3>
+            <p className="text-sm text-slate-400">Saya Dianyssa, asisten pintar IdeTech. Ada yang bisa saya bantu hari ini?</p>
+          </div>
+        ) : (
+          messages.map((m, i) => (
+            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
+              {m.role === 'assistant' && (
+                <div className="w-6 h-6 rounded-full bg-blue-600 flex-shrink-0 mr-2 mt-1 overflow-hidden">
+                  <img src="https://asisten.ferilee.gurumuda.eu.org/assets/DianyssaBot.webp" alt="D" className="w-full h-full object-cover" />
+                </div>
+              )}
+              <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-[14px] leading-relaxed overflow-hidden ${m.role === 'user' ? 'bg-blue-600 text-white rounded-tr-sm' : 'bg-slate-800 text-slate-200 rounded-tl-sm border border-slate-700'}`}>
+                {m.role === 'user' ? (
+                  m.content
+                ) : (
+                  <div className="prose prose-sm prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-black/50 prose-pre:border prose-pre:border-slate-700 prose-pre:text-xs text-slate-200 overflow-x-auto">
+                    <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex, rehypeRaw]}>{m.content}</ReactMarkdown>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+        
+        {isLoading && (
+          <div className="flex justify-start">
+            <div className="w-6 h-6 rounded-full bg-blue-600 flex-shrink-0 mr-2 mt-1 overflow-hidden">
+              <img src="https://asisten.ferilee.gurumuda.eu.org/assets/DianyssaBot.webp" alt="D" className="w-full h-full object-cover" />
+            </div>
+            <div className="bg-slate-800 rounded-2xl rounded-tl-sm px-4 py-3 border border-slate-700 flex items-center gap-1.5 h-11">
+              <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+              <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+              <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"></div>
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      <div className="p-3 bg-slate-900 border-t border-slate-800">
+        <form onSubmit={handleSubmit} className="relative flex items-end bg-slate-950 border border-slate-700 rounded-xl focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-all shadow-inner overflow-hidden">
+          <textarea
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value);
+              e.target.style.height = 'auto';
+              e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit(e as unknown as React.FormEvent);
+              }
+            }}
+            placeholder="Tanya Dianyssa..."
+            className="w-full bg-transparent text-sm text-white placeholder-slate-500 resize-none outline-none py-3 px-4 max-h-[120px]"
+            rows={1}
+            disabled={isLoading}
+          />
+          <button 
+            type="submit" 
+            disabled={!input.trim() || isLoading}
+            className="mb-2 mr-2 p-1.5 rounded-lg bg-blue-600 text-white disabled:opacity-50 disabled:bg-slate-700 transition-colors shrink-0 flex items-center justify-center h-8 w-8"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function TeacherSpaceDashboard({
   user,
   dashboard,
@@ -2675,6 +2821,7 @@ function TeacherSpaceDashboard({
   const content = roleMenuContent.teacher[activeMenu];
   const [guideModal, setGuideModal] = useState<MobileNavId | null>(null);
   const [showDevModal, setShowDevModal] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const [teacherClasses, setTeacherClasses] = useState<TeacherClass[]>([]);
   const [classSummary, setClassSummary] = useState<TeacherClassSummary | null>(null);
   const [activeClassFilter, setActiveClassFilter] = useState<string>("all");
@@ -3241,6 +3388,19 @@ Fitur ini menganalisis semua aktivitas siswa di kelas Anda:
       ) : null}
 
       <DeveloperModal isOpen={showDevModal} onClose={() => setShowDevModal(false)} />
+
+      {/* Floating Chat Widget */}
+      {showChat ? (
+        <DianyssaWidget onClose={() => setShowChat(false)} />
+      ) : (
+        <button 
+          onClick={() => setShowChat(true)}
+          className="fixed bottom-24 right-4 z-[999] h-14 w-14 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:bg-blue-700 transition-all hover:scale-105 active:scale-95 border-2 border-white animate-in slide-in-from-bottom-5"
+          aria-label="Buka Chat"
+        >
+          <MessageCircle size={28} />
+        </button>
+      )}
     </main>
   );
 }
@@ -5531,6 +5691,7 @@ function AdminSubPage({
     access: "Role & permission",
     system: "Konfigurasi sistem",
     quick_action: "Persetujuan Bank Idetech",
+    parent_students: "Manajemen Orang Tua & Siswa",
     advanced_features: "Pengaturan Lanjutan",
     home: "Beranda admin"
   }[view];
@@ -5568,6 +5729,8 @@ function AdminSubPage({
       {view === "system" ? <AdminSystemConfig access={access} /> : null}
 
       {view === "quick_action" ? <AdminBankApprovalPanel /> : null}
+
+      {view === "parent_students" ? <AdminParentStudents users={users} /> : null}
 
       {view === "advanced_features" ? <AdminAdvancedFeaturesPanel /> : null}
     </section>
@@ -7268,6 +7431,185 @@ function AdminAdvancedFeaturesPanel() {
         <h3 className="font-semibold text-lg text-slate-700 mb-1">Struktur Database & API Telah Disiapkan</h3>
         <p className="text-sm max-w-md">Fitur {tab === "logs" ? "Log Aktivitas" : tab === "master" ? "Master Data" : "Pengumuman Global"} saat ini sedang dalam pengembangan tampilan antarmuka lanjutan. Struktur tabel dan endpoint API sudah diimplementasikan.</p>
       </div>
+    </div>
+  );
+}
+function AdminParentStudents({ users }: { users: AdminUser[] }) {
+  const [data, setData] = useState<any[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [form, setForm] = useState({
+    parentUserId: "",
+    studentUserId: "",
+    relationship: "Ayah",
+  });
+
+  const parentUsers = users.filter(u => u.roles.some(r => r.name === "parent"));
+  const studentUsers = users.filter(u => u.roles.some(r => r.name === "student"));
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  async function loadData() {
+    try {
+      const payload = await api<{ links: any[] }>("/api/admin/parent-students");
+      setData(payload.links || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal memuat data");
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await api("/api/admin/parent-students", {
+        method: "POST",
+        body: JSON.stringify(form)
+      });
+      setForm({ parentUserId: "", studentUserId: "", relationship: "Ayah" });
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menyimpan data");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!window.confirm("Apakah Anda yakin ingin menghapus relasi ini?")) return;
+    setBusy(true);
+    try {
+      await api(`/api/admin/parent-students/${id}`, { method: "DELETE" });
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menghapus data");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <Card className="professional-card p-5">
+        <div className="professional-card__header">
+          <h2 className="professional-card__title">Tambahkan Relasi</h2>
+          <Users className="h-5 w-5 text-slate-400" />
+        </div>
+        
+        {error ? <ErrorBanner message={error} /> : null}
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-semibold text-slate-700">Akun Orang Tua</span>
+              <Select 
+                value={form.parentUserId} 
+                onChange={e => setForm(current => ({ ...current, parentUserId: e.target.value }))}
+                className="w-full"
+                disabled={busy}
+              >
+                <option value="">Pilih Orang Tua...</option>
+                {parentUsers.map(u => (
+                  <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+                ))}
+              </Select>
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-semibold text-slate-700">Akun Siswa</span>
+              <Select 
+                value={form.studentUserId} 
+                onChange={e => setForm(current => ({ ...current, studentUserId: e.target.value }))}
+                className="w-full"
+                disabled={busy}
+              >
+                <option value="">Pilih Siswa...</option>
+                {studentUsers.map(u => (
+                  <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+                ))}
+              </Select>
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-semibold text-slate-700">Hubungan</span>
+              <input 
+                type="text"
+                placeholder="Ayah / Ibu / Wali"
+                value={form.relationship}
+                onChange={e => setForm(current => ({ ...current, relationship: e.target.value }))}
+                className="idetech-input"
+                disabled={busy}
+              />
+            </label>
+          </div>
+          <button 
+            type="submit" 
+            disabled={busy || !form.parentUserId || !form.studentUserId || !form.relationship} 
+            className="mt-2 self-start rounded-lg bg-blue-600 px-6 py-2.5 font-bold text-white shadow-sm hover:bg-blue-700 active:scale-95 disabled:opacity-50 transition-all"
+          >
+            {busy ? "Menyimpan..." : "Tambahkan"}
+          </button>
+        </form>
+      </Card>
+
+      <Card className="professional-card p-0 overflow-hidden">
+        <div className="p-5 border-b border-slate-100">
+          <h2 className="professional-card__title">Daftar Relasi Orang Tua & Siswa</h2>
+          <p className="professional-card__hint">Total {data.length} relasi yang terdaftar.</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm border-collapse">
+            <thead>
+              <tr className="bg-slate-50 text-slate-600">
+                <th className="p-4 font-bold border-b">Orang Tua</th>
+                <th className="p-4 font-bold border-b">Siswa</th>
+                <th className="p-4 font-bold border-b">Hubungan</th>
+                <th className="p-4 font-bold border-b w-24 text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="p-8 text-center text-slate-500 italic">Belum ada data relasi.</td>
+                </tr>
+              ) : null}
+              {data.map(item => {
+                const pUser = parentUsers.find(u => u.id === item.parentId);
+                const sUser = studentUsers.find(u => u.id === item.studentId);
+                return (
+                <tr key={item.id} className="border-b last:border-b-0 hover:bg-slate-50/50 transition-colors">
+                  <td className="p-4">
+                    <div className="font-semibold text-slate-800">{pUser?.name || item.parentName}</div>
+                    <div className="text-xs text-slate-500">{pUser?.email || item.parentEmail}</div>
+                  </td>
+                  <td className="p-4">
+                    <div className="font-semibold text-slate-800">{sUser?.name || item.studentName}</div>
+                    <div className="text-xs text-slate-500">{sUser?.email || item.studentEmail}</div>
+                  </td>
+                  <td className="p-4">
+                    <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                      {item.relationship}
+                    </span>
+                  </td>
+                  <td className="p-4 text-center">
+                    <button 
+                      onClick={() => handleDelete(item.id)}
+                      disabled={busy}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-md transition-colors"
+                      title="Hapus Relasi"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
   );
 }
