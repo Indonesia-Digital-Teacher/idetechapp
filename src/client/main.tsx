@@ -58,6 +58,7 @@ import {
   Bold,
   Italic,
   Underline,
+  Globe,
   Link,
   AlignCenter,
   List,
@@ -582,16 +583,24 @@ function App() {
   async function loadSession() {
     setLoading(true);
     setError(null);
-    const me = await api<{ user: AuthUser | null }>("/api/auth/me");
-    if (!me.user) {
-      setUser(null);
-      setDashboard(null);
-      setLoading(false);
-      return;
-    }
+    const startTime = Date.now();
 
-    await loadDashboard();
-    setLoading(false);
+    try {
+      const me = await api<{ user: AuthUser | null }>("/api/auth/me");
+      if (!me.user) {
+        setUser(null);
+        setDashboard(null);
+        return;
+      }
+      await loadDashboard();
+    } finally {
+      const elapsed = Date.now() - startTime;
+      const minWait = 3000;
+      if (elapsed < minWait) {
+        await new Promise((r) => setTimeout(r, minWait - elapsed));
+      }
+      setLoading(false);
+    }
   }
 
   async function loadDashboard() {
@@ -851,8 +860,20 @@ function ProfileSetupScreen({
 
     const timer = window.setTimeout(() => {
       setSchoolBusy(true);
-      api<{ schools: SchoolOption[] }>(`/api/schools/search?q=${encodeURIComponent(schoolName)}`)
-        .then((payload) => setSchools(payload.schools))
+      fetch(`https://api-sekolah-indonesia.vercel.app/sekolah/s?sekolah=${encodeURIComponent(schoolName)}`)
+        .then((res) => {
+          if (!res.ok) throw new Error("Gagal");
+          return res.json();
+        })
+        .then((payload: any) => {
+          const data = payload.dataSekolah || [];
+          const schools = data.map((s: any) => ({
+            name: s.sekolah,
+            city: s.kabupaten_kota,
+            province: s.propinsi
+          })).slice(0, 10);
+          setSchools(schools);
+        })
         .catch(() => setSchools([]))
         .finally(() => setSchoolBusy(false));
     }, 350);
@@ -2653,6 +2674,7 @@ function TeacherSpaceDashboard({
 }) {
   const content = roleMenuContent.teacher[activeMenu];
   const [guideModal, setGuideModal] = useState<MobileNavId | null>(null);
+  const [showDevModal, setShowDevModal] = useState(false);
   const [teacherClasses, setTeacherClasses] = useState<TeacherClass[]>([]);
   const [classSummary, setClassSummary] = useState<TeacherClassSummary | null>(null);
   const [activeClassFilter, setActiveClassFilter] = useState<string>("all");
@@ -2926,15 +2948,13 @@ function TeacherSpaceDashboard({
 
         <article className="teacher-space-phone is-primary">
           <header className="teacher-space-phone__top">
-            <button className="teacher-space-icon-button" type="button" aria-label="Kembali">
-              <ChevronRight className="h-5 w-5 rotate-180" />
-            </button>
+            <div className="w-9 h-9" aria-hidden="true" />
             <h1 className="teacher-space-logo-title">
               <IdeTechLogo className="teacher-space-logo" />
               IdeTech
             </h1>
-            <button className="teacher-space-menu-button" type="button" aria-label="Menu guru">
-              <Boxes className="h-5 w-5" />
+            <button className="teacher-space-menu-button" type="button" aria-label="Informasi Pengembang" onClick={() => setShowDevModal(true)}>
+              <Users className="h-5 w-5 text-slate-700" />
             </button>
           </header>
 
@@ -3219,7 +3239,76 @@ Fitur ini menganalisis semua aktivitas siswa di kelas Anda:
           </div>
         </div>
       ) : null}
+
+      <DeveloperModal isOpen={showDevModal} onClose={() => setShowDevModal(false)} />
     </main>
+  );
+}
+
+function DeveloperModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl animate-in fade-in zoom-in duration-300">
+        <div className="relative h-72 w-full">
+          <img src="/idetechteam.webp" alt="Tim Pengembang" className="h-full w-full object-cover object-top" />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/40 to-transparent" />
+          <div className="absolute bottom-5 left-5 right-5">
+            <h2 className="text-2xl font-black text-white drop-shadow-md">Meet Our Team</h2>
+            <p className="text-xs font-bold text-white/80 mt-0.5">Para visioner di balik layar IdeTech</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="absolute right-4 top-4 rounded-full bg-black/40 p-1.5 text-white backdrop-blur-md hover:bg-black/60 transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="p-6">
+          <p className="text-sm font-semibold leading-relaxed text-slate-600 mb-5">
+            IdeTech dibangun dengan semangat untuk mewujudkan pendidikan yang lebih baik, efisien, dan menyenangkan di seluruh Indonesia.
+          </p>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3 border border-slate-100">
+              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-slate-800">Feri Lee</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">Development & Design</p>
+              </div>
+              <div className="flex gap-2">
+                <a href="https://t.me/ferilee" target="_blank" rel="noreferrer" className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-slate-600 hover:bg-blue-100 hover:text-blue-600 transition-colors" title="Telegram @ferilee">
+                  <Send className="h-4 w-4" />
+                </a>
+                <a href="https://ferilee.gurumuda.eu.org/" target="_blank" rel="noreferrer" className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-slate-600 hover:bg-blue-100 hover:text-blue-600 transition-colors" title="Website Feri Lee">
+                  <Globe className="h-4 w-4" />
+                </a>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3 border border-slate-100">
+              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                <UserRound className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-slate-800">Gunanto</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">Development & Design</p>
+              </div>
+              <div className="flex gap-2">
+                <a href="https://t.me/pg957" target="_blank" rel="noreferrer" className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-slate-600 hover:bg-emerald-100 hover:text-emerald-600 transition-colors" title="Telegram @pg957">
+                  <Send className="h-4 w-4" />
+                </a>
+                <a href="#" className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-slate-600 hover:bg-emerald-100 hover:text-emerald-600 transition-colors" title="Website (Belum Tersedia)">
+                  <Globe className="h-4 w-4" />
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -5839,6 +5928,14 @@ function AdminClassCard({
 }
 
 function AdminSystemConfig({ access }: { access: AdminAccess | null }) {
+  const [settings, setSettings] = useState<any[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  
+  const [adminEmails, setAdminEmails] = useState("");
+  const [teacherDomains, setTeacherDomains] = useState("");
+
   const system = access?.system;
   const items = system
     ? [
@@ -5851,26 +5948,108 @@ function AdminSystemConfig({ access }: { access: AdminAccess | null }) {
       ]
     : [];
 
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  async function loadSettings() {
+    try {
+      const payload = await api<{ settings: any[] }>("/api/admin/settings");
+      setSettings(payload.settings);
+      
+      const authRules = payload.settings.find(s => s.key === "google_auth_rules");
+      if (authRules && authRules.value) {
+        try {
+          const parsed = JSON.parse(authRules.value);
+          if (parsed.adminEmails) setAdminEmails(parsed.adminEmails.join("\n"));
+          if (parsed.teacherDomains) setTeacherDomains(parsed.teacherDomains.join("\n"));
+        } catch (e) {}
+      }
+    } catch (e) {}
+  }
+
+  async function saveAuthRules(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const payload = {
+        adminEmails: adminEmails.split("\n").map(s => s.trim()).filter(Boolean),
+        teacherDomains: teacherDomains.split("\n").map(s => s.trim()).filter(Boolean)
+      };
+      await api("/api/admin/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ key: "google_auth_rules", value: JSON.stringify(payload) })
+      });
+      setSuccess("Pengaturan Google Auth berhasil disimpan.");
+      await loadSettings();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menyimpan");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <Card className="professional-card p-5">
-      <div className="professional-card__header">
-        <h2 className="professional-card__title">Konfigurasi sistem</h2>
-        <Settings className="h-5 w-5 text-slate-400" />
-      </div>
-      <div className="admin-system-grid">
-        {items.map(([label, value]) => (
-          <div key={label} className="admin-system-tile">
-            <span>{label}</span>
-            <strong>{value}</strong>
-          </div>
-        ))}
-      </div>
-      {system ? (
-        <p className="mt-4 text-xs font-semibold text-slate-500">
-          Auth: {system.authProvider} · Database: {system.database}
+    <div className="flex flex-col gap-6">
+      <Card className="professional-card p-5">
+        <div className="professional-card__header">
+          <h2 className="professional-card__title">Konfigurasi sistem</h2>
+          <Settings className="h-5 w-5 text-slate-400" />
+        </div>
+        <div className="admin-system-grid">
+          {items.map(([label, value]) => (
+            <div key={label} className="admin-system-tile">
+              <span>{label}</span>
+              <strong>{value}</strong>
+            </div>
+          ))}
+        </div>
+        {system ? (
+          <p className="mt-4 text-xs font-semibold text-slate-500">
+            Auth: {system.authProvider} · Database: {system.database}
+          </p>
+        ) : null}
+      </Card>
+
+      <Card className="professional-card p-5">
+        <div className="professional-card__header">
+          <h2 className="professional-card__title">Google Auth Role Mapping</h2>
+          <ShieldCheck className="h-5 w-5 text-slate-400" />
+        </div>
+        <p className="text-sm text-slate-600 mb-4">
+          Atur email admin dan domain email guru yang akan secara otomatis mendapatkan rolenya saat pertama kali mendaftar. Pisahkan setiap entri dengan baris baru (Enter).
         </p>
-      ) : null}
-    </Card>
+
+        {error ? <ErrorBanner message={error} /> : null}
+        {success ? <div className="mb-4 rounded-md bg-green-50 p-4 text-sm text-green-700 border border-green-200">{success}</div> : null}
+
+        <form onSubmit={saveAuthRules} className="flex flex-col gap-4">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm font-semibold text-slate-700">Email Admin (Superuser)</span>
+            <textarea 
+              value={adminEmails}
+              onChange={e => setAdminEmails(e.target.value)}
+              className="idetech-input min-h-[100px] font-mono text-sm leading-relaxed"
+              placeholder="admin@sekolah.id"
+            />
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm font-semibold text-slate-700">Domain Email Guru</span>
+            <textarea 
+              value={teacherDomains}
+              onChange={e => setTeacherDomains(e.target.value)}
+              className="idetech-input min-h-[100px] font-mono text-sm leading-relaxed"
+              placeholder="@guru.smp.belajar.id"
+            />
+          </label>
+          <button type="submit" disabled={busy} className="mt-2 self-start rounded-lg bg-blue-600 px-6 py-2.5 font-bold text-white shadow-sm hover:bg-blue-700 active:scale-95 disabled:opacity-50 transition-all">
+            {busy ? "Menyimpan..." : "Simpan Aturan"}
+          </button>
+        </form>
+      </Card>
+    </div>
   );
 }
 
@@ -5999,8 +6178,32 @@ function RoleSpecificPanel({ role }: { role: RoleName }) {
 
 function FullScreenState({ text }: { text: string }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="rounded-lg border bg-white px-5 py-4 text-sm font-semibold shadow-sm">{text}</div>
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
+      <img src="/bgidetechmobile.webp" alt="Background" className="absolute inset-0 h-full w-full object-cover md:hidden" />
+      <img src="/bgidetechdesktop.webp" alt="Background" className="absolute inset-0 hidden h-full w-full object-cover md:block" />
+      <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" />
+
+      <div className="relative z-10 flex flex-col items-center justify-center gap-6 animate-in fade-in zoom-in duration-500">
+        <div className="relative flex items-center justify-center">
+          <div className="absolute inset-0 rounded-3xl bg-blue-500/40 blur-2xl animate-pulse"></div>
+          <div className="relative h-28 w-28 overflow-hidden rounded-3xl bg-slate-950 p-5 shadow-2xl ring-1 ring-white/10 transition-transform hover:scale-105">
+            <img 
+              src="/logoidetech.webp" 
+              alt="IdeTech Loading" 
+              className="h-full w-full object-contain animate-pulse" 
+              style={{ animationDuration: '2s' }}
+            />
+          </div>
+        </div>
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex gap-2">
+            <div className="h-2.5 w-2.5 rounded-full bg-blue-500 animate-bounce shadow-[0_0_8px_rgba(59,130,246,0.8)]" style={{ animationDelay: '0ms' }}></div>
+            <div className="h-2.5 w-2.5 rounded-full bg-blue-500 animate-bounce shadow-[0_0_8px_rgba(59,130,246,0.8)]" style={{ animationDelay: '150ms' }}></div>
+            <div className="h-2.5 w-2.5 rounded-full bg-blue-500 animate-bounce shadow-[0_0_8px_rgba(59,130,246,0.8)]" style={{ animationDelay: '300ms' }}></div>
+          </div>
+          <p className="text-xs font-bold text-slate-300 uppercase tracking-widest mt-1 drop-shadow-md">{text}</p>
+        </div>
+      </div>
     </main>
   );
 }

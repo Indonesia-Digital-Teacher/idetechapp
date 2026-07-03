@@ -3,7 +3,7 @@ import { getCookie, setCookie } from "hono/cookie";
 import type { Context, Next } from "hono";
 import { nanoid } from "nanoid";
 import { db } from "../db/client";
-import { oauthAccounts, permissions, rolePermissions, roles, sessions, userRoles, users } from "../db/schema";
+import { oauthAccounts, permissions, rolePermissions, roles, sessions, systemSettings, userRoles, users } from "../db/schema";
 import type { RoleName } from "../db/schema";
 import { getGoogleRoleRule } from "./settings";
 

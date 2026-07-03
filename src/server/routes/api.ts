@@ -289,6 +289,41 @@ app.patch("/admin/roles/:name/permissions", requireRole(["admin"]), requirePermi
   return c.json({ ok: true });
 });
 
+app.get("/admin/settings", requireRole(["admin"]), requirePermission("system.setting"), async (c) => {
+  const rows = await db.select().from(systemSettings);
+  return c.json({ settings: rows });
+});
+
+app.patch("/admin/settings", requireRole(["admin"]), requirePermission("system.setting"), async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as { key: string; value: string };
+  if (!body.key || !body.value) return c.json({ message: "Key dan Value wajib diisi." }, 400);
+
+  if (body.key === "google_auth_rules") {
+    try {
+      JSON.parse(body.value);
+    } catch {
+      return c.json({ message: "Format JSON tidak valid." }, 400);
+    }
+  }
+
+  await db
+    .insert(systemSettings)
+    .values({
+      key: body.key,
+      value: body.value,
+      description: "Diperbarui dari dashboard",
+      updatedAt: new Date()
+    })
+    .onDuplicateKeyUpdate({
+      set: {
+        value: body.value,
+        updatedAt: new Date()
+      }
+    });
+
+  return c.json({ ok: true });
+});
+
 app.get("/admin/classes", requireRole(["admin"]), requirePermission("class.manage"), async (c) => {
   const [classRows, userRows] = await Promise.all([
     db.select().from(classes).orderBy(desc(classes.updatedAt)),
