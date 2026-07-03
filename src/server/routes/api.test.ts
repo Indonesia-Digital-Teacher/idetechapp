@@ -1,8 +1,8 @@
-import { describe, expect, test, beforeAll } from "bun:test";
+import { describe, expect, test, beforeAll, beforeEach, afterEach } from "bun:test";
 import { eq, inArray } from "drizzle-orm";
 import app from "./api";
 import { db } from "../db/client";
-import { users, roles, permissions, rolePermissions, userRoles, parentStudents, activityLogs } from "../db/schema";
+import { users, roles, permissions, rolePermissions, userRoles, parentStudents, activityLogs, systemSettings } from "../db/schema";
 import type { RoleName } from "../db/schema";
 import { nanoid } from "nanoid";
 import { sessionCookieName, createSession } from "../lib/auth";
@@ -172,6 +172,215 @@ describe("Backend API Endpoints", () => {
         process.env.NODE_ENV = originalNodeEnv;
         process.env.DEMO_LOGIN_ENABLED = originalDemoFlag;
       }
+    });
+  });
+
+  describe("Google OAuth flow", () => {
+    let originalFetch: typeof globalThis.fetch;
+    let originalClientId: string | undefined;
+    let originalClientSecret: string | undefined;
+
+    function mockGoogleOAuth(payloads: {
+      token?: Record<string, unknown>;
+      tokenStatus?: number;
+      userInfo?: Record<string, unknown>;
+      userInfoStatus?: number;
+    } = {}) {
+      originalFetch = globalThis.fetch;
+      globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input.toString();
+
+        if (url === "https://oauth2.googleapis.com/token") {
+          if (payloads.tokenStatus && payloads.tokenStatus >= 400) {
+            return new Response(JSON.stringify({ error: "invalid_grant" }), {
+              status: payloads.tokenStatus,
+              headers: { "content-type": "application/json" }
+            });
+          }
+          return new Response(JSON.stringify(payloads.token ?? { access_token: "mock_access_token", expires_in: 3600 }), {
+            headers: { "content-type": "application/json" }
+          });
+        }
+
+        if (url === "https://openidconnect.googleapis.com/v1/userinfo") {
+          if (payloads.userInfoStatus && payloads.userInfoStatus >= 400) {
+            return new Response(JSON.stringify({ error: "invalid_token" }), {
+              status: payloads.userInfoStatus,
+              headers: { "content-type": "application/json" }
+            });
+          }
+          return new Response(JSON.stringify(payloads.userInfo ?? {
+            sub: "google_123",
+            name: "Test Google",
+            email: "google-test@example.com",
+            picture: "https://example.com/photo.jpg",
+            email_verified: true
+          }), {
+            headers: { "content-type": "application/json" }
+          });
+        }
+
+        return originalFetch(input, init);
+      }) as typeof fetch;
+    }
+
+    beforeEach(() => {
+      originalClientId = process.env.GOOGLE_CLIENT_ID;
+      originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    });
+
+    afterEach(() => {
+      if (originalFetch) globalThis.fetch = originalFetch;
+      if (originalClientId === undefined) {
+        delete process.env.GOOGLE_CLIENT_ID;
+      } else {
+        process.env.GOOGLE_CLIENT_ID = originalClientId;
+      }
+      if (originalClientSecret === undefined) {
+        delete process.env.GOOGLE_CLIENT_SECRET;
+      } else {
+        process.env.GOOGLE_CLIENT_SECRET = originalClientSecret;
+      }
+    });
+
+    test("GET /auth/google mengarahkan ke Google jika GOOGLE_CLIENT_ID tersedia", async () => {
+      process.env.GOOGLE_CLIENT_ID = "mock-client-id";
+      const res = await app.request("/auth/google");
+      expect(res.status).toBe(302);
+      const location = res.headers.get("location") ?? "";
+      expect(location).toContain("https://accounts.google.com/o/oauth2/v2/auth");
+      expect(location).toContain("client_id=mock-client-id");
+      expect(location).toContain("redirect_uri=");
+      expect(location).toContain("scope=openid+email+profile");
+    });
+
+    test("GET /auth/google mengarahkan ke demo-required jika GOOGLE_CLIENT_ID tidak tersedia", async () => {
+      delete process.env.GOOGLE_CLIENT_ID;
+      const res = await app.request("/auth/google");
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toBe("/?auth=demo-required");
+    });
+
+    test("GET /auth/google/callback berhasil membuat user, session, dan redirect ke /", async () => {
+      process.env.GOOGLE_CLIENT_ID = "mock-client-id";
+      process.env.GOOGLE_CLIENT_SECRET = "mock-client-secret";
+
+      const email = `google-success-${nanoid(6)}@example.com`;
+      mockGoogleOAuth({
+        userInfo: {
+          sub: `google_${nanoid(8)}`,
+          name: "Test Google Success",
+          email,
+          picture: "https://example.com/photo.jpg",
+          email_verified: true
+        }
+      });
+
+      const res = await app.request(`/auth/google/callback?code=mock_code&state=mock_state`);
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toBe("/");
+
+      const setCookieHeader = res.headers.get("set-cookie") ?? "";
+      expect(setCookieHeader).toContain(sessionCookieName);
+
+      const [dbUser] = await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1);
+      expect(dbUser).toBeDefined();
+      expect(dbUser.name).toBe("Test Google Success");
+      expect(dbUser.status).toBe("pending");
+
+      const roleRows = await db
+        .select({ name: roles.name })
+        .from(userRoles)
+        .innerJoin(roles, eq(userRoles.roleId, roles.id))
+        .where(eq(userRoles.userId, dbUser.id));
+      const roleNames = roleRows.map((row) => row.name);
+      expect(roleNames).toContain("student");
+    });
+
+    test("GET /auth/google/callback tanpa code redirect ke google-failed", async () => {
+      process.env.GOOGLE_CLIENT_ID = "mock-client-id";
+      process.env.GOOGLE_CLIENT_SECRET = "mock-client-secret";
+
+      const res = await app.request("/auth/google/callback");
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toBe("/?auth=google-failed");
+    });
+
+    test("GET /auth/google/callback tanpa env Google redirect ke missing-google-env", async () => {
+      delete process.env.GOOGLE_CLIENT_ID;
+      delete process.env.GOOGLE_CLIENT_SECRET;
+
+      const res = await app.request("/auth/google/callback?code=mock_code");
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toBe("/?auth=missing-google-env");
+    });
+
+    test("GET /auth/google/callback gagal token redirect ke google-token-failed", async () => {
+      process.env.GOOGLE_CLIENT_ID = "mock-client-id";
+      process.env.GOOGLE_CLIENT_SECRET = "mock-client-secret";
+
+      mockGoogleOAuth({ tokenStatus: 400 });
+
+      const res = await app.request("/auth/google/callback?code=invalid_code");
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toBe("/?auth=google-token-failed");
+    });
+
+    test("GET /auth/google/callback gagal userinfo redirect ke google-profile-failed", async () => {
+      process.env.GOOGLE_CLIENT_ID = "mock-client-id";
+      process.env.GOOGLE_CLIENT_SECRET = "mock-client-secret";
+
+      mockGoogleOAuth({ userInfoStatus: 401 });
+
+      const res = await app.request("/auth/google/callback?code=mock_code");
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toBe("/?auth=google-profile-failed");
+    });
+
+    test("GET /auth/google/callback memetakan email admin ke role admin", async () => {
+      process.env.GOOGLE_CLIENT_ID = "mock-client-id";
+      process.env.GOOGLE_CLIENT_SECRET = "mock-client-secret";
+
+      const adminEmail = `google-admin-${nanoid(6)}@idetech.local`;
+      const existingRule = await db.select().from(systemSettings).where(eq(systemSettings.key, "google.role_rule")).limit(1);
+      if (existingRule.length > 0) {
+        await db
+          .update(systemSettings)
+          .set({ value: JSON.stringify({ adminEmails: [adminEmail], teacherDomains: ["sekolahku.id"], defaultRole: "student" }), updatedAt: new Date() })
+          .where(eq(systemSettings.key, "google.role_rule"));
+      } else {
+        await db.insert(systemSettings).values({
+          key: "google.role_rule",
+          value: JSON.stringify({ adminEmails: [adminEmail], teacherDomains: ["sekolahku.id"], defaultRole: "student" }),
+          updatedAt: new Date()
+        });
+      }
+
+      mockGoogleOAuth({
+        userInfo: {
+          sub: `google_${nanoid(8)}`,
+          name: "Test Google Admin",
+          email: adminEmail,
+          picture: null,
+          email_verified: true
+        }
+      });
+
+      const res = await app.request(`/auth/google/callback?code=mock_code`);
+      expect(res.status).toBe(302);
+
+      const [dbUser] = await db.select().from(users).where(eq(users.email, adminEmail.toLowerCase())).limit(1);
+      expect(dbUser).toBeDefined();
+
+      const roleRows = await db
+        .select({ name: roles.name })
+        .from(userRoles)
+        .innerJoin(roles, eq(userRoles.roleId, roles.id))
+        .where(eq(userRoles.userId, dbUser.id));
+      const roleNames = roleRows.map((row) => row.name);
+      expect(roleNames).toContain("admin");
+      expect(roleNames).toContain("teacher");
+      expect(dbUser.status).toBe("active");
     });
   });
 

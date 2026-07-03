@@ -11,7 +11,7 @@ Dokumen ini mencatat status implementasi backend API IdeTech berdasarkan `implem
 | Total endpoint backend | ~47 endpoint |
 | Database | MariaDB (migrasi dari SQLite selesai) |
 | Build | ✅ Sukses |
-| Test otomatis | ✅ 49 pass, 0 fail |
+| Test otomatis | ✅ 57 pass, 0 fail |
 | Container Docker | ✅ Healthy |
 | Commit terakhir | `1e89d9b` — feat: enforce permissions and real parent reports + docs |
 
@@ -114,7 +114,7 @@ Dokumen ini mencatat status implementasi backend API IdeTech berdasarkan `implem
 - [x] Endpoint untuk menulis activity logs
 
 ### Test Otomatis
-- [ ] Test Google OAuth flow
+- [x] Test Google OAuth flow
 - [ ] Test upload foto jurnal ke S3
 - [x] Test chat AI dengan quota
 - [x] Test bank submit → approve → clone
@@ -163,7 +163,7 @@ Dokumen ini mencatat status implementasi backend API IdeTech berdasarkan `implem
 
 ```bash
 bun run build      # ✅ sukses
-bun test           # ✅ 49 pass, 0 fail
+bun test           # ✅ 57 pass, 0 fail
 docker compose -f docker-compose.yml up -d   # ✅ healthy
 curl http://localhost:2016/api/health        # ✅ {"status":"ok"}
 ```
