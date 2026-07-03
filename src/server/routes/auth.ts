@@ -101,6 +101,13 @@ app.get("/google/callback", async (c) => {
 });
 
 app.post("/dev/google", async (c) => {
+  const demoLoginEnabled =
+    process.env.DEMO_LOGIN_ENABLED === "true" || process.env.NODE_ENV !== "production";
+
+  if (!demoLoginEnabled) {
+    return c.json({ message: "Demo login tidak tersedia di environment production." }, 403);
+  }
+
   const body = (await c.req.json().catch(() => ({}))) as { email?: string };
   const email = body.email ?? "admin@idetech.local";
   const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);

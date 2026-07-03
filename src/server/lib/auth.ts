@@ -5,6 +5,7 @@ import { nanoid } from "nanoid";
 import { db } from "../db/client";
 import { oauthAccounts, permissions, rolePermissions, roles, sessions, userRoles, users } from "../db/schema";
 import type { RoleName } from "../db/schema";
+import { getGoogleRoleRule } from "./settings";
 
 export const sessionCookieName = "idetech_session";
 
@@ -135,7 +136,7 @@ export async function upsertGoogleUser(profile: {
 }) {
   const now = new Date();
   const normalizedEmail = profile.email.trim().toLowerCase();
-  const accountRule = resolveGoogleUserRule(normalizedEmail);
+  const accountRule = await resolveGoogleUserRule(normalizedEmail);
   const [existing] = await db.select().from(users).where(eq(users.email, normalizedEmail)).limit(1);
   const userId = existing?.id ?? `usr_${nanoid(12)}`;
   const isKnownUser = Boolean(existing);
@@ -202,17 +203,18 @@ export async function upsertGoogleUser(profile: {
   };
 }
 
-function resolveGoogleUserRule(email: string): { roles: RoleName[]; status?: "active" | "pending" | "suspended" } {
-  if (email === "the.real.ferilee@gmail.com") {
+async function resolveGoogleUserRule(email: string): Promise<{ roles: RoleName[]; status?: "active" | "pending" | "suspended" }> {
+  const rule = await getGoogleRoleRule();
+
+  if (rule.adminEmails.some((adminEmail) => adminEmail.toLowerCase() === email)) {
     return { roles: ["admin", "teacher"], status: "active" };
   }
 
-  const teacherDomains = ["@guru.smk.belajar.id", "@guru.sma.belajar.id", "@guru.smp.belajar.id"];
-  if (teacherDomains.some((domain) => email.endsWith(domain))) {
+  if (rule.teacherDomains.some((domain) => email.endsWith(domain.toLowerCase()))) {
     return { roles: ["teacher"] };
   }
 
-  return { roles: ["student"] };
+  return { roles: [rule.defaultRole] };
 }
 
 async function syncUserRoles(userId: string, roleNames: RoleName[], now: Date) {

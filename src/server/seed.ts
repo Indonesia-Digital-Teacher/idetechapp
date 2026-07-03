@@ -6,6 +6,8 @@ import {
   classes,
   classStudents,
   ideQuests,
+  masterGrades,
+  masterSubjects,
   materials,
   parentStudents,
   permissions,
@@ -13,10 +15,12 @@ import {
   roles,
   studentMaterialProgress,
   studentQuestProgress,
+  systemSettings,
   userRoles,
   users
 } from "./db/schema";
 import { permissionCatalog, roleCatalog, rolePermissions } from "./lib/catalog";
+import { defaultChatQuotaConfig, defaultGoogleRoleRule } from "./lib/settings";
 
 await initializeDatabase();
 
@@ -361,6 +365,101 @@ await db
   .onDuplicateKeyUpdate({
     set: {
       relationship: "Ayah"
+    }
+  });
+
+const demoMasterSubjects = [
+  { id: "ms_mat", name: "Matematika", description: "Ilmu tentang bilangan, bentuk, dan pola." },
+  { id: "ms_sci", name: "Sains / IPA", description: "Ilmu pengetahuan alam meliputi fisika, kimia, dan biologi." },
+  { id: "ms_bio", name: "Biologi", description: "Studi tentang makhluk hidup dan ekosistem." },
+  { id: "ms_phy", name: "Fisika", description: "Studi tentang materi, energi, dan gaya." },
+  { id: "ms_che", name: "Kimia", description: "Studi tentang zat, reaksi, dan susunan materi." },
+  { id: "ms_eng", name: "Bahasa Inggris", description: "Pembelajaran keterampilan berbahasa Inggris." },
+  { id: "ms_ind", name: "Bahasa Indonesia", description: "Pembelajaran keterampilan berbahasa Indonesia." },
+  { id: "ms_hist", name: "Sejarah", description: "Studi tentang peristiwa masa lalu dan peradaban." },
+  { id: "ms_geo", name: "Geografi", description: "Studi tentang bumi, lingkungan, dan populasi manusia." },
+  { id: "ms_soc", name: "Sosiologi", description: "Studi tentang masyarakat dan hubungan sosial." },
+  { id: "ms_econ", name: "Ekonomi", description: "Studi tentang produksi, distribusi, dan konsumsi barang." },
+  { id: "ms_civ", name: "PPKn", description: "Pendidikan Pancasila dan Kewarganegaraan." },
+  { id: "ms_relig", name: "Pendidikan Agama", description: "Pendidikan keagamaan dan akhlak." },
+  { id: "ms_art", name: "Seni Budaya", description: "Pembelajaran seni, musik, dan budaya." },
+  { id: "ms_pe", name: "PJOK", description: "Pendidikan Jasmani, Olahraga, dan Kesehatan." },
+  { id: "ms_tech", name: "Teknologi Informasi", description: "Pembelajaran literasi digital dan pemrograman dasar." },
+  { id: "ms_voc", name: "Kejuruan", description: "Mata pelajaran keahlian sesuai kompetensi kejuruan." }
+];
+
+for (const item of demoMasterSubjects) {
+  await db
+    .insert(masterSubjects)
+    .values({
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      createdAt: now
+    })
+    .onDuplicateKeyUpdate({
+      set: {
+        name: item.name,
+        description: item.description
+      }
+    });
+}
+
+const demoMasterGrades = [
+  { id: "mg_7", name: "Kelas 7", description: "Tingkat pertama SMP/MTs." },
+  { id: "mg_8", name: "Kelas 8", description: "Tingkat kedua SMP/MTs." },
+  { id: "mg_9", name: "Kelas 9", description: "Tingkat ketiga SMP/MTs." },
+  { id: "mg_10", name: "Kelas 10", description: "Tingkat pertama SMA/SMK/MA." },
+  { id: "mg_11", name: "Kelas 11", description: "Tingkat kedua SMA/SMK/MA." },
+  { id: "mg_12", name: "Kelas 12", description: "Tingkat ketiga SMA/SMK/MA." }
+];
+
+for (const item of demoMasterGrades) {
+  await db
+    .insert(masterGrades)
+    .values({
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      createdAt: now
+    })
+    .onDuplicateKeyUpdate({
+      set: {
+        name: item.name,
+        description: item.description
+      }
+    });
+}
+
+await db
+  .insert(systemSettings)
+  .values({
+    key: "google.role_rule",
+    value: JSON.stringify(defaultGoogleRoleRule),
+    description: "Aturan pemetaan role Google OAuth berdasarkan email dan domain.",
+    updatedAt: now
+  })
+  .onDuplicateKeyUpdate({
+    set: {
+      value: JSON.stringify(defaultGoogleRoleRule),
+      description: "Aturan pemetaan role Google OAuth berdasarkan email dan domain.",
+      updatedAt: now
+    }
+  });
+
+await db
+  .insert(systemSettings)
+  .values({
+    key: "chat.quota_config",
+    value: JSON.stringify(defaultChatQuotaConfig),
+    description: "Konfigurasi limit dan jendela waktu kuota obrolan AI.",
+    updatedAt: now
+  })
+  .onDuplicateKeyUpdate({
+    set: {
+      value: JSON.stringify(defaultChatQuotaConfig),
+      description: "Konfigurasi limit dan jendela waktu kuota obrolan AI.",
+      updatedAt: now
     }
   });
 

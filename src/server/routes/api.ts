@@ -1,5 +1,5 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { nanoid } from "nanoid";
 import { db } from "../db/client";
@@ -27,6 +27,9 @@ import {
 } from "../db/schema";
 import type { RoleName } from "../db/schema";
 import { type AppEnv, authRequired, requirePermission, requireRole } from "../lib/auth";
+import { writeActivityLog } from "../lib/activity";
+import { getChatQuotaConfig } from "../lib/settings";
+import { getS3Config } from "../lib/storage";
 import { dashboardCatalog, permissionCatalog, roleCatalog, studentQuestCatalog } from "../lib/catalog";
 import authRoutes from "./auth";
 
@@ -214,6 +217,14 @@ app.delete("/admin/users/:id", requireRole(["admin"]), requirePermission("user.m
   }
 
   await db.delete(users).where(eq(users.id, id));
+
+  await writeActivityLog({
+    userId: authUser.id,
+    action: "delete",
+    resourceType: "user",
+    resourceId: id
+  });
+
   return c.json({ ok: true });
 });
 
@@ -340,10 +351,20 @@ app.post("/admin/classes", requireRole(["admin"]), requirePermission("class.mana
     });
 
   const [created] = await db.select().from(classes).where(eq(classes.id, classId)).limit(1);
+
+  await writeActivityLog({
+    userId: user.id,
+    action: "create",
+    resourceType: "class",
+    resourceId: classId,
+    details: { name, subject, grade, teacherUserId }
+  });
+
   return c.json({ class: created }, 201);
 });
 
 app.patch("/admin/classes/:id", requireRole(["admin"]), requirePermission("class.manage"), async (c) => {
+  const user = c.get("authUser");
   const id = c.req.param("id");
   if (!id) return c.json({ message: "ID kelas wajib diisi." }, 400);
   const body = (await c.req.json().catch(() => ({}))) as {
@@ -379,16 +400,34 @@ app.patch("/admin/classes/:id", requireRole(["admin"]), requirePermission("class
     .where(eq(classes.id, id));
 
   const [updated] = await db.select().from(classes).where(eq(classes.id, id)).limit(1);
+
+  await writeActivityLog({
+    userId: user.id,
+    action: "update",
+    resourceType: "class",
+    resourceId: id,
+    details: { name: body.name, subject: body.subject, grade: body.grade, status: body.status }
+  });
+
   return c.json({ class: updated });
 });
 
 app.delete("/admin/classes/:id", requireRole(["admin"]), requirePermission("class.manage"), async (c) => {
+  const user = c.get("authUser");
   const id = c.req.param("id");
   if (!id) return c.json({ message: "ID kelas wajib diisi." }, 400);
   const [targetClass] = await db.select().from(classes).where(eq(classes.id, id)).limit(1);
   if (!targetClass) return c.json({ message: "Kelas tidak ditemukan." }, 404);
 
   await db.delete(classes).where(eq(classes.id, id));
+
+  await writeActivityLog({
+    userId: user.id,
+    action: "delete",
+    resourceType: "class",
+    resourceId: id
+  });
+
   return c.json({ ok: true });
 });
 
@@ -452,6 +491,15 @@ app.post("/teacher/classes", requireRole(["teacher", "admin"]), requirePermissio
     });
 
   const [created] = await db.select().from(classes).where(eq(classes.id, classId)).limit(1);
+
+  await writeActivityLog({
+    userId: user.id,
+    action: "create",
+    resourceType: "class",
+    resourceId: classId,
+    details: { name, subject, grade, teacherUserId: user.id }
+  });
+
   return c.json({ class: created }, 201);
 });
 
@@ -506,6 +554,15 @@ app.post("/teacher/materials", requireRole(["teacher", "admin"]), requirePermiss
     });
 
   const [created] = await db.select().from(materials).where(eq(materials.id, materialId)).limit(1);
+
+  await writeActivityLog({
+    userId: user.id,
+    action: "create",
+    resourceType: "material",
+    resourceId: materialId,
+    details: { title, type: body.type ?? "lesson", classId: body.classId }
+  });
+
   return c.json({ material: created }, 201);
 });
 
@@ -541,6 +598,15 @@ app.patch("/teacher/materials/:id", requireRole(["teacher", "admin"]), requirePe
     .where(eq(materials.id, id));
 
   const [updated] = await db.select().from(materials).where(eq(materials.id, id)).limit(1);
+
+  await writeActivityLog({
+    userId: user.id,
+    action: "update",
+    resourceType: "material",
+    resourceId: id,
+    details: { title: body.title, type: body.type, status: body.status }
+  });
+
   return c.json({ material: updated });
 });
 
@@ -555,6 +621,14 @@ app.delete("/teacher/materials/:id", requireRole(["teacher", "admin"]), requireP
   }
 
   await db.delete(materials).where(eq(materials.id, id));
+
+  await writeActivityLog({
+    userId: user.id,
+    action: "delete",
+    resourceType: "material",
+    resourceId: id
+  });
+
   return c.json({ ok: true });
 });
 
@@ -617,6 +691,15 @@ app.post("/teacher/idequests", requireRole(["teacher", "admin"]), requirePermiss
     });
 
   const [created] = await db.select().from(ideQuests).where(eq(ideQuests.id, questId)).limit(1);
+
+  await writeActivityLog({
+    userId: user.id,
+    action: "create",
+    resourceType: "idequest",
+    resourceId: questId,
+    details: { title, classId: body.classId, materialId: body.materialId || null }
+  });
+
   return c.json({ quest: created }, 201);
 });
 
@@ -659,6 +742,15 @@ app.patch("/teacher/idequests/:id", requireRole(["teacher", "admin"]), requirePe
     .where(eq(ideQuests.id, id));
 
   const [updated] = await db.select().from(ideQuests).where(eq(ideQuests.id, id)).limit(1);
+
+  await writeActivityLog({
+    userId: user.id,
+    action: "update",
+    resourceType: "idequest",
+    resourceId: id,
+    details: { title: body.title, status: body.status }
+  });
+
   return c.json({ quest: updated });
 });
 
@@ -673,6 +765,14 @@ app.delete("/teacher/idequests/:id", requireRole(["teacher", "admin"]), requireP
   }
 
   await db.delete(ideQuests).where(eq(ideQuests.id, id));
+
+  await writeActivityLog({
+    userId: user.id,
+    action: "delete",
+    resourceType: "idequest",
+    resourceId: id
+  });
+
   return c.json({ ok: true });
 });
 
@@ -769,30 +869,37 @@ app.post("/teacher/journals", requireRole(["teacher", "admin"]), requirePermissi
   let photoUrl = null;
 
   if (photo) {
+    let s3Config;
+    try {
+      s3Config = getS3Config();
+    } catch (err) {
+      console.error("Konfigurasi S3/RustFS tidak lengkap:", err);
+      return c.json({ message: "Konfigurasi storage belum lengkap." }, 500);
+    }
+
     try {
       const s3 = new S3Client({
-        endpoint: process.env.RUSTFS_ENDPOINT || process.env.S3_ENDPOINT || "http://global-storage:9000",
-        region: process.env.RUSTFS_REGION || process.env.S3_REGION || "us-east-1",
+        endpoint: s3Config.endpoint,
+        region: s3Config.region,
         credentials: {
-          accessKeyId: process.env.RUSTFS_ACCESS_KEY || process.env.S3_ACCESS_KEY || "minioadmin",
-          secretAccessKey: process.env.RUSTFS_SECRET_KEY || process.env.S3_SECRET_KEY || "minioadmin"
+          accessKeyId: s3Config.accessKeyId,
+          secretAccessKey: s3Config.secretAccessKey
         },
-        forcePathStyle: true,
+        forcePathStyle: true
       });
-      
+
       const ext = photo.name.split('.').pop() || "png";
       const key = `journals/${user.id}-${Date.now()}.${ext}`;
       const buffer = await photo.arrayBuffer();
 
       await s3.send(new PutObjectCommand({
-        Bucket: "idetech-assets",
+        Bucket: s3Config.bucket,
         Key: key,
         Body: Buffer.from(buffer),
-        ContentType: photo.type,
+        ContentType: photo.type
       }));
-      
-      const baseUrl = process.env.RUSTFS_PUBLIC_BASE_URL || process.env.S3_PUBLIC_BASE_URL || "http://localhost:9000/idetech-assets";
-      photoUrl = `${baseUrl}/${key}`;
+
+      photoUrl = `${s3Config.publicBaseUrl}/${key}`;
     } catch (err) {
       console.error("Gagal upload foto ke RustFS:", err);
       return c.json({ message: "Gagal mengunggah foto jurnal." }, 500);
@@ -800,8 +907,9 @@ app.post("/teacher/journals", requireRole(["teacher", "admin"]), requirePermissi
   }
 
   const now = new Date();
+  const journalId = `jrn_${nanoid(12)}`;
   await db.insert(teacherJournals).values({
-    id: `jrn_${nanoid(12)}`,
+    id: journalId,
     teacherUserId: user.id,
     mood: typeof body.mood === "string" ? body.mood : null,
     successReflection: typeof body.success === "string" ? body.success : null,
@@ -811,6 +919,14 @@ app.post("/teacher/journals", requireRole(["teacher", "admin"]), requirePermissi
     photoUrl,
     createdAt: now,
     updatedAt: now
+  });
+
+  await writeActivityLog({
+    userId: user.id,
+    action: "create",
+    resourceType: "journal",
+    resourceId: journalId,
+    details: { mood: body.mood, hasPhoto: Boolean(photoUrl) }
   });
 
   return c.json({ ok: true, photoUrl });
@@ -830,29 +946,27 @@ app.get("/teacher/journals", requireRole(["teacher", "admin"]), requirePermissio
 app.get("/teacher/chat-quota", requireRole(["teacher", "admin"]), requirePermission("chat.use"), async (c) => {
   const user = c.get("authUser");
   const now = new Date();
-  const QUOTA_LIMIT = 5;
-  const WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
+  const { limit, windowMs } = await getChatQuotaConfig();
 
   let [quota] = await db.select().from(chatQuotas).where(eq(chatQuotas.userId, user.id)).limit(1);
 
   if (!quota) {
-    return c.json({ remaining: QUOTA_LIMIT, resetAt: new Date(now.getTime() + WINDOW_MS).toISOString(), limit: QUOTA_LIMIT });
+    return c.json({ remaining: limit, resetAt: new Date(now.getTime() + windowMs).toISOString(), limit });
   }
 
-  const isExpired = now.getTime() - quota.windowStartAt.getTime() > WINDOW_MS;
+  const isExpired = now.getTime() - quota.windowStartAt.getTime() > windowMs;
   if (isExpired) {
-    return c.json({ remaining: QUOTA_LIMIT, resetAt: new Date(now.getTime() + WINDOW_MS).toISOString(), limit: QUOTA_LIMIT });
+    return c.json({ remaining: limit, resetAt: new Date(now.getTime() + windowMs).toISOString(), limit });
   }
 
-  const resetAt = new Date(quota.windowStartAt.getTime() + WINDOW_MS).toISOString();
-  return c.json({ remaining: Math.max(0, QUOTA_LIMIT - quota.messagesCount), resetAt, limit: QUOTA_LIMIT });
+  const resetAt = new Date(quota.windowStartAt.getTime() + windowMs).toISOString();
+  return c.json({ remaining: Math.max(0, limit - quota.messagesCount), resetAt, limit });
 });
 
 app.post("/teacher/chat-consume", requireRole(["teacher", "admin"]), requirePermission("chat.use"), async (c) => {
   const user = c.get("authUser");
   const now = new Date();
-  const QUOTA_LIMIT = 5;
-  const WINDOW_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
+  const { limit, windowMs } = await getChatQuotaConfig();
 
   let [quota] = await db.select().from(chatQuotas).where(eq(chatQuotas.userId, user.id)).limit(1);
 
@@ -864,10 +978,10 @@ app.post("/teacher/chat-consume", requireRole(["teacher", "admin"]), requirePerm
       windowStartAt: now,
       updatedAt: now
     });
-    return c.json({ allowed: true, remaining: QUOTA_LIMIT - 1, resetAt: new Date(now.getTime() + WINDOW_MS).toISOString() });
+    return c.json({ allowed: true, remaining: limit - 1, resetAt: new Date(now.getTime() + windowMs).toISOString() });
   }
 
-  const isExpired = now.getTime() - quota.windowStartAt.getTime() > WINDOW_MS;
+  const isExpired = now.getTime() - quota.windowStartAt.getTime() > windowMs;
 
   if (isExpired) {
     await db.update(chatQuotas).set({
@@ -875,13 +989,13 @@ app.post("/teacher/chat-consume", requireRole(["teacher", "admin"]), requirePerm
       windowStartAt: now,
       updatedAt: now
     }).where(eq(chatQuotas.id, quota.id));
-    return c.json({ allowed: true, remaining: QUOTA_LIMIT - 1, resetAt: new Date(now.getTime() + WINDOW_MS).toISOString() });
+    return c.json({ allowed: true, remaining: limit - 1, resetAt: new Date(now.getTime() + windowMs).toISOString() });
   }
 
-  const resetAt = new Date(quota.windowStartAt.getTime() + WINDOW_MS).toISOString();
+  const resetAt = new Date(quota.windowStartAt.getTime() + windowMs).toISOString();
 
-  if (quota.messagesCount >= QUOTA_LIMIT) {
-    return c.json({ allowed: false, message: `Kuota obrolan habis. Anda mendapat ${QUOTA_LIMIT} pesan setiap 3 hari.` }, 429);
+  if (quota.messagesCount >= limit) {
+    return c.json({ allowed: false, message: `Kuota obrolan habis. Anda mendapat ${limit} pesan dalam periode ini.` }, 429);
   }
 
   await db.update(chatQuotas).set({
@@ -889,7 +1003,7 @@ app.post("/teacher/chat-consume", requireRole(["teacher", "admin"]), requirePerm
     updatedAt: now
   }).where(eq(chatQuotas.id, quota.id));
 
-  return c.json({ allowed: true, remaining: QUOTA_LIMIT - (quota.messagesCount + 1), resetAt });
+  return c.json({ allowed: true, remaining: limit - (quota.messagesCount + 1), resetAt });
 });
 
 app.post("/teacher/chat", requireRole(["teacher", "admin"]), requirePermission("chat.use"), async (c) => {
@@ -958,6 +1072,7 @@ app.get("/admin/bank-queue", requireRole(["admin"]), requirePermission("bank.man
 });
 
 app.patch("/admin/bank-queue/:type/:id", requireRole(["admin"]), requirePermission("bank.manage"), async (c) => {
+  const user = c.get("authUser");
   const type = c.req.param("type");
   const id = c.req.param("id");
   const body = (await c.req.json().catch(() => ({}))) as { status: "approved" | "rejected" };
@@ -968,6 +1083,15 @@ app.patch("/admin/bank-queue/:type/:id", requireRole(["admin"]), requirePermissi
   } else if (type === "quest") {
     await db.update(ideQuests).set({ bankStatus: body.status, updatedAt: new Date() }).where(eq(ideQuests.id, id));
   }
+
+  await writeActivityLog({
+    userId: user.id,
+    action: body.status === "approved" ? "approve" : "reject",
+    resourceType: type === "material" ? "material" : "idequest",
+    resourceId: id,
+    details: { status: body.status, type }
+  });
+
   return c.json({ ok: true });
 });
 
@@ -1170,6 +1294,15 @@ app.post("/student/classes/join", requireRole(["student"]), async (c) => {
     });
 
   const [joined] = await db.select().from(classStudents).where(eq(classStudents.id, classStudentId)).limit(1);
+
+  await writeActivityLog({
+    userId: user.id,
+    action: "join",
+    resourceType: "class_student",
+    resourceId: classStudentId,
+    details: { classId: targetClass.id, classCode }
+  });
+
   return c.json({ class: targetClass, joined, alreadyHadClass: Boolean(existing) }, 201);
 });
 
@@ -1223,6 +1356,15 @@ app.post("/student/materials/:id/complete", requireRole(["student"]), async (c) 
     });
 
   const [progress] = await db.select().from(studentMaterialProgress).where(eq(studentMaterialProgress.id, progressId)).limit(1);
+
+  await writeActivityLog({
+    userId: user.id,
+    action: "complete",
+    resourceType: "student_material_progress",
+    resourceId: progressId,
+    details: { materialId: id, progress: 100 }
+  });
+
   return c.json({ progress });
 });
 
@@ -1302,6 +1444,15 @@ app.post("/student/quests/:id/complete", requireRole(["student"]), requirePermis
     });
 
   const [progress] = await db.select().from(studentQuestProgress).where(eq(studentQuestProgress.id, progressId)).limit(1);
+
+  await writeActivityLog({
+    userId: user.id,
+    action: "complete",
+    resourceType: "student_quest_progress",
+    resourceId: progressId,
+    details: { questId: id, progress: 100, earnedPoints: quest.points }
+  });
+
   return c.json({ progress });
 });
 
@@ -1514,6 +1665,25 @@ app.get("/parent/reports", requireRole(["parent"]), requirePermission("report.vi
   return c.json({ children });
 });
 
+app.get("/parent/children", requireRole(["parent"]), requirePermission("report.view"), async (c) => {
+  const user = c.get("authUser");
+
+  const rows = await db
+    .select({
+      id: parentStudents.id,
+      studentId: parentStudents.studentUserId,
+      studentName: users.name,
+      studentEmail: users.email,
+      relationship: parentStudents.relationship,
+      createdAt: parentStudents.createdAt
+    })
+    .from(parentStudents)
+    .innerJoin(users, eq(parentStudents.studentUserId, users.id))
+    .where(eq(parentStudents.parentUserId, user.id));
+
+  return c.json({ children: rows });
+});
+
 app.get("/permissions/matrix", authRequired, async (c) => {
   const rows = await db
     .select({
@@ -1624,6 +1794,144 @@ function normalizeSchoolText(value: string) {
 
 // --- New Admin Features ---
 
+app.get("/admin/parent-students", requireRole(["admin"]), requirePermission("system.setting"), async (c) => {
+  const rows = await db
+    .select({
+      id: parentStudents.id,
+      parentId: parentStudents.parentUserId,
+      parentName: users.name,
+      parentEmail: users.email,
+      studentId: parentStudents.studentUserId,
+      studentName: users.name,
+      studentEmail: users.email,
+      relationship: parentStudents.relationship,
+      createdAt: parentStudents.createdAt
+    })
+    .from(parentStudents)
+    .innerJoin(users, eq(parentStudents.parentUserId, users.id));
+
+  return c.json({ links: rows });
+});
+
+app.post("/admin/parent-students", requireRole(["admin"]), requirePermission("system.setting"), async (c) => {
+  const user = c.get("authUser");
+  const body = (await c.req.json().catch(() => ({}))) as {
+    parentUserId?: string;
+    studentUserId?: string;
+    relationship?: string;
+  };
+
+  if (!body.parentUserId || !body.studentUserId || !body.relationship?.trim()) {
+    return c.json({ message: "parentUserId, studentUserId, dan relationship wajib diisi." }, 400);
+  }
+
+  const relationship = body.relationship.trim();
+  const [parent] = await db.select().from(users).where(eq(users.id, body.parentUserId)).limit(1);
+  const [student] = await db.select().from(users).where(eq(users.id, body.studentUserId)).limit(1);
+
+  if (!parent) {
+    return c.json({ message: "User orang tua tidak ditemukan." }, 404);
+  }
+  if (!student) {
+    return c.json({ message: "User siswa tidak ditemukan." }, 404);
+  }
+
+  const [existing] = await db
+    .select()
+    .from(parentStudents)
+    .where(
+      and(eq(parentStudents.parentUserId, body.parentUserId), eq(parentStudents.studentUserId, body.studentUserId))
+    )
+    .limit(1);
+
+  if (existing) {
+    return c.json({ message: "Relasi orang tua-siswa sudah ada." }, 409);
+  }
+
+  const now = new Date();
+  const id = `ps_${nanoid(12)}`;
+  await db.insert(parentStudents).values({
+    id,
+    parentUserId: body.parentUserId,
+    studentUserId: body.studentUserId,
+    relationship,
+    createdAt: now
+  });
+
+  const [created] = await db.select().from(parentStudents).where(eq(parentStudents.id, id)).limit(1);
+
+  await writeActivityLog({
+    userId: user.id,
+    action: "create",
+    resourceType: "parent_student",
+    resourceId: id,
+    details: { parentUserId: body.parentUserId, studentUserId: body.studentUserId, relationship }
+  });
+
+  return c.json({ link: created }, 201);
+});
+
+app.put("/admin/parent-students/:id", requireRole(["admin"]), requirePermission("system.setting"), async (c) => {
+  const user = c.get("authUser");
+  const id = c.req.param("id");
+  if (!id) {
+    return c.json({ message: "ID relasi wajib diisi." }, 400);
+  }
+
+  const body = (await c.req.json().catch(() => ({}))) as {
+    relationship?: string;
+  };
+
+  if (!body.relationship?.trim()) {
+    return c.json({ message: "Relationship wajib diisi." }, 400);
+  }
+
+  const [existing] = await db.select().from(parentStudents).where(eq(parentStudents.id, id)).limit(1);
+  if (!existing) {
+    return c.json({ message: "Relasi tidak ditemukan." }, 404);
+  }
+
+  await db
+    .update(parentStudents)
+    .set({ relationship: body.relationship.trim() })
+    .where(eq(parentStudents.id, id));
+
+  await writeActivityLog({
+    userId: user.id,
+    action: "update",
+    resourceType: "parent_student",
+    resourceId: id,
+    details: { relationship: body.relationship.trim() }
+  });
+
+  const [updated] = await db.select().from(parentStudents).where(eq(parentStudents.id, id)).limit(1);
+  return c.json({ link: updated });
+});
+
+app.delete("/admin/parent-students/:id", requireRole(["admin"]), requirePermission("system.setting"), async (c) => {
+  const user = c.get("authUser");
+  const id = c.req.param("id");
+  if (!id) {
+    return c.json({ message: "ID relasi wajib diisi." }, 400);
+  }
+
+  const [existing] = await db.select().from(parentStudents).where(eq(parentStudents.id, id)).limit(1);
+  if (!existing) {
+    return c.json({ message: "Relasi tidak ditemukan." }, 404);
+  }
+
+  await db.delete(parentStudents).where(eq(parentStudents.id, id));
+
+  await writeActivityLog({
+    userId: user.id,
+    action: "delete",
+    resourceType: "parent_student",
+    resourceId: id
+  });
+
+  return c.json({ ok: true });
+});
+
 app.get("/admin/activity-logs", requireRole(["admin"]), requirePermission("system.setting"), async (c) => {
   const rows = await db.select().from(activityLogs).orderBy(desc(activityLogs.createdAt)).limit(100);
   return c.json({ logs: rows });
@@ -1661,6 +1969,132 @@ app.get("/admin/master-data", requireRole(["admin"]), requirePermission("system.
     db.select().from(systemSettings)
   ]);
   return c.json({ subjects, grades, settings });
+});
+
+// --- System Settings CRUD ---
+
+app.get("/admin/settings", requireRole(["admin"]), requirePermission("system.setting"), async (c) => {
+  const rows = await db.select().from(systemSettings).orderBy(systemSettings.key);
+  return c.json({ settings: rows });
+});
+
+app.get("/admin/settings/:key", requireRole(["admin"]), requirePermission("system.setting"), async (c) => {
+  const key = c.req.param("key");
+  if (!key) {
+    return c.json({ message: "Key wajib diisi." }, 400);
+  }
+
+  const [row] = await db.select().from(systemSettings).where(eq(systemSettings.key, key)).limit(1);
+
+  if (!row) {
+    return c.json({ message: "Pengaturan tidak ditemukan." }, 404);
+  }
+
+  return c.json({ setting: row });
+});
+
+app.post("/admin/settings", requireRole(["admin"]), requirePermission("system.setting"), async (c) => {
+  const user = c.get("authUser");
+  const body = (await c.req.json().catch(() => ({}))) as {
+    key?: string;
+    value?: string;
+    description?: string;
+  };
+
+  if (!body.key || body.value === undefined) {
+    return c.json({ message: "Key dan value wajib diisi." }, 400);
+  }
+
+  const key = body.key.trim();
+  if (key.length === 0) {
+    return c.json({ message: "Key tidak boleh kosong." }, 400);
+  }
+
+  const now = new Date();
+  await db.insert(systemSettings).values({
+    key,
+    value: body.value,
+    description: body.description?.trim() ?? null,
+    updatedAt: now
+  });
+
+  await writeActivityLog({
+    userId: user.id,
+    action: "create",
+    resourceType: "system_setting",
+    resourceId: key,
+    details: { description: body.description?.trim() ?? null }
+  });
+
+  const [created] = await db.select().from(systemSettings).where(eq(systemSettings.key, key)).limit(1);
+  return c.json({ setting: created }, 201);
+});
+
+app.put("/admin/settings/:key", requireRole(["admin"]), requirePermission("system.setting"), async (c) => {
+  const user = c.get("authUser");
+  const key = c.req.param("key");
+  if (!key) {
+    return c.json({ message: "Key wajib diisi." }, 400);
+  }
+
+  const body = (await c.req.json().catch(() => ({}))) as {
+    value?: string;
+    description?: string;
+  };
+
+  if (body.value === undefined) {
+    return c.json({ message: "Value wajib diisi." }, 400);
+  }
+
+  const [existing] = await db.select().from(systemSettings).where(eq(systemSettings.key, key)).limit(1);
+  if (!existing) {
+    return c.json({ message: "Pengaturan tidak ditemukan." }, 404);
+  }
+
+  const now = new Date();
+  await db
+    .update(systemSettings)
+    .set({
+      value: body.value,
+      description: body.description?.trim() ?? existing.description,
+      updatedAt: now
+    })
+    .where(eq(systemSettings.key, key));
+
+  await writeActivityLog({
+    userId: user.id,
+    action: "update",
+    resourceType: "system_setting",
+    resourceId: key,
+    details: { description: body.description?.trim() ?? existing.description }
+  });
+
+  const [updated] = await db.select().from(systemSettings).where(eq(systemSettings.key, key)).limit(1);
+  return c.json({ setting: updated });
+});
+
+app.delete("/admin/settings/:key", requireRole(["admin"]), requirePermission("system.setting"), async (c) => {
+  const user = c.get("authUser");
+  const key = c.req.param("key");
+  if (!key) {
+    return c.json({ message: "Key wajib diisi." }, 400);
+  }
+
+  const [existing] = await db.select().from(systemSettings).where(eq(systemSettings.key, key)).limit(1);
+  if (!existing) {
+    return c.json({ message: "Pengaturan tidak ditemukan." }, 404);
+  }
+
+  await db.delete(systemSettings).where(eq(systemSettings.key, key));
+
+  await writeActivityLog({
+    userId: user.id,
+    action: "delete",
+    resourceType: "system_setting",
+    resourceId: key
+  });
+
+  return c.json({ ok: true });
 });
 
 export default app;
