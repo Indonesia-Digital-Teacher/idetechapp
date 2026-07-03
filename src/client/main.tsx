@@ -582,16 +582,24 @@ function App() {
   async function loadSession() {
     setLoading(true);
     setError(null);
-    const me = await api<{ user: AuthUser | null }>("/api/auth/me");
-    if (!me.user) {
-      setUser(null);
-      setDashboard(null);
-      setLoading(false);
-      return;
-    }
+    const startTime = Date.now();
 
-    await loadDashboard();
-    setLoading(false);
+    try {
+      const me = await api<{ user: AuthUser | null }>("/api/auth/me");
+      if (!me.user) {
+        setUser(null);
+        setDashboard(null);
+        return;
+      }
+      await loadDashboard();
+    } finally {
+      const elapsed = Date.now() - startTime;
+      const minWait = 3000;
+      if (elapsed < minWait) {
+        await new Promise((r) => setTimeout(r, minWait - elapsed));
+      }
+      setLoading(false);
+    }
   }
 
   async function loadDashboard() {
@@ -6101,8 +6109,32 @@ function RoleSpecificPanel({ role }: { role: RoleName }) {
 
 function FullScreenState({ text }: { text: string }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="rounded-lg border bg-white px-5 py-4 text-sm font-semibold shadow-sm">{text}</div>
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
+      <img src="/bgidetechmobile.webp" alt="Background" className="absolute inset-0 h-full w-full object-cover md:hidden" />
+      <img src="/bgidetechdesktop.webp" alt="Background" className="absolute inset-0 hidden h-full w-full object-cover md:block" />
+      <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" />
+
+      <div className="relative z-10 flex flex-col items-center justify-center gap-6 animate-in fade-in zoom-in duration-500">
+        <div className="relative flex items-center justify-center">
+          <div className="absolute inset-0 rounded-3xl bg-blue-500/40 blur-2xl animate-pulse"></div>
+          <div className="relative h-28 w-28 overflow-hidden rounded-3xl bg-slate-950 p-5 shadow-2xl ring-1 ring-white/10 transition-transform hover:scale-105">
+            <img 
+              src="/logoidetech.webp" 
+              alt="IdeTech Loading" 
+              className="h-full w-full object-contain animate-pulse" 
+              style={{ animationDuration: '2s' }}
+            />
+          </div>
+        </div>
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex gap-2">
+            <div className="h-2.5 w-2.5 rounded-full bg-blue-500 animate-bounce shadow-[0_0_8px_rgba(59,130,246,0.8)]" style={{ animationDelay: '0ms' }}></div>
+            <div className="h-2.5 w-2.5 rounded-full bg-blue-500 animate-bounce shadow-[0_0_8px_rgba(59,130,246,0.8)]" style={{ animationDelay: '150ms' }}></div>
+            <div className="h-2.5 w-2.5 rounded-full bg-blue-500 animate-bounce shadow-[0_0_8px_rgba(59,130,246,0.8)]" style={{ animationDelay: '300ms' }}></div>
+          </div>
+          <p className="text-xs font-bold text-slate-300 uppercase tracking-widest mt-1 drop-shadow-md">{text}</p>
+        </div>
+      </div>
     </main>
   );
 }
