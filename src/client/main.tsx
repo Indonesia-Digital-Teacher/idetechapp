@@ -851,8 +851,20 @@ function ProfileSetupScreen({
 
     const timer = window.setTimeout(() => {
       setSchoolBusy(true);
-      api<{ schools: SchoolOption[] }>(`/api/schools/search?q=${encodeURIComponent(schoolName)}`)
-        .then((payload) => setSchools(payload.schools))
+      fetch(`https://api-sekolah-indonesia.vercel.app/sekolah/s?sekolah=${encodeURIComponent(schoolName)}`)
+        .then((res) => {
+          if (!res.ok) throw new Error("Gagal");
+          return res.json();
+        })
+        .then((payload: any) => {
+          const data = payload.dataSekolah || [];
+          const schools = data.map((s: any) => ({
+            name: s.sekolah,
+            city: s.kabupaten_kota,
+            province: s.propinsi
+          })).slice(0, 10);
+          setSchools(schools);
+        })
         .catch(() => setSchools([]))
         .finally(() => setSchoolBusy(false));
     }, 350);
@@ -5839,6 +5851,14 @@ function AdminClassCard({
 }
 
 function AdminSystemConfig({ access }: { access: AdminAccess | null }) {
+  const [settings, setSettings] = useState<any[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  
+  const [adminEmails, setAdminEmails] = useState("");
+  const [teacherDomains, setTeacherDomains] = useState("");
+
   const system = access?.system;
   const items = system
     ? [
@@ -5851,26 +5871,108 @@ function AdminSystemConfig({ access }: { access: AdminAccess | null }) {
       ]
     : [];
 
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  async function loadSettings() {
+    try {
+      const payload = await api<{ settings: any[] }>("/api/admin/settings");
+      setSettings(payload.settings);
+      
+      const authRules = payload.settings.find(s => s.key === "google_auth_rules");
+      if (authRules && authRules.value) {
+        try {
+          const parsed = JSON.parse(authRules.value);
+          if (parsed.adminEmails) setAdminEmails(parsed.adminEmails.join("\n"));
+          if (parsed.teacherDomains) setTeacherDomains(parsed.teacherDomains.join("\n"));
+        } catch (e) {}
+      }
+    } catch (e) {}
+  }
+
+  async function saveAuthRules(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const payload = {
+        adminEmails: adminEmails.split("\n").map(s => s.trim()).filter(Boolean),
+        teacherDomains: teacherDomains.split("\n").map(s => s.trim()).filter(Boolean)
+      };
+      await api("/api/admin/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ key: "google_auth_rules", value: JSON.stringify(payload) })
+      });
+      setSuccess("Pengaturan Google Auth berhasil disimpan.");
+      await loadSettings();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menyimpan");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <Card className="professional-card p-5">
-      <div className="professional-card__header">
-        <h2 className="professional-card__title">Konfigurasi sistem</h2>
-        <Settings className="h-5 w-5 text-slate-400" />
-      </div>
-      <div className="admin-system-grid">
-        {items.map(([label, value]) => (
-          <div key={label} className="admin-system-tile">
-            <span>{label}</span>
-            <strong>{value}</strong>
-          </div>
-        ))}
-      </div>
-      {system ? (
-        <p className="mt-4 text-xs font-semibold text-slate-500">
-          Auth: {system.authProvider} · Database: {system.database}
+    <div className="flex flex-col gap-6">
+      <Card className="professional-card p-5">
+        <div className="professional-card__header">
+          <h2 className="professional-card__title">Konfigurasi sistem</h2>
+          <Settings className="h-5 w-5 text-slate-400" />
+        </div>
+        <div className="admin-system-grid">
+          {items.map(([label, value]) => (
+            <div key={label} className="admin-system-tile">
+              <span>{label}</span>
+              <strong>{value}</strong>
+            </div>
+          ))}
+        </div>
+        {system ? (
+          <p className="mt-4 text-xs font-semibold text-slate-500">
+            Auth: {system.authProvider} · Database: {system.database}
+          </p>
+        ) : null}
+      </Card>
+
+      <Card className="professional-card p-5">
+        <div className="professional-card__header">
+          <h2 className="professional-card__title">Google Auth Role Mapping</h2>
+          <ShieldCheck className="h-5 w-5 text-slate-400" />
+        </div>
+        <p className="text-sm text-slate-600 mb-4">
+          Atur email admin dan domain email guru yang akan secara otomatis mendapatkan rolenya saat pertama kali mendaftar. Pisahkan setiap entri dengan baris baru (Enter).
         </p>
-      ) : null}
-    </Card>
+
+        {error ? <ErrorBanner message={error} /> : null}
+        {success ? <div className="mb-4 rounded-md bg-green-50 p-4 text-sm text-green-700 border border-green-200">{success}</div> : null}
+
+        <form onSubmit={saveAuthRules} className="flex flex-col gap-4">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm font-semibold text-slate-700">Email Admin (Superuser)</span>
+            <textarea 
+              value={adminEmails}
+              onChange={e => setAdminEmails(e.target.value)}
+              className="idetech-input min-h-[100px] font-mono text-sm leading-relaxed"
+              placeholder="admin@sekolah.id"
+            />
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm font-semibold text-slate-700">Domain Email Guru</span>
+            <textarea 
+              value={teacherDomains}
+              onChange={e => setTeacherDomains(e.target.value)}
+              className="idetech-input min-h-[100px] font-mono text-sm leading-relaxed"
+              placeholder="@guru.smp.belajar.id"
+            />
+          </label>
+          <button type="submit" disabled={busy} className="mt-2 self-start rounded-lg bg-blue-600 px-6 py-2.5 font-bold text-white shadow-sm hover:bg-blue-700 active:scale-95 disabled:opacity-50 transition-all">
+            {busy ? "Menyimpan..." : "Simpan Aturan"}
+          </button>
+        </form>
+      </Card>
+    </div>
   );
 }
 

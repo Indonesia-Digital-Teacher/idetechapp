@@ -3,7 +3,7 @@ import { getCookie, setCookie } from "hono/cookie";
 import type { Context, Next } from "hono";
 import { nanoid } from "nanoid";
 import { db } from "../db/client";
-import { oauthAccounts, permissions, rolePermissions, roles, sessions, userRoles, users } from "../db/schema";
+import { oauthAccounts, permissions, rolePermissions, roles, sessions, systemSettings, userRoles, users } from "../db/schema";
 import type { RoleName } from "../db/schema";
 
 export const sessionCookieName = "idetech_session";
@@ -135,7 +135,7 @@ export async function upsertGoogleUser(profile: {
 }) {
   const now = new Date();
   const normalizedEmail = profile.email.trim().toLowerCase();
-  const accountRule = resolveGoogleUserRule(normalizedEmail);
+  const accountRule = await resolveGoogleUserRule(normalizedEmail);
   const [existing] = await db.select().from(users).where(eq(users.email, normalizedEmail)).limit(1);
   const userId = existing?.id ?? `usr_${nanoid(12)}`;
   const isKnownUser = Boolean(existing);
@@ -202,12 +202,35 @@ export async function upsertGoogleUser(profile: {
   };
 }
 
-function resolveGoogleUserRule(email: string): { roles: RoleName[]; status?: "active" | "pending" | "suspended" } {
-  if (email === "the.real.ferilee@gmail.com") {
+async function resolveGoogleUserRule(email: string): Promise<{ roles: RoleName[]; status?: "active" | "pending" | "suspended" }> {
+  const [setting] = await db.select().from(systemSettings).where(eq(systemSettings.key, "google_auth_rules")).limit(1);
+  
+  let adminEmails = ["the.real.ferilee@gmail.com"];
+  let teacherDomains = ["@guru.smk.belajar.id", "@guru.sma.belajar.id", "@guru.smp.belajar.id"];
+
+  if (setting) {
+    try {
+      const parsed = JSON.parse(setting.value);
+      if (Array.isArray(parsed.adminEmails)) adminEmails = parsed.adminEmails;
+      if (Array.isArray(parsed.teacherDomains)) teacherDomains = parsed.teacherDomains;
+    } catch (err) {
+      console.error("Gagal membaca google_auth_rules dari systemSettings", err);
+    }
+  } else {
+    try {
+      await db.insert(systemSettings).ignore().values({
+        key: "google_auth_rules",
+        value: JSON.stringify({ adminEmails, teacherDomains }),
+        description: "Aturan role pengguna baru dari Google OAuth",
+        updatedAt: new Date()
+      });
+    } catch (err) {}
+  }
+
+  if (adminEmails.includes(email)) {
     return { roles: ["admin", "teacher"], status: "active" };
   }
 
-  const teacherDomains = ["@guru.smk.belajar.id", "@guru.sma.belajar.id", "@guru.smp.belajar.id"];
   if (teacherDomains.some((domain) => email.endsWith(domain))) {
     return { roles: ["teacher"] };
   }
