@@ -58,6 +58,7 @@ import {
   Bold,
   Italic,
   Underline,
+  Globe,
   Link,
   AlignCenter,
   List,
@@ -2673,6 +2674,7 @@ function TeacherSpaceDashboard({
 }) {
   const content = roleMenuContent.teacher[activeMenu];
   const [guideModal, setGuideModal] = useState<MobileNavId | null>(null);
+  const [showDevModal, setShowDevModal] = useState(false);
   const [teacherClasses, setTeacherClasses] = useState<TeacherClass[]>([]);
   const [classSummary, setClassSummary] = useState<TeacherClassSummary | null>(null);
   const [activeClassFilter, setActiveClassFilter] = useState<string>("all");
@@ -2946,15 +2948,13 @@ function TeacherSpaceDashboard({
 
         <article className="teacher-space-phone is-primary">
           <header className="teacher-space-phone__top">
-            <button className="teacher-space-icon-button" type="button" aria-label="Kembali">
-              <ChevronRight className="h-5 w-5 rotate-180" />
-            </button>
+            <div className="w-9 h-9" aria-hidden="true" />
             <h1 className="teacher-space-logo-title">
               <IdeTechLogo className="teacher-space-logo" />
               IdeTech
             </h1>
-            <button className="teacher-space-menu-button" type="button" aria-label="Menu guru">
-              <Boxes className="h-5 w-5" />
+            <button className="teacher-space-menu-button" type="button" aria-label="Informasi Pengembang" onClick={() => setShowDevModal(true)}>
+              <Users className="h-5 w-5 text-slate-700" />
             </button>
           </header>
 
@@ -3239,7 +3239,76 @@ Fitur ini menganalisis semua aktivitas siswa di kelas Anda:
           </div>
         </div>
       ) : null}
+
+      <DeveloperModal isOpen={showDevModal} onClose={() => setShowDevModal(false)} />
     </main>
+  );
+}
+
+function DeveloperModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl animate-in fade-in zoom-in duration-300">
+        <div className="relative h-72 w-full">
+          <img src="/idetechteam.webp" alt="Tim Pengembang" className="h-full w-full object-cover object-top" />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/40 to-transparent" />
+          <div className="absolute bottom-5 left-5 right-5">
+            <h2 className="text-2xl font-black text-white drop-shadow-md">Meet Our Team</h2>
+            <p className="text-xs font-bold text-white/80 mt-0.5">Para visioner di balik layar IdeTech</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="absolute right-4 top-4 rounded-full bg-black/40 p-1.5 text-white backdrop-blur-md hover:bg-black/60 transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="p-6">
+          <p className="text-sm font-semibold leading-relaxed text-slate-600 mb-5">
+            IdeTech dibangun dengan semangat untuk mewujudkan pendidikan yang lebih baik, efisien, dan menyenangkan di seluruh Indonesia.
+          </p>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3 border border-slate-100">
+              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-slate-800">Feri Lee</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">Development & Design</p>
+              </div>
+              <div className="flex gap-2">
+                <a href="https://t.me/ferilee" target="_blank" rel="noreferrer" className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-slate-600 hover:bg-blue-100 hover:text-blue-600 transition-colors" title="Telegram @ferilee">
+                  <Send className="h-4 w-4" />
+                </a>
+                <a href="https://ferilee.gurumuda.eu.org/" target="_blank" rel="noreferrer" className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-slate-600 hover:bg-blue-100 hover:text-blue-600 transition-colors" title="Website Feri Lee">
+                  <Globe className="h-4 w-4" />
+                </a>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3 border border-slate-100">
+              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                <UserRound className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-slate-800">Gunanto</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">Development & Design</p>
+              </div>
+              <div className="flex gap-2">
+                <a href="https://t.me/pg957" target="_blank" rel="noreferrer" className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-slate-600 hover:bg-emerald-100 hover:text-emerald-600 transition-colors" title="Telegram @pg957">
+                  <Send className="h-4 w-4" />
+                </a>
+                <a href="#" className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-slate-600 hover:bg-emerald-100 hover:text-emerald-600 transition-colors" title="Website (Belum Tersedia)">
+                  <Globe className="h-4 w-4" />
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
