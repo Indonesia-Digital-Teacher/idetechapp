@@ -1,0 +1,62 @@
+services:
+  mariadb:
+    image: mariadb:11.4
+    container_name: idetech_mariadb
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-idetech_root_secret}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-idetech}
+      MYSQL_USER: ${MYSQL_USER:-idetech}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-idetech_secret}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - pgunNet
+    restart: always
+    healthcheck:
+      test:
+        - CMD
+        - mariadb-admin
+        - ping
+        - -u${MYSQL_USER:-idetech}
+        - -p${MYSQL_PASSWORD:-idetech_secret}
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+  app:
+    image: idetechapp:mariadb
+    container_name: idetechapp
+    ports:
+      - "2016:2016"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 2016
+      DATABASE_URL: mysql://${MYSQL_USER:-idetech}:${MYSQL_PASSWORD:-idetech_secret}@mariadb:3306/${MYSQL_DATABASE:-idetech}
+    networks:
+      - pgunNet
+    restart: always
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - bun
+        - -e
+        - "const r = await fetch('http://127.0.0.1:2016/api/health'); if (!r.ok) process.exit(1)"
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+volumes:
+  mariadb_data:
+
+networks:
+  pgunNet:
+    external: true

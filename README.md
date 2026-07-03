@@ -87,6 +87,25 @@ Salin konfigurasi environment berdasarkan `.env.example`, lalu isi kredensial
 Google OAuth produksi. `GOOGLE_REDIRECT_URI` harus sama persis dengan Authorized
 redirect URI yang didaftarkan di Google Cloud Console.
 
+### Run Lokal dengan Docker Compose (Development)
+
+Build image lokal terlebih dahulu:
+
+```bash
+docker build -t idetechapp:mariadb .
+```
+
+Jalankan aplikasi + MariaDB:
+
+```bash
+docker network create ferileenet
+docker compose -f docker-compose.yml up -d
+```
+
+Aplikasi berjalan di http://localhost:2016.
+
+### Deployment Produksi dengan Compose
+
 Jalankan deployment menggunakan Compose produksi:
 
 ```bash
@@ -218,5 +237,7 @@ Permission bawaan:
 - `radar.view`
 - `bank.manage`
 - `system.setting`
+- `journal.manage` — mengelola jurnal refleksi guru
+- `chat.use` — menggunakan obrolan AI guru
 
 Middleware backend mengecek session, role aktif, dan permission sebelum memberikan akses ke route tertentu.

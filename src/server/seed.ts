@@ -1,12 +1,13 @@
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { db } from "./db/client";
+import { db, pool } from "./db/client";
 import { initializeDatabase } from "./db/init";
 import {
   classes,
   classStudents,
   ideQuests,
   materials,
+  parentStudents,
   permissions,
   rolePermissions as rolePermissionsTable,
   roles,
@@ -31,6 +32,9 @@ for (const permission of permissionCatalog) {
 
 const allRoles = await db.select().from(roles);
 const allPermissions = await db.select().from(permissions);
+
+// Reset permission mapping agar selalu sinkron dengan catalog terbaru
+await db.delete(rolePermissionsTable);
 
 for (const [roleName, permissionNames] of Object.entries(rolePermissions)) {
   const role = allRoles.find((item) => item.name === roleName);
@@ -345,4 +349,25 @@ await db
     }
   });
 
+await db
+  .insert(parentStudents)
+  .values({
+    id: "ps_demo_1",
+    parentUserId: "usr_demo_parent",
+    studentUserId: "usr_demo_student",
+    relationship: "Ayah",
+    createdAt: now
+  })
+  .onDuplicateKeyUpdate({
+    set: {
+      relationship: "Ayah"
+    }
+  });
+
 console.log("Database IdeTech siap dipakai.");
+
+// Tutup pool hanya ketika script dijalankan standalone (bun run db:seed),
+// bukan ketika di-import oleh src/server/index.ts saat server berjalan.
+if (import.meta.main) {
+  await pool.end();
+}
