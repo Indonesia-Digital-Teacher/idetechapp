@@ -2,6 +2,8 @@ services:
   mariadb:
     image: mariadb:11.4
     container_name: idetech_mariadb
+    ports:
+      - "3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-idetech_root_secret}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-idetech}
@@ -10,7 +12,7 @@ services:
     volumes:
       - mariadb_data:/var/lib/mysql
     networks:
-      - ferileenet
+      - pgunNet
     restart: always
     healthcheck:
       test:
@@ -25,7 +27,7 @@ services:
       retries: 5
 
   app:
-    image: ghcr.io/indonesia-digital-teacher/idetechapp:latest
+    image: idetechapp:mariadb
     container_name: idetechapp
     ports:
       - "2016:2016"
@@ -36,7 +38,7 @@ services:
       PORT: 2016
       DATABASE_URL: mysql://${MYSQL_USER:-idetech}:${MYSQL_PASSWORD:-idetech_secret}@mariadb:3306/${MYSQL_DATABASE:-idetech}
     networks:
-      - ferileenet
+      - pgunNet
     restart: always
     depends_on:
       mariadb:
@@ -56,5 +58,5 @@ volumes:
   mariadb_data:
 
 networks:
-  ferileenet:
+  pgunNet:
     external: true

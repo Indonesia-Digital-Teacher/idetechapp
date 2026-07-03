@@ -26,14 +26,13 @@ WORKDIR /app
 
 ENV NODE_ENV=production \
     PORT=2016 \
-    DATABASE_URL=/app/data/idetech.db
+    DATABASE_URL=mysql://idetech:idetech_secret@mariadb:3306/idetech
 
 COPY --from=production-dependencies --chown=bun:bun /app/node_modules ./node_modules
 COPY --from=build --chown=bun:bun /app/dist ./dist
 COPY --chown=bun:bun package.json bun.lock ./
+COPY --chown=bun:bun drizzle.config.ts ./
 COPY --chown=bun:bun src/server ./src/server
-
-RUN mkdir -p /app/data && chown -R bun:bun /app
 
 USER bun
 

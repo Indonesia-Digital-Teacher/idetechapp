@@ -87,6 +87,25 @@ Salin konfigurasi environment berdasarkan `.env.example`, lalu isi kredensial
 Google OAuth produksi. `GOOGLE_REDIRECT_URI` harus sama persis dengan Authorized
 redirect URI yang didaftarkan di Google Cloud Console.
 
+### Run Lokal dengan Docker Compose (Development)
+
+Build image lokal terlebih dahulu:
+
+```bash
+docker build -t idetechapp:mariadb .
+```
+
+Jalankan aplikasi + MariaDB:
+
+```bash
+docker network create ferileenet
+docker compose -f docker-compose.yml up -d
+```
+
+Aplikasi berjalan di http://localhost:2016.
+
+### Deployment Produksi dengan Compose
+
 Jalankan deployment menggunakan Compose produksi:
 
 ```bash
@@ -99,8 +118,14 @@ Login GHCR hanya diperlukan jika package masih berstatus private. Alternatifnya,
 ubah visibility package `idetechapp` menjadi public melalui pengaturan package
 di GitHub agar server dapat melakukan pull tanpa kredensial registry.
 
-Database SQLite disimpan pada named volume `sqlite_data` di path
-`/app/data/idetech.db`, sehingga data tetap tersedia ketika container diganti.
+Database MariaDB berjalan sebagai service tersendiri di Docker Compose. Data
+disimpan pada named volume `mariadb_data`, sehingga tetap tersedia ketika
+container diganti. Pastikan environment variable `DATABASE_URL` mengarah ke
+service MariaDB, misalnya:
+
+```txt
+mysql://idetech:idetech_secret@mariadb:3306/idetech
+```
 
 ## Login
 
@@ -172,7 +197,7 @@ Endpoint utama:
 Database SQLite dibuat otomatis di file:
 
 ```txt
-idetech.sqlite
+mysql://idetech:idetech_secret@localhost:3306/idetech
 ```
 
 Tabel yang tersedia:
@@ -212,5 +237,7 @@ Permission bawaan:
 - `radar.view`
 - `bank.manage`
 - `system.setting`
+- `journal.manage` — mengelola jurnal refleksi guru
+- `chat.use` — menggunakan obrolan AI guru
 
 Middleware backend mengecek session, role aktif, dan permission sebelum memberikan akses ke route tertentu.

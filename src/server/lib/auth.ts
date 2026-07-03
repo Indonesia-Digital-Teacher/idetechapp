@@ -179,8 +179,7 @@ export async function upsertGoogleUser(profile: {
       createdAt: now,
       updatedAt: now
     })
-    .onConflictDoUpdate({
-      target: [oauthAccounts.provider, oauthAccounts.providerAccountId],
+    .onDuplicateKeyUpdate({
       set: {
         accessToken: profile.accessToken ?? null,
         refreshToken: profile.refreshToken ?? null,

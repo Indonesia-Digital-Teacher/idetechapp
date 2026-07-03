@@ -16,7 +16,9 @@ export const permissionCatalog = [
   { id: "perm_report_view", name: "report.view", description: "Melihat laporan perkembangan belajar." },
   { id: "perm_radar_view", name: "radar.view", description: "Melihat Radar Pintar." },
   { id: "perm_bank_manage", name: "bank.manage", description: "Mengelola Bank Ide." },
-  { id: "perm_system_setting", name: "system.setting", description: "Mengatur konfigurasi aplikasi." }
+  { id: "perm_system_setting", name: "system.setting", description: "Mengatur konfigurasi aplikasi." },
+  { id: "perm_journal_manage", name: "journal.manage", description: "Mengelola jurnal refleksi guru." },
+  { id: "perm_chat_use", name: "chat.use", description: "Menggunakan obrolan AI guru." }
 ] as const;
 
 export const rolePermissions: Record<RoleName, string[]> = {
@@ -28,9 +30,11 @@ export const rolePermissions: Record<RoleName, string[]> = {
     "report.view",
     "radar.view",
     "bank.manage",
-    "system.setting"
+    "system.setting",
+    "journal.manage",
+    "chat.use"
   ],
-  teacher: ["class.manage", "material.create", "quest.manage", "report.view", "radar.view", "bank.manage"],
+  teacher: ["class.manage", "material.create", "quest.manage", "report.view", "radar.view", "bank.manage", "journal.manage", "chat.use"],
   student: ["quest.play", "report.view", "radar.view"],
   parent: ["report.view", "radar.view"]
 };
@@ -42,7 +46,7 @@ export const dashboardCatalog = {
     metrics: [
       { label: "User pending", value: "8", hint: "Menunggu verifikasi role" },
       { label: "Kelas aktif", value: "24", hint: "Lintas jenjang sekolah" },
-      { label: "Permission", value: "9", hint: "Siap dipetakan ke role" }
+      { label: "Permission", value: "11", hint: "Siap dipetakan ke role" }
     ],
     actions: ["Verifikasi user baru", "Atur role dan permission", "Pantau konfigurasi sistem"],
     modules: ["Manajemen User", "Role & Permission", "Kelas Global", "Konfigurasi"]

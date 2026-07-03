@@ -10,6 +10,7 @@ import {
   classStudents,
   ideQuests,
   materials,
+  parentStudents,
   permissions,
   rolePermissions,
   roles,
@@ -190,13 +191,13 @@ app.patch("/admin/users/:id/verify", requireRole(["admin"]), requirePermission("
 
       await db
         .insert(userRoles)
+        .ignore()
         .values({
           id: `ur_${crypto.randomUUID()}`,
           userId: id,
           roleId: role.id,
           createdAt: new Date()
-        })
-        .onConflictDoNothing();
+        });
     }
   }
 
@@ -320,10 +321,11 @@ app.post("/admin/classes", requireRole(["admin"]), requirePermission("class.mana
 
   const now = new Date();
   const classCode = await generateClassCode();
-  const [created] = await db
+  const classId = `cls_${crypto.randomUUID()}`;
+  await db
     .insert(classes)
     .values({
-      id: `cls_${crypto.randomUUID()}`,
+      id: classId,
       classCode,
       teacherUserId,
       name,
@@ -335,9 +337,9 @@ app.post("/admin/classes", requireRole(["admin"]), requirePermission("class.mana
       status: body.status ?? "active",
       createdAt: now,
       updatedAt: now
-    })
-    .returning();
+    });
 
+  const [created] = await db.select().from(classes).where(eq(classes.id, classId)).limit(1);
   return c.json({ class: created }, 201);
 });
 
@@ -362,7 +364,7 @@ app.patch("/admin/classes/:id", requireRole(["admin"]), requirePermission("class
     if (!teacher) return c.json({ message: "Guru tidak ditemukan." }, 404);
   }
 
-  const [updated] = await db
+  await db
     .update(classes)
     .set({
       teacherUserId: body.teacherUserId ?? targetClass.teacherUserId,
@@ -374,9 +376,9 @@ app.patch("/admin/classes/:id", requireRole(["admin"]), requirePermission("class
       status: body.status ?? targetClass.status,
       updatedAt: new Date()
     })
-    .where(eq(classes.id, id))
-    .returning();
+    .where(eq(classes.id, id));
 
+  const [updated] = await db.select().from(classes).where(eq(classes.id, id)).limit(1);
   return c.json({ class: updated });
 });
 
@@ -431,10 +433,11 @@ app.post("/teacher/classes", requireRole(["teacher", "admin"]), requirePermissio
 
   const now = new Date();
   const classCode = await generateClassCode();
-  const [created] = await db
+  const classId = `cls_${crypto.randomUUID()}`;
+  await db
     .insert(classes)
     .values({
-      id: `cls_${crypto.randomUUID()}`,
+      id: classId,
       classCode,
       teacherUserId: user.id,
       name,
@@ -446,9 +449,9 @@ app.post("/teacher/classes", requireRole(["teacher", "admin"]), requirePermissio
       status: "active",
       createdAt: now,
       updatedAt: now
-    })
-    .returning();
+    });
 
+  const [created] = await db.select().from(classes).where(eq(classes.id, classId)).limit(1);
   return c.json({ class: created }, 201);
 });
 
@@ -485,10 +488,11 @@ app.post("/teacher/materials", requireRole(["teacher", "admin"]), requirePermiss
   }
 
   const now = new Date();
-  const [created] = await db
+  const materialId = `mat_${crypto.randomUUID()}`;
+  await db
     .insert(materials)
     .values({
-      id: `mat_${crypto.randomUUID()}`,
+      id: materialId,
       teacherUserId: user.id,
       classId: body.classId,
       title,
@@ -499,9 +503,9 @@ app.post("/teacher/materials", requireRole(["teacher", "admin"]), requirePermiss
       status: "published",
       createdAt: now,
       updatedAt: now
-    })
-    .returning();
+    });
 
+  const [created] = await db.select().from(materials).where(eq(materials.id, materialId)).limit(1);
   return c.json({ material: created }, 201);
 });
 
@@ -523,7 +527,7 @@ app.patch("/teacher/materials/:id", requireRole(["teacher", "admin"]), requirePe
     return c.json({ message: "Materi tidak ditemukan atau bukan milik guru aktif." }, 404);
   }
 
-  const [updated] = await db
+  await db
     .update(materials)
     .set({
       title: body.title?.trim() || targetMaterial.title,
@@ -534,9 +538,9 @@ app.patch("/teacher/materials/:id", requireRole(["teacher", "admin"]), requirePe
       status: body.status ?? targetMaterial.status,
       updatedAt: new Date()
     })
-    .where(eq(materials.id, id))
-    .returning();
+    .where(eq(materials.id, id));
 
+  const [updated] = await db.select().from(materials).where(eq(materials.id, id)).limit(1);
   return c.json({ material: updated });
 });
 
@@ -595,10 +599,11 @@ app.post("/teacher/idequests", requireRole(["teacher", "admin"]), requirePermiss
   }
 
   const now = new Date();
-  const [created] = await db
+  const questId = `iq_${crypto.randomUUID()}`;
+  await db
     .insert(ideQuests)
     .values({
-      id: `iq_${crypto.randomUUID()}`,
+      id: questId,
       teacherUserId: user.id,
       classId: body.classId,
       materialId: body.materialId || null,
@@ -609,9 +614,9 @@ app.post("/teacher/idequests", requireRole(["teacher", "admin"]), requirePermiss
       status: "published",
       createdAt: now,
       updatedAt: now
-    })
-    .returning();
+    });
 
+  const [created] = await db.select().from(ideQuests).where(eq(ideQuests.id, questId)).limit(1);
   return c.json({ quest: created }, 201);
 });
 
@@ -640,7 +645,7 @@ app.patch("/teacher/idequests/:id", requireRole(["teacher", "admin"]), requirePe
     }
   }
 
-  const [updated] = await db
+  await db
     .update(ideQuests)
     .set({
       materialId: body.materialId !== undefined ? body.materialId : targetQuest.materialId,
@@ -651,9 +656,9 @@ app.patch("/teacher/idequests/:id", requireRole(["teacher", "admin"]), requirePe
       status: body.status ?? targetQuest.status,
       updatedAt: new Date()
     })
-    .where(eq(ideQuests.id, id))
-    .returning();
+    .where(eq(ideQuests.id, id));
 
+  const [updated] = await db.select().from(ideQuests).where(eq(ideQuests.id, id)).limit(1);
   return c.json({ quest: updated });
 });
 
@@ -757,7 +762,7 @@ app.get("/teacher/student-progress", requireRole(["teacher", "admin"]), requireP
   return c.json({ progress: result });
 });
 
-app.post("/teacher/journals", requireRole(["teacher", "admin"]), async (c) => {
+app.post("/teacher/journals", requireRole(["teacher", "admin"]), requirePermission("journal.manage"), async (c) => {
   const user = c.get("authUser");
   const body = await c.req.parseBody();
   const photo = body.photo as File | undefined;
@@ -811,7 +816,7 @@ app.post("/teacher/journals", requireRole(["teacher", "admin"]), async (c) => {
   return c.json({ ok: true, photoUrl });
 });
 
-app.get("/teacher/journals", requireRole(["teacher", "admin"]), async (c) => {
+app.get("/teacher/journals", requireRole(["teacher", "admin"]), requirePermission("journal.manage"), async (c) => {
   const user = c.get("authUser");
   const journals = await db
     .select()
@@ -822,7 +827,7 @@ app.get("/teacher/journals", requireRole(["teacher", "admin"]), async (c) => {
   return c.json({ journals });
 });
 
-app.get("/teacher/chat-quota", requireRole(["teacher", "admin"]), async (c) => {
+app.get("/teacher/chat-quota", requireRole(["teacher", "admin"]), requirePermission("chat.use"), async (c) => {
   const user = c.get("authUser");
   const now = new Date();
   const QUOTA_LIMIT = 5;
@@ -843,7 +848,7 @@ app.get("/teacher/chat-quota", requireRole(["teacher", "admin"]), async (c) => {
   return c.json({ remaining: Math.max(0, QUOTA_LIMIT - quota.messagesCount), resetAt, limit: QUOTA_LIMIT });
 });
 
-app.post("/teacher/chat-consume", requireRole(["teacher", "admin"]), async (c) => {
+app.post("/teacher/chat-consume", requireRole(["teacher", "admin"]), requirePermission("chat.use"), async (c) => {
   const user = c.get("authUser");
   const now = new Date();
   const QUOTA_LIMIT = 5;
@@ -887,7 +892,7 @@ app.post("/teacher/chat-consume", requireRole(["teacher", "admin"]), async (c) =
   return c.json({ allowed: true, remaining: QUOTA_LIMIT - (quota.messagesCount + 1), resetAt });
 });
 
-app.post("/teacher/chat", requireRole(["teacher", "admin"]), async (c) => {
+app.post("/teacher/chat", requireRole(["teacher", "admin"]), requirePermission("chat.use"), async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as { message?: string; history?: any[] };
   if (!body.message) return c.json({ message: "Pesan tidak boleh kosong." }, 400);
 
@@ -916,7 +921,7 @@ app.post("/teacher/chat", requireRole(["teacher", "admin"]), async (c) => {
   }
 });
 
-app.post("/teacher/bank-submit", requireRole(["teacher", "admin"]), async (c) => {
+app.post("/teacher/bank-submit", requireRole(["teacher", "admin"]), requirePermission("bank.manage"), async (c) => {
   const user = c.get("authUser");
   const body = (await c.req.json().catch(() => ({}))) as { type: "material" | "quest"; id: string };
   if (!body.type || !body.id) return c.json({ message: "Type dan ID wajib diisi." }, 400);
@@ -933,7 +938,7 @@ app.post("/teacher/bank-submit", requireRole(["teacher", "admin"]), async (c) =>
   return c.json({ ok: true });
 });
 
-app.get("/admin/bank-queue", requireRole(["admin"]), async (c) => {
+app.get("/admin/bank-queue", requireRole(["admin"]), requirePermission("bank.manage"), async (c) => {
   const [materialRows, questRows, userRows] = await Promise.all([
     db.select().from(materials).where(eq(materials.bankStatus, "pending")).orderBy(desc(materials.updatedAt)),
     db.select().from(ideQuests).where(eq(ideQuests.bankStatus, "pending")).orderBy(desc(ideQuests.updatedAt)),
@@ -952,7 +957,7 @@ app.get("/admin/bank-queue", requireRole(["admin"]), async (c) => {
   });
 });
 
-app.patch("/admin/bank-queue/:type/:id", requireRole(["admin"]), async (c) => {
+app.patch("/admin/bank-queue/:type/:id", requireRole(["admin"]), requirePermission("bank.manage"), async (c) => {
   const type = c.req.param("type");
   const id = c.req.param("id");
   const body = (await c.req.json().catch(() => ({}))) as { status: "approved" | "rejected" };
@@ -966,7 +971,7 @@ app.patch("/admin/bank-queue/:type/:id", requireRole(["admin"]), async (c) => {
   return c.json({ ok: true });
 });
 
-app.get("/teacher/bank-public", requireRole(["teacher", "admin"]), async (c) => {
+app.get("/teacher/bank-public", requireRole(["teacher", "admin"]), requirePermission("bank.manage"), async (c) => {
   const [materialRows, questRows, userRows] = await Promise.all([
     db.select().from(materials).where(eq(materials.bankStatus, "approved")).orderBy(desc(materials.updatedAt)),
     db.select().from(ideQuests).where(eq(ideQuests.bankStatus, "approved")).orderBy(desc(ideQuests.updatedAt)),
@@ -985,7 +990,7 @@ app.get("/teacher/bank-public", requireRole(["teacher", "admin"]), async (c) => 
   });
 });
 
-app.post("/teacher/bank-requests", requireRole(["teacher", "admin"]), async (c) => {
+app.post("/teacher/bank-requests", requireRole(["teacher", "admin"]), requirePermission("bank.manage"), async (c) => {
   const user = c.get("authUser");
   const body = (await c.req.json().catch(() => ({}))) as {
     itemType: "material" | "quest";
@@ -1012,8 +1017,9 @@ app.post("/teacher/bank-requests", requireRole(["teacher", "admin"]), async (c) 
   if (!targetClass || targetClass.teacherUserId !== user.id) return c.json({ message: "Kelas target tidak valid." }, 400);
 
   const now = new Date();
-  const [request] = await db.insert(bankRequests).values({
-    id: `breq_${crypto.randomUUID()}`,
+  const requestId = `breq_${crypto.randomUUID()}`;
+  await db.insert(bankRequests).values({
+    id: requestId,
     requesterUserId: user.id,
     ownerUserId,
     targetClassId: body.targetClassId,
@@ -1022,12 +1028,13 @@ app.post("/teacher/bank-requests", requireRole(["teacher", "admin"]), async (c) 
     status: "pending",
     createdAt: now,
     updatedAt: now
-  }).returning();
+  });
 
+  const [request] = await db.select().from(bankRequests).where(eq(bankRequests.id, requestId)).limit(1);
   return c.json({ request }, 201);
 });
 
-app.get("/teacher/bank-requests", requireRole(["teacher", "admin"]), async (c) => {
+app.get("/teacher/bank-requests", requireRole(["teacher", "admin"]), requirePermission("bank.manage"), async (c) => {
   const user = c.get("authUser");
   const [incoming, outgoing, userRows, materialRows, questRows] = await Promise.all([
     db.select().from(bankRequests).where(eq(bankRequests.ownerUserId, user.id)).orderBy(desc(bankRequests.createdAt)),
@@ -1058,7 +1065,7 @@ app.get("/teacher/bank-requests", requireRole(["teacher", "admin"]), async (c) =
   });
 });
 
-app.patch("/teacher/bank-requests/:id", requireRole(["teacher", "admin"]), async (c) => {
+app.patch("/teacher/bank-requests/:id", requireRole(["teacher", "admin"]), requirePermission("bank.manage"), async (c) => {
   const user = c.get("authUser");
   const id = c.req.param("id");
   const body = (await c.req.json().catch(() => ({}))) as { status: "approved" | "rejected" };
@@ -1152,16 +1159,17 @@ app.post("/student/classes/join", requireRole(["student"]), async (c) => {
   }
 
   const now = new Date();
-  const [joined] = await db
+  const classStudentId = `cs_${crypto.randomUUID()}`;
+  await db
     .insert(classStudents)
     .values({
-      id: `cs_${crypto.randomUUID()}`,
+      id: classStudentId,
       classId: targetClass.id,
       studentUserId: user.id,
       createdAt: now
-    })
-    .returning();
+    });
 
+  const [joined] = await db.select().from(classStudents).where(eq(classStudents.id, classStudentId)).limit(1);
   return c.json({ class: targetClass, joined, alreadyHadClass: Boolean(existing) }, 201);
 });
 
@@ -1195,26 +1203,26 @@ app.post("/student/materials/:id/complete", requireRole(["student"]), async (c) 
   }
 
   const now = new Date();
-  const [progress] = await db
+  const progressId = `smp_${crypto.randomUUID()}`;
+  await db
     .insert(studentMaterialProgress)
     .values({
-      id: `smp_${crypto.randomUUID()}`,
+      id: progressId,
       studentUserId: user.id,
       materialId: id,
       progress: 100,
       completedAt: now,
       updatedAt: now
     })
-    .onConflictDoUpdate({
-      target: [studentMaterialProgress.studentUserId, studentMaterialProgress.materialId],
+    .onDuplicateKeyUpdate({
       set: {
         progress: 100,
         completedAt: now,
         updatedAt: now
       }
-    })
-    .returning();
+    });
 
+  const [progress] = await db.select().from(studentMaterialProgress).where(eq(studentMaterialProgress.id, progressId)).limit(1);
   return c.json({ progress });
 });
 
@@ -1272,10 +1280,11 @@ app.post("/student/quests/:id/complete", requireRole(["student"]), requirePermis
   }
 
   const now = new Date();
-  const [progress] = await db
+  const progressId = `sqp_${crypto.randomUUID()}`;
+  await db
     .insert(studentQuestProgress)
     .values({
-      id: `sqp_${crypto.randomUUID()}`,
+      id: progressId,
       studentUserId: user.id,
       questId: id,
       progress: 100,
@@ -1283,17 +1292,16 @@ app.post("/student/quests/:id/complete", requireRole(["student"]), requirePermis
       completedAt: now,
       updatedAt: now
     })
-    .onConflictDoUpdate({
-      target: [studentQuestProgress.studentUserId, studentQuestProgress.questId],
+    .onDuplicateKeyUpdate({
       set: {
         progress: 100,
         earnedPoints: quest.points,
         completedAt: now,
         updatedAt: now
       }
-    })
-    .returning();
+    });
 
+  const [progress] = await db.select().from(studentQuestProgress).where(eq(studentQuestProgress.id, progressId)).limit(1);
   return c.json({ progress });
 });
 
@@ -1449,14 +1457,62 @@ app.get("/student/indicators", requireRole(["student"]), async (c) => {
   });
 });
 
-app.get("/parent/reports", requireRole(["parent"]), requirePermission("report.view"), (c) =>
-  c.json({
-    children: [
-      { id: "child_dika", name: "Dika", progress: 82, teacherNote: "Aktif berdiskusi dan konsisten mengumpulkan tugas." },
-      { id: "child_naya", name: "Naya", progress: 74, teacherNote: "Perlu latihan tambahan pada kuis numerasi." }
-    ]
-  })
-);
+app.get("/parent/reports", requireRole(["parent"]), requirePermission("report.view"), async (c) => {
+  const user = c.get("authUser");
+
+  const childrenRows = await db
+    .select({
+      studentId: parentStudents.studentUserId,
+      studentName: users.name,
+      studentEmail: users.email,
+      relationship: parentStudents.relationship
+    })
+    .from(parentStudents)
+    .innerJoin(users, eq(parentStudents.studentUserId, users.id))
+    .where(eq(parentStudents.parentUserId, user.id));
+
+  const children = await Promise.all(
+    childrenRows.map(async (child) => {
+      const materialProgressRows = await db
+        .select()
+        .from(studentMaterialProgress)
+        .where(eq(studentMaterialProgress.studentUserId, child.studentId));
+      const questProgressRows = await db
+        .select()
+        .from(studentQuestProgress)
+        .where(eq(studentQuestProgress.studentUserId, child.studentId));
+
+      const totalMaterials = materialProgressRows.length;
+      const completedMaterials = materialProgressRows.filter((row) => row.progress >= 100).length;
+      const totalQuests = questProgressRows.length;
+      const completedQuests = questProgressRows.filter((row) => row.progress >= 100).length;
+
+      const total = totalMaterials + totalQuests;
+      const completed = completedMaterials + completedQuests;
+      const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+      const latestJournal = await db
+        .select({ anecdote: teacherJournals.anecdote })
+        .from(teacherJournals)
+        .innerJoin(classes, eq(teacherJournals.teacherUserId, classes.teacherUserId))
+        .innerJoin(classStudents, eq(classes.id, classStudents.classId))
+        .where(eq(classStudents.studentUserId, child.studentId))
+        .orderBy(desc(teacherJournals.createdAt))
+        .limit(1);
+
+      const teacherNote = latestJournal[0]?.anecdote ?? "Belum ada catatan guru.";
+
+      return {
+        id: child.studentId,
+        name: child.studentName,
+        progress,
+        teacherNote
+      };
+    })
+  );
+
+  return c.json({ children });
+});
 
 app.get("/permissions/matrix", authRequired, async (c) => {
   const rows = await db
@@ -1568,7 +1624,7 @@ function normalizeSchoolText(value: string) {
 
 // --- New Admin Features ---
 
-app.get("/admin/activity-logs", requireRole(["admin"]), async (c) => {
+app.get("/admin/activity-logs", requireRole(["admin"]), requirePermission("system.setting"), async (c) => {
   const rows = await db.select().from(activityLogs).orderBy(desc(activityLogs.createdAt)).limit(100);
   return c.json({ logs: rows });
 });
@@ -1578,25 +1634,27 @@ app.get("/admin/announcements", requireRole(["admin", "teacher", "student", "par
   return c.json({ announcements: rows });
 });
 
-app.post("/admin/announcements", requireRole(["admin"]), async (c) => {
+app.post("/admin/announcements", requireRole(["admin"]), requirePermission("system.setting"), async (c) => {
   const user = c.get("authUser");
   const body = (await c.req.json().catch(() => ({}))) as { title?: string; content?: string; type?: "info" | "warning" | "success" };
   if (!body.title || !body.content) return c.json({ message: "Judul dan konten wajib diisi." }, 400);
   
   const now = new Date();
-  const [created] = await db.insert(globalAnnouncements).values({
-    id: `ann_${crypto.randomUUID()}`,
+  const announcementId = `ann_${crypto.randomUUID()}`;
+  await db.insert(globalAnnouncements).values({
+    id: announcementId,
     title: body.title.trim(),
     content: body.content.trim(),
     type: body.type ?? "info",
     authorUserId: user.id,
     createdAt: now,
     updatedAt: now
-  }).returning();
+  });
+  const [created] = await db.select().from(globalAnnouncements).where(eq(globalAnnouncements.id, announcementId)).limit(1);
   return c.json({ announcement: created });
 });
 
-app.get("/admin/master-data", requireRole(["admin"]), async (c) => {
+app.get("/admin/master-data", requireRole(["admin"]), requirePermission("system.setting"), async (c) => {
   const [subjects, grades, settings] = await Promise.all([
     db.select().from(masterSubjects),
     db.select().from(masterGrades),

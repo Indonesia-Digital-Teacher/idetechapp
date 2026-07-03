@@ -1,12 +1,13 @@
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { db } from "./db/client";
+import { db, pool } from "./db/client";
 import { initializeDatabase } from "./db/init";
 import {
   classes,
   classStudents,
   ideQuests,
   materials,
+  parentStudents,
   permissions,
   rolePermissions as rolePermissionsTable,
   roles,
@@ -17,20 +18,23 @@ import {
 } from "./db/schema";
 import { permissionCatalog, roleCatalog, rolePermissions } from "./lib/catalog";
 
-initializeDatabase();
+await initializeDatabase();
 
 const now = new Date();
 
 for (const role of roleCatalog) {
-  await db.insert(roles).values(role).onConflictDoNothing();
+  await db.insert(roles).ignore().values(role);
 }
 
 for (const permission of permissionCatalog) {
-  await db.insert(permissions).values(permission).onConflictDoNothing();
+  await db.insert(permissions).ignore().values(permission);
 }
 
 const allRoles = await db.select().from(roles);
 const allPermissions = await db.select().from(permissions);
+
+// Reset permission mapping agar selalu sinkron dengan catalog terbaru
+await db.delete(rolePermissionsTable);
 
 for (const [roleName, permissionNames] of Object.entries(rolePermissions)) {
   const role = allRoles.find((item) => item.name === roleName);
@@ -42,13 +46,13 @@ for (const [roleName, permissionNames] of Object.entries(rolePermissions)) {
 
     await db
       .insert(rolePermissionsTable)
+      .ignore()
       .values({
         id: `rp_${nanoid(12)}`,
         roleId: role.id,
         permissionId: permission.id,
         createdAt: now
-      })
-      .onConflictDoNothing();
+      });
   }
 }
 
@@ -101,8 +105,7 @@ for (const user of demoUsers) {
       createdAt: now,
       updatedAt: now
     })
-    .onConflictDoUpdate({
-      target: users.email,
+    .onDuplicateKeyUpdate({
       set: {
         name: user.name,
         avatarUrl: user.avatarUrl,
@@ -123,13 +126,13 @@ for (const user of demoUsers) {
 
     await db
       .insert(userRoles)
+      .ignore()
       .values({
         id: `ur_${nanoid(12)}`,
         userId: savedUser.id,
         roleId: role.id,
         createdAt: now
-      })
-      .onConflictDoNothing();
+      });
   }
 }
 
@@ -192,8 +195,7 @@ for (const item of demoClasses) {
       createdAt: now,
       updatedAt: now
     })
-    .onConflictDoUpdate({
-      target: classes.id,
+    .onDuplicateKeyUpdate({
       set: {
         name: item.name,
         subject: item.subject,
@@ -217,11 +219,11 @@ const demoClassStudents = [
 for (const item of demoClassStudents) {
   await db
     .insert(classStudents)
+    .ignore()
     .values({
       ...item,
       createdAt: now
-    })
-    .onConflictDoNothing();
+    });
 }
 
 const demoMaterials = [
@@ -253,8 +255,7 @@ for (const item of demoMaterials) {
       createdAt: now,
       updatedAt: now
     })
-    .onConflictDoUpdate({
-      target: materials.id,
+    .onDuplicateKeyUpdate({
       set: {
         title: item.title,
         type: item.type,
@@ -298,8 +299,7 @@ for (const item of demoIdeQuests) {
       createdAt: now,
       updatedAt: now
     })
-    .onConflictDoUpdate({
-      target: ideQuests.id,
+    .onDuplicateKeyUpdate({
       set: {
         title: item.title,
         mission: item.mission,
@@ -321,8 +321,7 @@ await db
     completedAt: now,
     updatedAt: now
   })
-  .onConflictDoUpdate({
-    target: [studentMaterialProgress.studentUserId, studentMaterialProgress.materialId],
+  .onDuplicateKeyUpdate({
     set: {
       progress: 100,
       completedAt: now,
@@ -341,8 +340,7 @@ await db
     completedAt: now,
     updatedAt: now
   })
-  .onConflictDoUpdate({
-    target: [studentQuestProgress.studentUserId, studentQuestProgress.questId],
+  .onDuplicateKeyUpdate({
     set: {
       progress: 100,
       earnedPoints: 120,
@@ -351,4 +349,25 @@ await db
     }
   });
 
+await db
+  .insert(parentStudents)
+  .values({
+    id: "ps_demo_1",
+    parentUserId: "usr_demo_parent",
+    studentUserId: "usr_demo_student",
+    relationship: "Ayah",
+    createdAt: now
+  })
+  .onDuplicateKeyUpdate({
+    set: {
+      relationship: "Ayah"
+    }
+  });
+
 console.log("Database IdeTech siap dipakai.");
+
+// Tutup pool hanya ketika script dijalankan standalone (bun run db:seed),
+// bukan ketika di-import oleh src/server/index.ts saat server berjalan.
+if (import.meta.main) {
+  await pool.end();
+}
