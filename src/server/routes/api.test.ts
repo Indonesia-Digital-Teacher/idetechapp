@@ -811,6 +811,200 @@ describe("Backend API Endpoints", () => {
           expect(res.status).toBe(403);
         });
       });
+
+      describe("Student join class & complete flow", () => {
+        test("Student dapat bergabung kelas, menyelesaikan materi, dan mengumpulkan quest", async () => {
+          const { token: teacherToken } = await createUserWithPermissions("teacher", [
+            "class.manage",
+            "material.create",
+            "quest.manage"
+          ]);
+
+          const classRes = await requestWithToken(teacherToken, "/teacher/classes", "POST", {
+            name: "Kelas Siswa",
+            subject: "Sains",
+            grade: "7"
+          });
+          const classJson = await classRes.json();
+          const classId = classJson.class.id;
+          const classCode = classJson.class.classCode;
+
+          const materialRes = await requestWithToken(teacherToken, "/teacher/materials", "POST", {
+            classId,
+            title: "Materi Siswa",
+            type: "lesson",
+            description: "Deskripsi"
+          });
+          const materialId = (await materialRes.json()).material.id;
+
+          const questRes = await requestWithToken(teacherToken, "/teacher/idequests", "POST", {
+            classId,
+            materialId,
+            title: "Quest Siswa",
+            mission: "Selesaikan",
+            points: 100,
+            dueDate: "3d",
+            status: "published"
+          });
+          const questId = (await questRes.json()).quest.id;
+
+          const { token: studentToken } = await createUserWithPermissions("student", ["quest.play"]);
+
+          const joinRes = await requestWithToken(studentToken, "/student/classes/join", "POST", {
+            classCode
+          });
+          expect(joinRes.status).toBe(201);
+          const joinJson = await joinRes.json();
+          expect(joinJson.class).toHaveProperty("id", classId);
+
+          const classesRes = await requestWithToken(studentToken, "/student/classes", "GET");
+          expect(classesRes.status).toBe(200);
+          const classesJson = await classesRes.json();
+          expect(classesJson.classes).toEqual(expect.arrayContaining([expect.objectContaining({ id: classId })]));
+
+          const materialsRes = await requestWithToken(studentToken, "/student/materials", "GET");
+          expect(materialsRes.status).toBe(200);
+          const materialsJson = await materialsRes.json();
+          expect(materialsJson.materials).toEqual(expect.arrayContaining([expect.objectContaining({ id: materialId, progress: 0 })]));
+
+          const completeMatRes = await requestWithToken(studentToken, `/student/materials/${materialId}/complete`, "POST");
+          expect(completeMatRes.status).toBe(200);
+          const completeMatJson = await completeMatRes.json();
+          expect(completeMatJson.progress).toHaveProperty("progress", 100);
+
+          const questsRes = await requestWithToken(studentToken, "/student/quests", "GET");
+          expect(questsRes.status).toBe(200);
+          const questsJson = await questsRes.json();
+          expect(questsJson.quests).toEqual(expect.arrayContaining([expect.objectContaining({ id: questId, progress: 0 })]));
+
+          const completeQuestRes = await requestWithToken(studentToken, `/student/quests/${questId}/complete`, "POST");
+          expect(completeQuestRes.status).toBe(200);
+          const completeQuestJson = await completeQuestRes.json();
+          expect(completeQuestJson.progress).toHaveProperty("progress", 100);
+          expect(completeQuestJson.progress).toHaveProperty("earnedPoints", 100);
+
+          const achievementsRes = await requestWithToken(studentToken, "/student/achievements", "GET");
+          expect(achievementsRes.status).toBe(200);
+          const achievementsJson = await achievementsRes.json();
+          expect(achievementsJson.meta.completedMaterials).toBe(1);
+          expect(achievementsJson.meta.completedQuests).toBe(1);
+          expect(achievementsJson.meta.totalPoints).toBe(100);
+        });
+
+        test("Student tidak bisa menyelesaikan quest sebelum materi terkait", async () => {
+          const { token: teacherToken } = await createUserWithPermissions("teacher", [
+            "class.manage",
+            "material.create",
+            "quest.manage"
+          ]);
+
+          const classRes = await requestWithToken(teacherToken, "/teacher/classes", "POST", {
+            name: "Kelas Prasyarat",
+            subject: "Matematika",
+            grade: "8"
+          });
+          const classJson = await classRes.json();
+          const classId = classJson.class.id;
+          const classCode = classJson.class.classCode;
+
+          const materialRes = await requestWithToken(teacherToken, "/teacher/materials", "POST", {
+            classId,
+            title: "Materi Prasyarat",
+            type: "lesson",
+            description: "Deskripsi"
+          });
+          const materialId = (await materialRes.json()).material.id;
+
+          const questRes = await requestWithToken(teacherToken, "/teacher/idequests", "POST", {
+            classId,
+            materialId,
+            title: "Quest Prasyarat",
+            mission: "Selesaikan materi dulu",
+            points: 50,
+            dueDate: "3d",
+            status: "published"
+          });
+          const questId = (await questRes.json()).quest.id;
+
+          const { token: studentToken } = await createUserWithPermissions("student", ["quest.play"]);
+          await requestWithToken(studentToken, "/student/classes/join", "POST", { classCode });
+
+          const res = await requestWithToken(studentToken, `/student/quests/${questId}/complete`, "POST");
+          expect(res.status).toBe(400);
+        });
+
+        test("Student tidak bisa menyelesaikan materi dari kelas yang belum diikuti", async () => {
+          const { token: teacherToken } = await createUserWithPermissions("teacher", [
+            "class.manage",
+            "material.create"
+          ]);
+
+          const classRes = await requestWithToken(teacherToken, "/teacher/classes", "POST", {
+            name: "Kelas Asing",
+            subject: "IPS",
+            grade: "7"
+          });
+          const classId = (await classRes.json()).class.id;
+
+          const materialRes = await requestWithToken(teacherToken, "/teacher/materials", "POST", {
+            classId,
+            title: "Materi Asing",
+            type: "lesson",
+            description: "Deskripsi"
+          });
+          const materialId = (await materialRes.json()).material.id;
+
+          const { token: studentToken } = await createUserWithPermissions("student", []);
+
+          const res = await requestWithToken(studentToken, `/student/materials/${materialId}/complete`, "POST");
+          expect(res.status).toBe(404);
+        });
+
+        test("Join kelas dua kali ditolak", async () => {
+          const { token: teacherToken } = await createUserWithPermissions("teacher", ["class.manage"]);
+          const classRes = await requestWithToken(teacherToken, "/teacher/classes", "POST", {
+            name: "Kelas Double Join",
+            subject: "BIO",
+            grade: "9"
+          });
+          const classCode = (await classRes.json()).class.classCode;
+
+          const { token: studentToken } = await createUserWithPermissions("student", []);
+          const firstJoin = await requestWithToken(studentToken, "/student/classes/join", "POST", { classCode });
+          expect(firstJoin.status).toBe(201);
+
+          const secondJoin = await requestWithToken(studentToken, "/student/classes/join", "POST", { classCode });
+          expect(secondJoin.status).toBe(409);
+        });
+
+        test("ClassCode wajib diisi saat join", async () => {
+          const { token: studentToken } = await createUserWithPermissions("student", []);
+          const res = await requestWithToken(studentToken, "/student/classes/join", "POST", {});
+          expect(res.status).toBe(400);
+        });
+
+        test("Join kelas yang tidak aktif atau tidak ada ditolak", async () => {
+          const { token: studentToken } = await createUserWithPermissions("student", []);
+          const res = await requestWithToken(studentToken, "/student/classes/join", "POST", {
+            classCode: "NONEXISTENT"
+          });
+          expect(res.status).toBe(404);
+        });
+
+        test("Non-student tidak bisa join kelas", async () => {
+          const { token: teacherToken } = await createUserWithPermissions("teacher", ["class.manage"]);
+          const res = await requestWithToken(teacherToken, "/student/classes/join", "POST", {
+            classCode: "SOMECLASS"
+          });
+          expect(res.status).toBe(403);
+        });
+
+        test("Student tanpa quest.play ditolak mengakses quest", async () => {
+          const { token: studentToken } = await createUserWithPermissions("student", []);
+          const res = await requestWithToken(studentToken, "/student/quests", "GET");
+          expect(res.status).toBe(403);
+        });
+      });
     });
   });
 });
