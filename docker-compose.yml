@@ -3,7 +3,7 @@ services:
     image: mariadb:11.4
     container_name: idetech_mariadb
     ports:
-      - "3306:3306"
+      - "3307:3306"
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-idetech_root_secret}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-idetech}

@@ -5935,6 +5935,8 @@ function AdminSystemConfig({ access }: { access: AdminAccess | null }) {
   
   const [adminEmails, setAdminEmails] = useState("");
   const [teacherDomains, setTeacherDomains] = useState("");
+  const [chatLimit, setChatLimit] = useState("5");
+  const [chatWindowHours, setChatWindowHours] = useState("72");
 
   const system = access?.system;
   const items = system
@@ -5965,6 +5967,15 @@ function AdminSystemConfig({ access }: { access: AdminAccess | null }) {
           if (parsed.teacherDomains) setTeacherDomains(parsed.teacherDomains.join("\n"));
         } catch (e) {}
       }
+
+      const chatQuota = payload.settings.find(s => s.key === "chat.quota_config");
+      if (chatQuota && chatQuota.value) {
+        try {
+          const parsed = JSON.parse(chatQuota.value);
+          if (parsed.limit !== undefined) setChatLimit(String(parsed.limit));
+          if (parsed.windowMs !== undefined) setChatWindowHours(String(Math.round(parsed.windowMs / (1000 * 60 * 60))));
+        } catch (e) {}
+      }
     } catch (e) {}
   }
 
@@ -5983,6 +5994,29 @@ function AdminSystemConfig({ access }: { access: AdminAccess | null }) {
         body: JSON.stringify({ key: "google_auth_rules", value: JSON.stringify(payload) })
       });
       setSuccess("Pengaturan Google Auth berhasil disimpan.");
+      await loadSettings();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menyimpan");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveChatQuota(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const payload = {
+        limit: Number(chatLimit),
+        windowMs: Number(chatWindowHours) * 60 * 60 * 1000
+      };
+      await api("/api/admin/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ key: "chat.quota_config", value: JSON.stringify(payload) })
+      });
+      setSuccess("Pengaturan Kuota Chat berhasil disimpan.");
       await loadSettings();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan");
@@ -6046,6 +6080,44 @@ function AdminSystemConfig({ access }: { access: AdminAccess | null }) {
           </label>
           <button type="submit" disabled={busy} className="mt-2 self-start rounded-lg bg-blue-600 px-6 py-2.5 font-bold text-white shadow-sm hover:bg-blue-700 active:scale-95 disabled:opacity-50 transition-all">
             {busy ? "Menyimpan..." : "Simpan Aturan"}
+          </button>
+        </form>
+      </Card>
+
+      <Card className="professional-card p-5">
+        <div className="professional-card__header">
+          <h2 className="professional-card__title">Chat Quota AI (CybraFeriBot)</h2>
+          <Sparkles className="h-5 w-5 text-slate-400" />
+        </div>
+        <p className="text-sm text-slate-600 mb-4">
+          Atur batas maksimum penggunaan AI Chatbot per guru.
+        </p>
+
+        <form onSubmit={saveChatQuota} className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-4">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-semibold text-slate-700">Batas Pesan (Pesan)</span>
+              <input 
+                type="number"
+                min="0"
+                value={chatLimit}
+                onChange={e => setChatLimit(e.target.value)}
+                className="idetech-input"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-semibold text-slate-700">Waktu Reset (Jam)</span>
+              <input 
+                type="number"
+                min="1"
+                value={chatWindowHours}
+                onChange={e => setChatWindowHours(e.target.value)}
+                className="idetech-input"
+              />
+            </label>
+          </div>
+          <button type="submit" disabled={busy} className="mt-2 self-start rounded-lg bg-blue-600 px-6 py-2.5 font-bold text-white shadow-sm hover:bg-blue-700 active:scale-95 disabled:opacity-50 transition-all">
+            {busy ? "Menyimpan..." : "Simpan Kuota"}
           </button>
         </form>
       </Card>
