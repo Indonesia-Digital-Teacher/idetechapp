@@ -99,8 +99,14 @@ Login GHCR hanya diperlukan jika package masih berstatus private. Alternatifnya,
 ubah visibility package `idetechapp` menjadi public melalui pengaturan package
 di GitHub agar server dapat melakukan pull tanpa kredensial registry.
 
-Database SQLite disimpan pada named volume `sqlite_data` di path
-`/app/data/idetech.db`, sehingga data tetap tersedia ketika container diganti.
+Database MariaDB berjalan sebagai service tersendiri di Docker Compose. Data
+disimpan pada named volume `mariadb_data`, sehingga tetap tersedia ketika
+container diganti. Pastikan environment variable `DATABASE_URL` mengarah ke
+service MariaDB, misalnya:
+
+```txt
+mysql://idetech:idetech_secret@mariadb:3306/idetech
+```
 
 ## Login
 
@@ -172,7 +178,7 @@ Endpoint utama:
 Database SQLite dibuat otomatis di file:
 
 ```txt
-idetech.sqlite
+mysql://idetech:idetech_secret@localhost:3306/idetech
 ```
 
 Tabel yang tersedia:

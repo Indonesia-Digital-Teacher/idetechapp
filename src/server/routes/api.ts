@@ -190,13 +190,13 @@ app.patch("/admin/users/:id/verify", requireRole(["admin"]), requirePermission("
 
       await db
         .insert(userRoles)
+        .ignore()
         .values({
           id: `ur_${crypto.randomUUID()}`,
           userId: id,
           roleId: role.id,
           createdAt: new Date()
-        })
-        .onConflictDoNothing();
+        });
     }
   }
 
@@ -320,10 +320,11 @@ app.post("/admin/classes", requireRole(["admin"]), requirePermission("class.mana
 
   const now = new Date();
   const classCode = await generateClassCode();
-  const [created] = await db
+  const classId = `cls_${crypto.randomUUID()}`;
+  await db
     .insert(classes)
     .values({
-      id: `cls_${crypto.randomUUID()}`,
+      id: classId,
       classCode,
       teacherUserId,
       name,
@@ -335,9 +336,9 @@ app.post("/admin/classes", requireRole(["admin"]), requirePermission("class.mana
       status: body.status ?? "active",
       createdAt: now,
       updatedAt: now
-    })
-    .returning();
+    });
 
+  const [created] = await db.select().from(classes).where(eq(classes.id, classId)).limit(1);
   return c.json({ class: created }, 201);
 });
 
@@ -362,7 +363,7 @@ app.patch("/admin/classes/:id", requireRole(["admin"]), requirePermission("class
     if (!teacher) return c.json({ message: "Guru tidak ditemukan." }, 404);
   }
 
-  const [updated] = await db
+  await db
     .update(classes)
     .set({
       teacherUserId: body.teacherUserId ?? targetClass.teacherUserId,
@@ -374,9 +375,9 @@ app.patch("/admin/classes/:id", requireRole(["admin"]), requirePermission("class
       status: body.status ?? targetClass.status,
       updatedAt: new Date()
     })
-    .where(eq(classes.id, id))
-    .returning();
+    .where(eq(classes.id, id));
 
+  const [updated] = await db.select().from(classes).where(eq(classes.id, id)).limit(1);
   return c.json({ class: updated });
 });
 
@@ -431,10 +432,11 @@ app.post("/teacher/classes", requireRole(["teacher", "admin"]), requirePermissio
 
   const now = new Date();
   const classCode = await generateClassCode();
-  const [created] = await db
+  const classId = `cls_${crypto.randomUUID()}`;
+  await db
     .insert(classes)
     .values({
-      id: `cls_${crypto.randomUUID()}`,
+      id: classId,
       classCode,
       teacherUserId: user.id,
       name,
@@ -446,9 +448,9 @@ app.post("/teacher/classes", requireRole(["teacher", "admin"]), requirePermissio
       status: "active",
       createdAt: now,
       updatedAt: now
-    })
-    .returning();
+    });
 
+  const [created] = await db.select().from(classes).where(eq(classes.id, classId)).limit(1);
   return c.json({ class: created }, 201);
 });
 
@@ -485,10 +487,11 @@ app.post("/teacher/materials", requireRole(["teacher", "admin"]), requirePermiss
   }
 
   const now = new Date();
-  const [created] = await db
+  const materialId = `mat_${crypto.randomUUID()}`;
+  await db
     .insert(materials)
     .values({
-      id: `mat_${crypto.randomUUID()}`,
+      id: materialId,
       teacherUserId: user.id,
       classId: body.classId,
       title,
@@ -499,9 +502,9 @@ app.post("/teacher/materials", requireRole(["teacher", "admin"]), requirePermiss
       status: "published",
       createdAt: now,
       updatedAt: now
-    })
-    .returning();
+    });
 
+  const [created] = await db.select().from(materials).where(eq(materials.id, materialId)).limit(1);
   return c.json({ material: created }, 201);
 });
 
@@ -523,7 +526,7 @@ app.patch("/teacher/materials/:id", requireRole(["teacher", "admin"]), requirePe
     return c.json({ message: "Materi tidak ditemukan atau bukan milik guru aktif." }, 404);
   }
 
-  const [updated] = await db
+  await db
     .update(materials)
     .set({
       title: body.title?.trim() || targetMaterial.title,
@@ -534,9 +537,9 @@ app.patch("/teacher/materials/:id", requireRole(["teacher", "admin"]), requirePe
       status: body.status ?? targetMaterial.status,
       updatedAt: new Date()
     })
-    .where(eq(materials.id, id))
-    .returning();
+    .where(eq(materials.id, id));
 
+  const [updated] = await db.select().from(materials).where(eq(materials.id, id)).limit(1);
   return c.json({ material: updated });
 });
 
@@ -595,10 +598,11 @@ app.post("/teacher/idequests", requireRole(["teacher", "admin"]), requirePermiss
   }
 
   const now = new Date();
-  const [created] = await db
+  const questId = `iq_${crypto.randomUUID()}`;
+  await db
     .insert(ideQuests)
     .values({
-      id: `iq_${crypto.randomUUID()}`,
+      id: questId,
       teacherUserId: user.id,
       classId: body.classId,
       materialId: body.materialId || null,
@@ -609,9 +613,9 @@ app.post("/teacher/idequests", requireRole(["teacher", "admin"]), requirePermiss
       status: "published",
       createdAt: now,
       updatedAt: now
-    })
-    .returning();
+    });
 
+  const [created] = await db.select().from(ideQuests).where(eq(ideQuests.id, questId)).limit(1);
   return c.json({ quest: created }, 201);
 });
 
@@ -640,7 +644,7 @@ app.patch("/teacher/idequests/:id", requireRole(["teacher", "admin"]), requirePe
     }
   }
 
-  const [updated] = await db
+  await db
     .update(ideQuests)
     .set({
       materialId: body.materialId !== undefined ? body.materialId : targetQuest.materialId,
@@ -651,9 +655,9 @@ app.patch("/teacher/idequests/:id", requireRole(["teacher", "admin"]), requirePe
       status: body.status ?? targetQuest.status,
       updatedAt: new Date()
     })
-    .where(eq(ideQuests.id, id))
-    .returning();
+    .where(eq(ideQuests.id, id));
 
+  const [updated] = await db.select().from(ideQuests).where(eq(ideQuests.id, id)).limit(1);
   return c.json({ quest: updated });
 });
 
@@ -1012,8 +1016,9 @@ app.post("/teacher/bank-requests", requireRole(["teacher", "admin"]), async (c) 
   if (!targetClass || targetClass.teacherUserId !== user.id) return c.json({ message: "Kelas target tidak valid." }, 400);
 
   const now = new Date();
-  const [request] = await db.insert(bankRequests).values({
-    id: `breq_${crypto.randomUUID()}`,
+  const requestId = `breq_${crypto.randomUUID()}`;
+  await db.insert(bankRequests).values({
+    id: requestId,
     requesterUserId: user.id,
     ownerUserId,
     targetClassId: body.targetClassId,
@@ -1022,8 +1027,9 @@ app.post("/teacher/bank-requests", requireRole(["teacher", "admin"]), async (c) 
     status: "pending",
     createdAt: now,
     updatedAt: now
-  }).returning();
+  });
 
+  const [request] = await db.select().from(bankRequests).where(eq(bankRequests.id, requestId)).limit(1);
   return c.json({ request }, 201);
 });
 
@@ -1152,16 +1158,17 @@ app.post("/student/classes/join", requireRole(["student"]), async (c) => {
   }
 
   const now = new Date();
-  const [joined] = await db
+  const classStudentId = `cs_${crypto.randomUUID()}`;
+  await db
     .insert(classStudents)
     .values({
-      id: `cs_${crypto.randomUUID()}`,
+      id: classStudentId,
       classId: targetClass.id,
       studentUserId: user.id,
       createdAt: now
-    })
-    .returning();
+    });
 
+  const [joined] = await db.select().from(classStudents).where(eq(classStudents.id, classStudentId)).limit(1);
   return c.json({ class: targetClass, joined, alreadyHadClass: Boolean(existing) }, 201);
 });
 
@@ -1195,26 +1202,26 @@ app.post("/student/materials/:id/complete", requireRole(["student"]), async (c) 
   }
 
   const now = new Date();
-  const [progress] = await db
+  const progressId = `smp_${crypto.randomUUID()}`;
+  await db
     .insert(studentMaterialProgress)
     .values({
-      id: `smp_${crypto.randomUUID()}`,
+      id: progressId,
       studentUserId: user.id,
       materialId: id,
       progress: 100,
       completedAt: now,
       updatedAt: now
     })
-    .onConflictDoUpdate({
-      target: [studentMaterialProgress.studentUserId, studentMaterialProgress.materialId],
+    .onDuplicateKeyUpdate({
       set: {
         progress: 100,
         completedAt: now,
         updatedAt: now
       }
-    })
-    .returning();
+    });
 
+  const [progress] = await db.select().from(studentMaterialProgress).where(eq(studentMaterialProgress.id, progressId)).limit(1);
   return c.json({ progress });
 });
 
@@ -1272,10 +1279,11 @@ app.post("/student/quests/:id/complete", requireRole(["student"]), requirePermis
   }
 
   const now = new Date();
-  const [progress] = await db
+  const progressId = `sqp_${crypto.randomUUID()}`;
+  await db
     .insert(studentQuestProgress)
     .values({
-      id: `sqp_${crypto.randomUUID()}`,
+      id: progressId,
       studentUserId: user.id,
       questId: id,
       progress: 100,
@@ -1283,17 +1291,16 @@ app.post("/student/quests/:id/complete", requireRole(["student"]), requirePermis
       completedAt: now,
       updatedAt: now
     })
-    .onConflictDoUpdate({
-      target: [studentQuestProgress.studentUserId, studentQuestProgress.questId],
+    .onDuplicateKeyUpdate({
       set: {
         progress: 100,
         earnedPoints: quest.points,
         completedAt: now,
         updatedAt: now
       }
-    })
-    .returning();
+    });
 
+  const [progress] = await db.select().from(studentQuestProgress).where(eq(studentQuestProgress.id, progressId)).limit(1);
   return c.json({ progress });
 });
 
@@ -1584,15 +1591,17 @@ app.post("/admin/announcements", requireRole(["admin"]), async (c) => {
   if (!body.title || !body.content) return c.json({ message: "Judul dan konten wajib diisi." }, 400);
   
   const now = new Date();
-  const [created] = await db.insert(globalAnnouncements).values({
-    id: `ann_${crypto.randomUUID()}`,
+  const announcementId = `ann_${crypto.randomUUID()}`;
+  await db.insert(globalAnnouncements).values({
+    id: announcementId,
     title: body.title.trim(),
     content: body.content.trim(),
     type: body.type ?? "info",
     authorUserId: user.id,
     createdAt: now,
     updatedAt: now
-  }).returning();
+  });
+  const [created] = await db.select().from(globalAnnouncements).where(eq(globalAnnouncements.id, announcementId)).limit(1);
   return c.json({ announcement: created });
 });
 

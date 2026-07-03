@@ -1,9 +1,19 @@
-import { Database } from "bun:sqlite";
-import { drizzle } from "drizzle-orm/bun-sqlite";
+import { createPool, type Pool } from "mysql2/promise";
+import { drizzle } from "drizzle-orm/mysql2";
 import * as schema from "./schema";
 
-const sqlite = new Database(process.env.DATABASE_URL ?? "idetech.sqlite");
-sqlite.exec("PRAGMA foreign_keys = ON;");
+const databaseUrl = process.env.DATABASE_URL ?? "mysql://root@localhost:3306/idetech";
 
-export const db = drizzle(sqlite, { schema });
-export const rawDb = sqlite;
+function createDatabasePool(): Pool {
+  return createPool({
+    uri: databaseUrl,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0
+  });
+}
+
+export const pool = createDatabasePool();
+export const db = drizzle(pool, { schema, mode: "default" });

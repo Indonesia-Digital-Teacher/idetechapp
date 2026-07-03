@@ -57,7 +57,7 @@ Buat file `.env` di root project:
 GOOGLE_CLIENT_ID=isi_dengan_client_id_google
 GOOGLE_CLIENT_SECRET=isi_dengan_client_secret_google
 GOOGLE_REDIRECT_URI=http://localhost:2016/api/auth/google/callback
-DATABASE_URL=idetech.sqlite
+DATABASE_URL=mysql://idetech:idetech_secret@localhost:3306/idetech
 PORT=2016
 ```
 

@@ -5,7 +5,7 @@ import { serveStatic } from "hono/bun";
 import { initializeDatabase } from "./db/init";
 import apiRoutes from "./routes/api";
 
-initializeDatabase();
+await initializeDatabase();
 await import("./seed");
 
 const app = new Hono();

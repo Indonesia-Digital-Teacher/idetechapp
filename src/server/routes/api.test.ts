@@ -12,7 +12,7 @@ describe("Backend API Endpoints", () => {
 
   beforeAll(async () => {
     // Inisialisasi database testing (membuat tabel jika belum ada, sangat penting untuk CI/CD)
-    initializeDatabase();
+    await initializeDatabase();
 
     // Buat user test di dalam database in-memory / testing
     const userId = `usr_${nanoid(12)}`;

@@ -1,4 +1,29 @@
 services:
+  mariadb:
+    image: mariadb:11.4
+    container_name: idetech_mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-idetech_root_secret}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-idetech}
+      MYSQL_USER: ${MYSQL_USER:-idetech}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-idetech_secret}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - ferileenet
+    restart: always
+    healthcheck:
+      test:
+        - CMD
+        - mariadb-admin
+        - ping
+        - -u${MYSQL_USER:-idetech}
+        - -p${MYSQL_PASSWORD:-idetech_secret}
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
   app:
     image: ghcr.io/indonesia-digital-teacher/idetechapp:latest
     container_name: idetechapp
@@ -9,12 +34,13 @@ services:
     environment:
       NODE_ENV: production
       PORT: 2016
-      DATABASE_URL: /app/data/idetech.db
-    volumes:
-      - sqlite_data:/app/data
+      DATABASE_URL: mysql://${MYSQL_USER:-idetech}:${MYSQL_PASSWORD:-idetech_secret}@mariadb:3306/${MYSQL_DATABASE:-idetech}
     networks:
       - ferileenet
     restart: always
+    depends_on:
+      mariadb:
+        condition: service_healthy
     healthcheck:
       test:
         - CMD
@@ -27,7 +53,7 @@ services:
       retries: 3
 
 volumes:
-  sqlite_data:
+  mariadb_data:
 
 networks:
   ferileenet:
