@@ -24,7 +24,7 @@ app.get("/me", async (c) => {
 
 app.get("/google", (c) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
-  const redirectUri = googleRedirectUri(c.req.url);
+  const redirectUri = googleRedirectUri(c.req);
 
   if (!clientId) {
     return c.redirect("/?auth=demo-required");
@@ -58,7 +58,7 @@ app.get("/google/callback", async (c) => {
       code,
       client_id: clientId,
       client_secret: clientSecret,
-      redirect_uri: googleRedirectUri(c.req.url),
+      redirect_uri: googleRedirectUri(c.req),
       grant_type: "authorization_code"
     })
   });
@@ -154,13 +154,16 @@ app.post("/logout", async (c) => {
   return c.json({ ok: true });
 });
 
-function googleRedirectUri(requestUrl: string) {
-  if (process.env.GOOGLE_REDIRECT_URI) {
+function googleRedirectUri(req: any) {
+  if (process.env.GOOGLE_REDIRECT_URI && process.env.NODE_ENV !== "production") {
     return process.env.GOOGLE_REDIRECT_URI;
   }
 
-  const url = new URL(requestUrl);
-  return `${url.protocol}//${url.host}/api/auth/google/callback`;
+  const url = new URL(req.url);
+  const proto = req.header("x-forwarded-proto") || url.protocol.replace(":", "");
+  const host = req.header("x-forwarded-host") || req.header("host") || url.host;
+
+  return `${proto}://${host}/api/auth/google/callback`;
 }
 
 export default app;

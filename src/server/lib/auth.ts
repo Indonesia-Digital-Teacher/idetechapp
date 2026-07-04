@@ -74,13 +74,15 @@ export async function getSessionUser(token?: string): Promise<AuthUser | null> {
   const userRoleNames = roleRows.map((row) => row.name as RoleName);
   const activeRole = userRoleNames.includes(session.activeRole as RoleName)
     ? (session.activeRole as RoleName)
-    : userRoleNames[0];
+    : (userRoleNames[0] ?? "student");
 
-  const activeRoleRows = await db
-    .select({ id: roles.id })
-    .from(roles)
-    .where(eq(roles.name, activeRole))
-    .limit(1);
+  const activeRoleRows = activeRole
+    ? await db
+        .select({ id: roles.id })
+        .from(roles)
+        .where(eq(roles.name, activeRole))
+        .limit(1)
+    : [];
 
   const permissionRows = activeRoleRows.length
     ? await db
