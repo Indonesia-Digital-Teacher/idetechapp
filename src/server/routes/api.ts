@@ -1,5 +1,5 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, like, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { nanoid } from "nanoid";
 import { db } from "../db/client";
@@ -464,6 +464,33 @@ app.delete("/admin/classes/:id", requireRole(["admin"]), requirePermission("clas
   });
 
   return c.json({ ok: true });
+});
+
+app.get("/teacher/search-students", requireRole(["teacher", "admin"]), async (c) => {
+  const q = c.req.query("q") || "";
+  if (!q || q.length < 2) {
+    return c.json({ students: [] });
+  }
+
+  const searchResults = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      avatarUrl: users.avatarUrl
+    })
+    .from(users)
+    .innerJoin(userRoles, eq(users.id, userRoles.userId))
+    .innerJoin(roles, eq(userRoles.roleId, roles.id))
+    .where(
+      and(
+        eq(roles.name, "student"),
+        or(like(users.name, `%${q}%`), like(users.email, `%${q}%`))
+      )
+    )
+    .limit(10);
+
+  return c.json({ students: searchResults });
 });
 
 app.get("/teacher/classes", requireRole(["teacher", "admin"]), requirePermission("class.manage"), async (c) => {
@@ -1652,7 +1679,9 @@ app.get("/parent/reports", requireRole(["parent"]), requirePermission("report.vi
       studentId: parentStudents.studentUserId,
       studentName: users.name,
       studentEmail: users.email,
-      relationship: parentStudents.relationship
+      relationship: parentStudents.relationship,
+      avatarUrl: users.avatarUrl,
+      schoolName: users.schoolName
     })
     .from(parentStudents)
     .innerJoin(users, eq(parentStudents.studentUserId, users.id))
@@ -1661,13 +1690,33 @@ app.get("/parent/reports", requireRole(["parent"]), requirePermission("report.vi
   const children = await Promise.all(
     childrenRows.map(async (child) => {
       const materialProgressRows = await db
-        .select()
+        .select({
+          id: materials.id,
+          title: materials.title,
+          type: materials.type,
+          progress: studentMaterialProgress.progress,
+          updatedAt: studentMaterialProgress.updatedAt
+        })
         .from(studentMaterialProgress)
-        .where(eq(studentMaterialProgress.studentUserId, child.studentId));
+        .innerJoin(materials, eq(studentMaterialProgress.materialId, materials.id))
+        .where(eq(studentMaterialProgress.studentUserId, child.studentId))
+        .orderBy(desc(studentMaterialProgress.updatedAt))
+        .limit(10);
+
       const questProgressRows = await db
-        .select()
+        .select({
+          id: ideQuests.id,
+          title: ideQuests.title,
+          points: ideQuests.points,
+          earnedPoints: studentQuestProgress.earnedPoints,
+          progress: studentQuestProgress.progress,
+          updatedAt: studentQuestProgress.updatedAt
+        })
         .from(studentQuestProgress)
-        .where(eq(studentQuestProgress.studentUserId, child.studentId));
+        .innerJoin(ideQuests, eq(studentQuestProgress.questId, ideQuests.id))
+        .where(eq(studentQuestProgress.studentUserId, child.studentId))
+        .orderBy(desc(studentQuestProgress.updatedAt))
+        .limit(10);
 
       const totalMaterials = materialProgressRows.length;
       const completedMaterials = materialProgressRows.filter((row) => row.progress >= 100).length;
@@ -1677,23 +1726,93 @@ app.get("/parent/reports", requireRole(["parent"]), requirePermission("report.vi
       const total = totalMaterials + totalQuests;
       const completed = completedMaterials + completedQuests;
       const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+      
+      const allActivities = [
+        ...materialProgressRows.map(m => ({ ...m, category: 'material' })),
+        ...questProgressRows.map(q => ({ ...q, category: 'quest' }))
+      ].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 10);
 
-      const latestJournal = await db
-        .select({ anecdote: teacherJournals.anecdote })
+      const latestJournals = await db
+        .select({
+          id: teacherJournals.id,
+          anecdote: teacherJournals.anecdote,
+          createdAt: teacherJournals.createdAt,
+          teacherFullName: users.fullName,
+          teacherName: users.name
+        })
         .from(teacherJournals)
         .innerJoin(classes, eq(teacherJournals.teacherUserId, classes.teacherUserId))
         .innerJoin(classStudents, eq(classes.id, classStudents.classId))
+        .innerJoin(users, eq(teacherJournals.teacherUserId, users.id))
         .where(eq(classStudents.studentUserId, child.studentId))
         .orderBy(desc(teacherJournals.createdAt))
-        .limit(1);
+        .limit(30);
 
-      const teacherNote = latestJournal[0]?.anecdote ?? "Belum ada catatan guru.";
+      // Deduplicate journals in case student is in multiple classes of the same teacher
+      const uniqueJournals = Array.from(new Map(latestJournals.map(j => [j.id, j])).values());
+      const teacherNotes = [];
+
+      for (const journal of uniqueJournals) {
+        if (!journal.anecdote) continue;
+        
+        const teacherDisplayName = journal.teacherFullName || journal.teacherName || 'Guru';
+        const noteDate = journal.createdAt;
+        let finalNote = "";
+        
+        if (!journal.anecdote.includes('@')) {
+          finalNote = journal.anecdote;
+        } else {
+          const parts = journal.anecdote.split('@');
+          for (let i = 1; i < parts.length; i++) {
+            const part = parts[i];
+            const partWords = part.trim().split(/\s+/);
+            if (partWords.length === 0 || !partWords[0]) continue;
+
+            const firstWordPart = partWords[0].replace(/[,.:;]/g, '').toLowerCase();
+            const studentWordsLower = child.studentName.toLowerCase().split(/\s+/);
+
+            if (studentWordsLower.includes(firstWordPart)) {
+              let matchCount = 1;
+              const startIndex = studentWordsLower.indexOf(firstWordPart);
+              
+              for (let j = 1; j < partWords.length && (startIndex + j) < studentWordsLower.length; j++) {
+                const currentPartWord = partWords[j].replace(/[,.:;]/g, '').toLowerCase();
+                if (currentPartWord === studentWordsLower[startIndex + j]) {
+                  matchCount++;
+                } else {
+                  break;
+                }
+              }
+
+              const note = partWords.slice(matchCount).join(' ').trim();
+              if (note) {
+                finalNote = note;
+                break;
+              }
+            }
+          }
+        }
+        
+        if (finalNote) {
+          teacherNotes.push({
+            id: journal.id,
+            note: finalNote,
+            date: noteDate,
+            teacherName: teacherDisplayName
+          });
+          
+          if (teacherNotes.length >= 5) break; // Return max 5 recent notes
+        }
+      }
 
       return {
         id: child.studentId,
         name: child.studentName,
         progress,
-        teacherNote
+        teacherNotes,
+        avatarUrl: child.avatarUrl,
+        schoolName: child.schoolName,
+        recentActivities: allActivities
       };
     })
   );
@@ -1718,6 +1837,37 @@ app.get("/parent/children", requireRole(["parent"]), requirePermission("report.v
     .where(eq(parentStudents.parentUserId, user.id));
 
   return c.json({ children: rows });
+});
+
+app.get("/parent/search-students", requireRole(["parent"]), requirePermission("report.view"), async (c) => {
+  const query = c.req.query("q")?.toLowerCase() || "";
+  
+  if (query.length < 2) {
+    return c.json({ students: [] });
+  }
+
+  const studentUsers = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      fullName: users.fullName,
+      email: users.email,
+      avatarUrl: users.avatarUrl
+    })
+    .from(users)
+    .innerJoin(userRoles, eq(users.id, userRoles.userId))
+    .innerJoin(roles, eq(userRoles.roleId, roles.id))
+    .where(and(
+      eq(roles.name, 'student'),
+      or(
+        like(users.name, `%${query}%`),
+        like(users.email, `%${query}%`),
+        like(users.fullName, `%${query}%`)
+      )
+    ))
+    .limit(10);
+
+  return c.json({ students: studentUsers });
 });
 
 app.post("/parent/connect", requireRole(["parent"]), requirePermission("report.view"), async (c) => {

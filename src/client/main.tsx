@@ -1163,11 +1163,11 @@ function StudentCompactDashboard({
           />
           <div className="game-hud-pill">
             <Heart className="h-5 w-5 text-red-500" />
-            <span>29:39</span>
+            <span>{indicators?.meta?.chapterProgress ?? "0/0"}</span>
           </div>
           <div className="game-hud-pill">
             <CircleDollarSign className="h-5 w-5 text-yellow-500" />
-            <span>4778</span>
+            <span>{indicators?.right?.find(i => i.id === 'coins')?.badge ?? "0"}</span>
           </div>
           <button className="game-settings-button" disabled={busy} type="button" onClick={() => setShowDailyMissions(true)} aria-label="Misi Harian">
             <Target className="h-5 w-5" />
@@ -2868,6 +2868,20 @@ function TeacherSpaceDashboard({
   const [guideModal, setGuideModal] = useState<MobileNavId | null>(null);
   const [showDevModal, setShowDevModal] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [hasUnpublishedJournalDraft, setHasUnpublishedJournalDraft] = useState(false);
+
+  useEffect(() => {
+    const checkDraft = () => {
+      setHasUnpublishedJournalDraft(!!localStorage.getItem("teacher_journal_draft"));
+    };
+    checkDraft();
+    window.addEventListener("storage", checkDraft);
+    window.addEventListener("journal_draft_changed", checkDraft);
+    return () => {
+      window.removeEventListener("storage", checkDraft);
+      window.removeEventListener("journal_draft_changed", checkDraft);
+    };
+  }, []);
   const [teacherClasses, setTeacherClasses] = useState<TeacherClass[]>([]);
   const [classSummary, setClassSummary] = useState<TeacherClassSummary | null>(null);
   const [activeClassFilter, setActiveClassFilter] = useState<string>("all");
@@ -3320,7 +3334,12 @@ function TeacherSpaceDashboard({
                     onClick={() => openTeacherFeature(feature.name)}
                   >
                     <span className="teacher-feature-orb" />
-                    <strong>{feature.name}</strong>
+                    <strong className="flex items-center gap-2">
+                      {feature.name}
+                      {feature.name === "Jurnal Mengajar" && hasUnpublishedJournalDraft && (
+                        <span className="h-2 w-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                      )}
+                    </strong>
                     <small>{feature.cta}</small>
                     <ChevronRight className="teacher-feature-arrow h-5 w-5" />
                   </button>
@@ -3354,7 +3373,12 @@ function TeacherSpaceDashboard({
                         <Icon className="h-6 w-6" />
                       </span>
                       <div>
-                        <strong>{feature.name}</strong>
+                        <strong className="flex items-center gap-2">
+                          {feature.name}
+                          {feature.name === "Jurnal Mengajar" && hasUnpublishedJournalDraft && (
+                            <span className="h-2 w-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
+                          )}
+                        </strong>
                         <small>{feature.description}</small>
                       </div>
                       <MoreHorizontal className="h-5 w-5" />
@@ -3939,7 +3963,7 @@ function TeacherStudioManager({
           {showAdvancedMaterial && (
             <div className="flex flex-col gap-3 mt-3 p-4 bg-slate-50 border border-slate-200 rounded-lg animate-in fade-in slide-in-from-top-2 duration-200">
               <label className="!mb-0">
-                <span className="flex items-center gap-1.5 text-slate-700" title="Ringkasan yang muncul di bawah judul materi">Deskripsi Singkat <HelpCircle className="w-3.5 h-3.5 text-slate-400" /></span>
+                <span className="flex items-center gap-1.5 !text-slate-700" title="Ringkasan yang muncul di bawah judul materi">Deskripsi Singkat <HelpCircle className="w-3.5 h-3.5 text-slate-400" /></span>
                 <textarea
                   value={materialForm.description}
                   placeholder="Ringkasan materi untuk siswa..."
@@ -3948,7 +3972,7 @@ function TeacherStudioManager({
                 />
               </label>
               <label className="!mb-0">
-                <span className="flex items-center gap-1.5 text-slate-700" title="Batas akhir pengerjaan khusus tipe Kuis atau Tugas">Batas Waktu (Opsional) <HelpCircle className="w-3.5 h-3.5 text-slate-400" /></span>
+                <span className="flex items-center gap-1.5 !text-slate-700" title="Batas akhir pengerjaan khusus tipe Kuis atau Tugas">Batas Waktu (Opsional) <HelpCircle className="w-3.5 h-3.5 text-slate-400" /></span>
                 <input
                   type="datetime-local"
                   value={materialForm.dueDate}
@@ -5266,11 +5290,11 @@ function TopBar({
           <div className="flex gap-2">
             <div className="game-hud-pill">
               <Heart className="h-5 w-5 text-red-500" />
-              <span>29:39</span>
+              <span>0/0</span>
             </div>
             <div className="game-hud-pill">
               <CircleDollarSign className="h-5 w-5 text-yellow-500" />
-              <span>4778</span>
+              <span>0</span>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -6658,7 +6682,50 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
   const [view, setView] = React.useState<"form" | "history">("form");
   const [history, setHistory] = React.useState<any[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = React.useState(false);
+  const [mentionQuery, setMentionQuery] = React.useState<{ query: string; startIndex: number } | null>(null);
+  const [mentionSuggestions, setMentionSuggestions] = React.useState<any[]>([]);
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const [showPreview, setShowPreview] = React.useState(false);
 
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem("teacher_journal_draft");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.mood) setMood(parsed.mood);
+        if (parsed.reflection) setReflection(parsed.reflection);
+        if (parsed.anecdote) setAnecdote(parsed.anecdote);
+        if (parsed.todos) setTodos(parsed.todos);
+      }
+    } catch {}
+  }, []);
+
+  React.useEffect(() => {
+    if (!mentionQuery) {
+      setMentionSuggestions([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      api<{ students: any[] }>(`/api/teacher/search-students?q=${encodeURIComponent(mentionQuery.query)}`)
+        .then(res => setMentionSuggestions(res.students));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [mentionQuery]);
+
+  const handleAnecdoteChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setAnecdote(val);
+
+    const cursor = e.target.selectionStart;
+    const textBeforeCursor = val.substring(0, cursor);
+    const match = textBeforeCursor.match(/@([a-zA-Z0-9_]*)$/);
+
+    if (match) {
+      setMentionQuery({ query: match[1], startIndex: match.index! });
+    } else {
+      setMentionQuery(null);
+    }
+  };
   React.useEffect(() => {
     if (view === "history") {
       setIsLoadingHistory(true);
@@ -6687,6 +6754,15 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
     }
   };
 
+  const saveDraftLocal = () => {
+    try {
+      localStorage.setItem("teacher_journal_draft", JSON.stringify({ mood, reflection, anecdote, todos }));
+      setAlertMsg({ type: "success", text: "Draft berhasil disimpan secara lokal." });
+    } catch {
+      setAlertMsg({ type: "error", text: "Gagal menyimpan draft." });
+    }
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
@@ -6708,12 +6784,14 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
         throw new Error(errorData.message || "Gagal menyimpan jurnal");
       }
       
+      localStorage.removeItem("teacher_journal_draft");
       setAlertMsg({ type: "success", text: "Jurnal berhasil disimpan!" });
     } catch (err) {
       console.error(err);
       setAlertMsg({ type: "error", text: "Terjadi kesalahan saat menyimpan jurnal." });
     } finally {
       setIsSaving(false);
+      setShowPreview(false);
     }
   };
 
@@ -6764,17 +6842,103 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
                   )}
                 </div>
                 {journal.successReflection && (
-                  <p className="text-sm text-white/90 mb-2"><strong>Berhasil:</strong> {journal.successReflection}</p>
+                  <p className="text-sm text-white/90 mb-2 line-clamp-2"><strong>Berhasil:</strong> {journal.successReflection}</p>
                 )}
                 {journal.improvementReflection && (
-                  <p className="text-sm text-white/90 mb-2"><strong>Kendala:</strong> {journal.improvementReflection}</p>
+                  <p className="text-sm text-white/90 mb-3 line-clamp-2"><strong>Kendala:</strong> {journal.improvementReflection}</p>
                 )}
                 {journal.photoUrl && (
-                  <img src={journal.photoUrl} alt="Momen Kelas" className="w-full h-40 object-cover rounded-xl mt-3 opacity-90 hover:opacity-100 transition-opacity" />
+                  <img src={journal.photoUrl} alt="Momen Kelas" className="w-full h-40 object-cover rounded-xl mb-3 opacity-90 hover:opacity-100 transition-opacity" />
                 )}
+                <button
+                  onClick={() => setHistory(history.map(h => h.id === journal.id ? { ...h, showModal: true } : h))}
+                  className="w-full bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 text-xs font-bold py-2.5 rounded-xl border border-blue-500/30 transition-colors mt-2"
+                >
+                  Lihat Detail
+                </button>
               </section>
             ))
           )}
+
+          {/* Modals for Details */}
+          {history.filter(h => h.showModal).map(selectedJournal => (
+            <div key={`modal-${selectedJournal.id}`} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+              <div className="bg-slate-900 border border-white/10 rounded-3xl p-6 w-full max-w-md max-h-[80vh] overflow-y-auto shadow-2xl relative">
+                <button 
+                  onClick={() => setHistory(history.map(h => h.id === selectedJournal.id ? { ...h, showModal: false } : h))}
+                  className="absolute top-4 right-4 h-8 w-8 rounded-full bg-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+                
+                <h3 className="text-lg font-bold text-white mb-1">Detail Jurnal</h3>
+                <p className="text-xs text-blue-300 font-medium mb-6">
+                  {new Date(selectedJournal.createdAt).toLocaleDateString('id-ID', { dateStyle: 'full' })}
+                </p>
+
+                <div className="space-y-5">
+                  {selectedJournal.mood && (
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-slate-400 mb-1">Mood Hari Ini</p>
+                      <div className="text-3xl">{selectedJournal.mood === 'happy' ? '😁' : selectedJournal.mood === 'sad' ? '😞' : '😐'}</div>
+                    </div>
+                  )}
+
+                  {selectedJournal.successReflection && (
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-emerald-400 mb-1">Berhasil</p>
+                      <p className="text-sm text-white/90 bg-white/5 p-3 rounded-xl border border-white/10">{selectedJournal.successReflection}</p>
+                    </div>
+                  )}
+
+                  {selectedJournal.improvementReflection && (
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-rose-400 mb-1">Kendala</p>
+                      <p className="text-sm text-white/90 bg-white/5 p-3 rounded-xl border border-white/10">{selectedJournal.improvementReflection}</p>
+                    </div>
+                  )}
+
+                  {selectedJournal.anecdote && (
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-blue-400 mb-1">Catatan Insiden/Siswa</p>
+                      <p className="text-sm text-white/90 bg-white/5 p-3 rounded-xl border border-white/10 whitespace-pre-wrap">{selectedJournal.anecdote}</p>
+                    </div>
+                  )}
+
+                  {selectedJournal.todos && (
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-orange-400 mb-1">Tindak Lanjut (To-Do)</p>
+                      <div className="bg-white/5 p-3 rounded-xl border border-white/10 flex flex-col gap-2">
+                        {(() => {
+                          try {
+                            const parsedTodos = JSON.parse(selectedJournal.todos);
+                            if (Array.isArray(parsedTodos) && parsedTodos.length > 0) {
+                              return parsedTodos.map((todo: any, idx: number) => (
+                                <div key={idx} className="flex items-start gap-2 text-sm text-white/90">
+                                  <div className="mt-0.5 text-blue-400"><CheckCircle2 size={14} /></div>
+                                  <span>{todo.text}</span>
+                                </div>
+                              ));
+                            }
+                            return <p className="text-sm text-slate-400 italic">Tidak ada tindak lanjut.</p>;
+                          } catch {
+                            return <p className="text-sm text-white/90">{selectedJournal.todos}</p>;
+                          }
+                        })()}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedJournal.photoUrl && (
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-purple-400 mb-1">Foto Momen</p>
+                      <img src={selectedJournal.photoUrl} alt="Momen" className="w-full rounded-xl border border-white/10" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         <div className="flex flex-col gap-6 w-full pb-8">
@@ -6824,15 +6988,44 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
           </div>
         </section>
 
-        <section className="bg-white/10 backdrop-blur-xl rounded-2xl p-5 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+        <section className="bg-white/10 backdrop-blur-xl rounded-2xl p-5 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.12)] relative z-20">
           <h3 className="text-[11px] font-bold text-blue-200 mb-4 uppercase tracking-wider">3. Catatan Insiden/Siswa</h3>
           <textarea 
+            ref={textareaRef}
             value={anecdote}
-            onChange={e => setAnecdote(e.target.value)}
+            onChange={handleAnecdoteChange}
             className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm font-medium text-white focus:ring-2 focus:ring-blue-400 focus:outline-none placeholder-blue-100/30 transition-all" 
             rows={3} 
-            placeholder="Tulis kejadian menarik atau sorotan siswa hari ini... (misal: Budi sangat aktif di sesi tanya jawab)"
+            placeholder="Ketik catatan... (misal: @Hafy sangat aktif di sesi tanya jawab @Budi perlu lebih fokus)"
           />
+          {mentionQuery && mentionSuggestions.length > 0 && (
+            <div className="absolute left-5 right-5 mt-1 max-h-48 overflow-y-auto bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-50 animate-in fade-in slide-in-from-top-2">
+              {mentionSuggestions.map((student) => (
+                <div 
+                  key={student.id}
+                  className="px-4 py-3 hover:bg-slate-700 cursor-pointer flex items-center gap-3 border-b border-slate-700/50 last:border-0 transition-colors"
+                  onClick={() => {
+                    const before = anecdote.substring(0, mentionQuery.startIndex);
+                    const after = anecdote.substring(textareaRef.current?.selectionStart || 0);
+                    // Gunakan nama lengkap tanpa spasi, atau nama depan saja
+                    const mentionName = student.name.split(" ")[0];
+                    const newText = `${before}@${mentionName} ${after}`;
+                    setAnecdote(newText);
+                    setMentionQuery(null);
+                    setTimeout(() => textareaRef.current?.focus(), 0);
+                  }}
+                >
+                  <div className="h-8 w-8 rounded-full bg-blue-500/20 text-blue-300 flex items-center justify-center overflow-hidden shrink-0 border border-blue-500/30">
+                    {student.avatarUrl ? <img src={student.avatarUrl} className="h-full w-full object-cover" /> : <User size={14} />}
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <p className="text-sm font-bold text-white truncate">{student.name}</p>
+                    <p className="text-[10px] text-slate-400 truncate">{student.email}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="bg-white/10 backdrop-blur-xl rounded-2xl p-5 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
@@ -6878,18 +7071,85 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
           </label>
         </section>
 
-        <button 
-          onClick={handleSave} 
-          disabled={isSaving}
-          className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 disabled:opacity-50 text-white font-bold text-sm py-4 rounded-xl shadow-[0_8px_16px_-4px_rgba(59,130,246,0.5)] hover:from-blue-400 hover:to-indigo-400 transition-all mt-2"
-        >
-          {isSaving ? "Menyimpan..." : "Simpan Jurnal Hari Ini"}
-        </button>
+        <div className="grid grid-cols-2 gap-3 mt-2">
+          <button 
+            onClick={saveDraftLocal} 
+            className="w-full bg-slate-800 text-slate-300 font-bold text-sm py-4 rounded-xl border border-slate-700 hover:bg-slate-700 transition-all"
+          >
+            Simpan Draft Lokal
+          </button>
+          <button 
+            onClick={() => setShowPreview(true)} 
+            disabled={isSaving}
+            className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 disabled:opacity-50 text-white font-bold text-sm py-4 rounded-xl shadow-[0_8px_16px_-4px_rgba(59,130,246,0.5)] hover:from-blue-400 hover:to-indigo-400 transition-all"
+          >
+            Pratinjau & Simpan
+          </button>
+        </div>
       </div>
       )}
 
+      {showPreview && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-slate-900 border border-white/10 rounded-3xl p-6 w-full max-w-md max-h-[80vh] overflow-y-auto shadow-2xl relative">
+            <h3 className="text-lg font-bold text-white mb-6">Pratinjau Draft Jurnal</h3>
+            
+            <div className="space-y-5">
+              {mood && (
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-slate-400 mb-1">Mood Hari Ini</p>
+                  <div className="text-3xl">{mood === 'happy' ? '😁' : mood === 'sad' ? '😞' : '😐'}</div>
+                </div>
+              )}
+              {reflection.success && (
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-emerald-400 mb-1">Berhasil</p>
+                  <p className="text-sm text-white/90 bg-white/5 p-3 rounded-xl border border-white/10">{reflection.success}</p>
+                </div>
+              )}
+              {reflection.improvement && (
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-rose-400 mb-1">Kendala</p>
+                  <p className="text-sm text-white/90 bg-white/5 p-3 rounded-xl border border-white/10">{reflection.improvement}</p>
+                </div>
+              )}
+              {anecdote && (
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-blue-400 mb-1">Catatan Insiden/Siswa</p>
+                  <p className="text-sm text-white/90 bg-white/5 p-3 rounded-xl border border-white/10 whitespace-pre-wrap">{anecdote}</p>
+                </div>
+              )}
+              {todos.length > 0 && (
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-orange-400 mb-1">Tindak Lanjut (To-Do)</p>
+                  <div className="bg-white/5 p-3 rounded-xl border border-white/10 flex flex-col gap-2">
+                    {todos.map((todo, idx) => (
+                      <div key={idx} className="flex items-start gap-2 text-sm text-white/90">
+                        <div className="mt-0.5 text-blue-400"><CheckCircle2 size={14} /></div>
+                        <span>{todo.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {photoPreview && (
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-purple-400 mb-1">Foto Momen</p>
+                  <img src={photoPreview} alt="Momen" className="w-full rounded-xl border border-white/10" />
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mt-8">
+              <button onClick={() => setShowPreview(false)} className="py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm transition-colors border border-slate-700">Kembali Edit</button>
+              <button onClick={handleSave} disabled={isSaving} className="py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 disabled:opacity-50">{isSaving ? "Menyimpan..." : "Publikasikan"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {alertMsg && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-[#1c1c2e] border border-white/10 p-6 rounded-2xl shadow-2xl max-w-sm w-full animate-in zoom-in-95 duration-200">
             <div className="flex flex-col items-center text-center gap-4">
               <div className={`w-16 h-16 rounded-full flex items-center justify-center ${alertMsg.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>

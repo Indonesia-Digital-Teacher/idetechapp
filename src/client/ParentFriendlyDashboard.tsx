@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { UserCircle2, LogOut, CheckCircle2, User, FileText, Bell, Plus, Loader2, X, Info } from "lucide-react";
+import { UserCircle2, LogOut, CheckCircle2, User, FileText, Bell, Plus, Loader2, X, Info, Target, BookOpen, Activity } from "lucide-react";
 
 async function parentApi<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -36,14 +36,40 @@ export function ParentFriendlyDashboard({
   const [connectEmail, setConnectEmail] = useState("");
   const [connectLoading, setConnectLoading] = useState(false);
   const [connectMessage, setConnectMessage] = useState({ type: "", text: "" });
+  const [studentSuggestions, setStudentSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  useEffect(() => {
+    if (connectEmail.length >= 2) {
+      const delayFn = setTimeout(() => {
+        parentApi<{ students: any[] }>(`/api/parent/search-students?q=${encodeURIComponent(connectEmail)}`)
+          .then(res => {
+            setStudentSuggestions(res.students);
+            setShowSuggestions(true);
+          })
+          .catch(err => {
+            console.error("Gagal memuat saran siswa:", err);
+            setStudentSuggestions([]);
+          });
+      }, 300);
+      return () => clearTimeout(delayFn);
+    } else {
+      setStudentSuggestions([]);
+      setShowSuggestions(false);
+    }
+  }, [connectEmail]);
 
   const loadChildren = () => {
     parentApi<{ children: any[] }>("/api/parent/reports")
       .then((res) => {
         setChildren(res.children);
-        if (res.children.length > 0) {
-          setSelectedChild(res.children[0]);
-        }
+        setSelectedChild(current => {
+          if (current) {
+            const updated = res.children.find(c => c.id === current.id);
+            return updated || current;
+          }
+          return res.children[0] || null;
+        });
       })
       .catch((err) => console.error("Gagal memuat laporan anak:", err))
       .finally(() => setBusy(false));
@@ -63,6 +89,24 @@ export function ParentFriendlyDashboard({
       })
       .catch((err) => console.error("Gagal memuat data:", err))
       .finally(() => setBusy(false));
+
+    // Polling setiap 10 detik untuk mendapatkan update real-time dari guru
+    const pollInterval = setInterval(() => {
+      parentApi<{ children: any[] }>("/api/parent/reports")
+        .then((res) => {
+          setChildren(res.children);
+          setSelectedChild(current => {
+            if (current) {
+              const updated = res.children.find(c => c.id === current.id);
+              return updated || current;
+            }
+            return res.children[0] || null;
+          });
+        })
+        .catch(() => {});
+    }, 10000);
+
+    return () => clearInterval(pollInterval);
   }, []);
 
   const handleConnect = async (e?: React.FormEvent) => {
@@ -95,33 +139,34 @@ export function ParentFriendlyDashboard({
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-slate-100 flex flex-col font-sans pb-24">
-      <header className="bg-white px-6 py-8 rounded-b-[2.5rem] shadow-sm mb-6 relative overflow-hidden flex justify-between items-start">
-        <div className="absolute top-0 right-0 w-40 h-40 bg-blue-50 rounded-full -mr-20 -mt-20 blur-3xl z-0"></div>
-        <div className="relative z-10">
-          <h1 className="text-xl font-extrabold text-slate-800">Halo, Bapak/Ibu</h1>
-          <h2 className="text-3xl font-black text-blue-600 tracking-tight">{user.name}</h2>
-        </div>
-        <div className="relative z-10 flex items-center gap-3">
-          <button 
-            onClick={() => setShowNotifications(true)}
-            className="relative p-2 text-slate-400 hover:text-blue-600 transition-colors"
-          >
-            <Bell size={24} />
-            {announcements.length > 0 && (
-              <span className="absolute top-1.5 right-2 h-2.5 w-2.5 bg-red-500 rounded-full border-2 border-white"></span>
-            )}
-          </button>
-          <div 
-            className="h-10 w-10 bg-slate-200 rounded-full overflow-hidden shadow-sm border-2 border-white cursor-pointer" 
-            onClick={() => setActiveTab("profil")}
-          >
-            {user.avatarUrl ? (
-              <img src={user.avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
-            ) : (
-              <div className="h-full w-full flex items-center justify-center text-slate-400">
-                <User size={20} />
-              </div>
-            )}
+      <header className="pt-8 pb-4 mb-2 z-10 relative">
+        <div className="max-w-md mx-auto px-4 flex justify-between items-start">
+          <div>
+            <h1 className="text-xl font-extrabold text-slate-800">Halo, Bapak/Ibu</h1>
+            <h2 className="text-3xl font-black text-blue-600 tracking-tight">{user.name}</h2>
+          </div>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setShowNotifications(true)}
+              className="relative p-2 text-slate-400 hover:text-blue-600 transition-colors"
+            >
+              <Bell size={24} />
+              {announcements.length > 0 && (
+                <span className="absolute top-1.5 right-2 h-2.5 w-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+              )}
+            </button>
+            <div 
+              className="h-10 w-10 bg-slate-200 rounded-full overflow-hidden shadow-sm border-2 border-white cursor-pointer" 
+              onClick={() => setActiveTab("profil")}
+            >
+              {user.avatarUrl ? (
+                <img src={user.avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+              ) : (
+                <div className="h-full w-full flex items-center justify-center text-slate-400">
+                  <User size={20} />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -132,12 +177,19 @@ export function ParentFriendlyDashboard({
             {children.length > 0 ? (
               <>
                 <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 flex items-center gap-4 transition-transform hover:scale-[1.02]">
-                  <div className="h-16 w-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center shrink-0">
-                    <UserCircle2 size={32} />
+                  <div className="h-16 w-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden">
+                    {selectedChild?.avatarUrl ? (
+                      <img src={selectedChild.avatarUrl} alt="Avatar Anak" className="h-full w-full object-cover" />
+                    ) : (
+                      <UserCircle2 size={32} />
+                    )}
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Anak Saya</p>
-                    <p className="text-xl font-extrabold text-slate-800">{selectedChild?.name}</p>
+                    <p className="text-[10px] font-extrabold text-blue-500 uppercase tracking-widest mb-1">Anak Saya</p>
+                    <p className="text-xl font-extrabold text-slate-800 leading-tight">{selectedChild?.name}</p>
+                    {selectedChild?.schoolName && (
+                      <p className="text-xs font-semibold text-slate-400 mt-1">{selectedChild.schoolName}</p>
+                    )}
                   </div>
                 </div>
 
@@ -170,9 +222,25 @@ export function ParentFriendlyDashboard({
                     </div>
                     <h3 className="text-lg font-black text-slate-800">Catatan Guru</h3>
                   </div>
-                  <p className="text-slate-600 font-medium leading-relaxed bg-orange-50/50 p-5 rounded-2xl border border-orange-100 relative z-10 text-sm">
-                    {selectedChild?.teacherNote || "Belum ada catatan khusus dari guru hari ini. Semua berjalan lancar!"}
-                  </p>
+                  <div className="relative z-10 flex flex-col gap-3">
+                    {selectedChild?.teacherNotes && selectedChild.teacherNotes.length > 0 ? (
+                      selectedChild.teacherNotes.map((noteItem: any) => (
+                        <div key={noteItem.id} className="bg-orange-50/50 p-4 rounded-2xl border border-orange-100 flex flex-col gap-2">
+                          <p className="text-slate-600 font-medium leading-relaxed text-sm">
+                            {noteItem.note}
+                          </p>
+                          <div className="flex items-center justify-between text-[10px] font-bold text-orange-600/70 uppercase tracking-wider">
+                            <span>{noteItem.teacherName}</span>
+                            <span>{new Date(noteItem.date).toLocaleDateString('id-ID', { dateStyle: 'medium' })}</span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-slate-600 font-medium leading-relaxed bg-orange-50/50 p-5 rounded-2xl border border-orange-100 text-sm">
+                        Belum ada catatan khusus dari guru. Semua berjalan lancar!
+                      </p>
+                    )}
+                  </div>
                 </div>
               </>
             ) : (
@@ -181,16 +249,41 @@ export function ParentFriendlyDashboard({
                   <User size={32} />
                 </div>
                 <p className="text-slate-600 font-bold text-lg px-4 mb-2">Belum ada anak yang tertaut.</p>
-                <form onSubmit={handleConnect} className="px-6 flex flex-col gap-3 mt-4">
-                  <input
-                    type="email"
-                    required
-                    placeholder="Masukkan email siswa..."
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={connectEmail}
-                    onChange={(e) => setConnectEmail(e.target.value)}
-                    disabled={connectLoading}
-                  />
+                <form onSubmit={handleConnect} className="px-6 flex flex-col gap-3 mt-4 relative">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      required
+                      placeholder="Masukkan nama atau email siswa..."
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={connectEmail}
+                      onChange={(e) => setConnectEmail(e.target.value)}
+                      disabled={connectLoading}
+                      autoComplete="off"
+                    />
+                    {showSuggestions && studentSuggestions.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden z-50 max-h-48 overflow-y-auto">
+                        {studentSuggestions.map((student) => (
+                          <div
+                            key={student.id}
+                            className="px-4 py-3 hover:bg-slate-50 cursor-pointer flex items-center gap-3 border-b border-slate-100 last:border-0"
+                            onClick={() => {
+                              setConnectEmail(student.email);
+                              setShowSuggestions(false);
+                            }}
+                          >
+                            <div className="h-8 w-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
+                              {student.avatarUrl ? <img src={student.avatarUrl} className="h-full w-full object-cover" /> : <User size={16} />}
+                            </div>
+                            <div className="flex-1 text-left min-w-0">
+                              <p className="text-sm font-bold text-slate-800 truncate">{student.name}</p>
+                              <p className="text-[10px] text-slate-500 truncate">{student.email}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <button
                     type="submit"
                     disabled={connectLoading || !connectEmail.trim()}
@@ -224,7 +317,33 @@ export function ParentFriendlyDashboard({
                     <CheckCircle2 className="text-green-600 h-6 w-6" />
                   </div>
                 </div>
-                <p className="text-center text-sm font-medium text-slate-400 mt-8 bg-slate-50 py-4 rounded-xl">Detail laporan lengkap sedang dikembangkan.</p>
+                <div className="mt-4">
+                  <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <Activity size={16} /> Riwayat Aktivitas
+                  </h4>
+                  <div className="flex flex-col gap-3">
+                    {selectedChild?.recentActivities && selectedChild.recentActivities.length > 0 ? (
+                      selectedChild.recentActivities.map((activity: any) => (
+                        <div key={`${activity.category}-${activity.id}`} className="bg-white p-4 rounded-2xl border border-slate-100 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow">
+                          <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 ${activity.category === 'quest' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
+                            {activity.category === 'quest' ? <Target size={24} /> : <BookOpen size={24} />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-extrabold text-slate-800 truncate mb-1.5">{activity.title}</p>
+                            <div className="flex items-center gap-3">
+                              <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full transition-all duration-500 ${activity.progress >= 100 ? 'bg-green-500' : 'bg-blue-500'}`} style={{ width: `${Math.min(100, Math.max(0, activity.progress))}%` }}></div>
+                              </div>
+                              <span className={`text-[10px] font-black w-8 text-right ${activity.progress >= 100 ? 'text-green-600' : 'text-slate-500'}`}>{activity.progress}%</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-center text-sm text-slate-400 py-8 bg-slate-50 rounded-2xl border border-slate-100 border-dashed font-medium">Belum ada riwayat aktivitas yang tercatat.</p>
+                    )}
+                  </div>
+                </div>
               </div>
             ) : (
               <p className="text-center text-sm text-slate-400">Tidak ada data.</p>
@@ -244,16 +363,41 @@ export function ParentFriendlyDashboard({
              </div>
              <div className="w-full mb-8 bg-slate-50 rounded-2xl p-5 border border-slate-100">
                <h4 className="font-bold text-slate-700 mb-3 flex items-center gap-2"><Plus size={18} /> Tautkan Anak</h4>
-               <form onSubmit={handleConnect} className="flex flex-col gap-3">
-                 <input
-                   type="email"
-                   required
-                   placeholder="Email siswa..."
-                   className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                   value={connectEmail}
-                   onChange={(e) => setConnectEmail(e.target.value)}
-                   disabled={connectLoading}
-                 />
+               <form onSubmit={handleConnect} className="flex flex-col gap-3 relative">
+                 <div className="relative">
+                   <input
+                     type="text"
+                     required
+                     placeholder="Masukkan nama atau email siswa..."
+                     className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                     value={connectEmail}
+                     onChange={(e) => setConnectEmail(e.target.value)}
+                     disabled={connectLoading}
+                     autoComplete="off"
+                   />
+                   {showSuggestions && studentSuggestions.length > 0 && (
+                     <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden z-50 max-h-48 overflow-y-auto">
+                       {studentSuggestions.map((student) => (
+                         <div
+                           key={student.id}
+                           className="px-4 py-3 hover:bg-slate-50 cursor-pointer flex items-center gap-3 border-b border-slate-100 last:border-0"
+                           onClick={() => {
+                             setConnectEmail(student.email);
+                             setShowSuggestions(false);
+                           }}
+                         >
+                           <div className="h-8 w-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
+                             {student.avatarUrl ? <img src={student.avatarUrl} className="h-full w-full object-cover" /> : <User size={16} />}
+                           </div>
+                           <div className="flex-1 text-left min-w-0">
+                             <p className="text-sm font-bold text-slate-800 truncate">{student.name}</p>
+                             <p className="text-[10px] text-slate-500 truncate">{student.email}</p>
+                           </div>
+                         </div>
+                       ))}
+                     </div>
+                   )}
+                 </div>
                  <button
                    type="submit"
                    disabled={connectLoading || !connectEmail.trim()}
