@@ -9,6 +9,7 @@ import ReactPlayer from "react-player/lazy";
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 import { ParentFriendlyDashboard } from "./ParentFriendlyDashboard";
+import { TeacherRPPGenerator } from "./components/TeacherRPPGenerator";
 import {
   BadgeCheck,
   Bell,
@@ -136,7 +137,7 @@ type AdminClass = TeacherClass & {
   teacherEmail: string;
 };
 
-type AdminView = "home" | "users" | "classes" | "access" | "system" | "quick_action" | "advanced_features" | "parent_students";
+type AdminView = "home" | "users" | "classes" | "system" | "quick_action" | "advanced_features" | "parent_students";
 
 type SchoolOption = {
   name: string;
@@ -279,10 +280,10 @@ const landingTestimonials = [
 ] as const;
 
 const mobileNavItems = [
-  { id: "studio", label: "Studio", icon: BookOpen },
-  { id: "rank", label: "Piala", icon: Trophy },
   { id: "map", label: "Map", icon: Map },
+  { id: "studio", label: "Tugas", icon: BookOpen },
   { id: "quest", label: "Quest", icon: Puzzle },
+  { id: "rank", label: "Piala", icon: Trophy },
   { id: "profile", label: "Profil", icon: UserRound }
 ] as const;
 
@@ -991,15 +992,19 @@ function StudentCompactDashboard({
   const [studentMeta, setStudentMeta] = useState<{ completedMaterials: number; completedQuests: number; totalPoints: number } | null>(null);
   const [studentPanelBusy, setStudentPanelBusy] = useState(false);
   const [studentPanelError, setStudentPanelError] = useState("");
+  const [showDailyMissions, setShowDailyMissions] = useState(false);
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
 
   const loadIndicators = async () => {
-    const response = await fetch("/api/student/indicators", { credentials: "include" });
+    const classQuery = selectedClassId ? `?classId=${selectedClassId}` : "";
+    const response = await fetch(`/api/student/indicators${classQuery}`, { credentials: "include" });
     if (!response.ok) throw new Error("Gagal memuat indikator siswa.");
     return (await response.json()) as StudentIndicatorResponse;
   };
 
   const refreshIndicators = () => {
-    fetch("/api/student/indicators", { credentials: "include" })
+    const classQuery = selectedClassId ? `?classId=${selectedClassId}` : "";
+    fetch(`/api/student/indicators${classQuery}`, { credentials: "include" })
       .then(async (response) => {
         if (!response.ok) throw new Error("Gagal memuat indikator siswa.");
         return (await response.json()) as StudentIndicatorResponse;
@@ -1051,6 +1056,28 @@ function StudentCompactDashboard({
     return () => {
       alive = false;
     };
+  }, [selectedClassId]);
+
+  useEffect(() => {
+    if (!localStorage.getItem("studentIdeTechTourDone")) {
+      const d = driver({
+        showProgress: true,
+        nextBtnText: 'Lanjut',
+        prevBtnText: 'Kembali',
+        doneBtnText: 'Selesai',
+        steps: [
+          { element: '#student-tour-1', popover: { title: 'Status Belajar', description: 'Pantau nyawa (HP) dan koin yang kamu dapatkan setiap menyelesaikan misi.' } },
+          { element: '#student-tour-2', popover: { title: 'Peta Petualangan', description: 'Jelajahi radar materi dan misi dari gurumu di sini.' } },
+          { element: '#student-tour-3', popover: { title: 'Aksi Cepat', description: 'Lanjutkan progres belajarmu atau buka level terbaru dari sini.' } },
+          { element: '#student-tour-4', popover: { title: 'Menu Navigasi', description: 'Beralih antara peta, misi (quest), dan fitur lainnya.' } }
+        ],
+        onDestroyStarted: () => {
+          localStorage.setItem("studentIdeTechTourDone", "true");
+          d.destroy();
+        }
+      });
+      setTimeout(() => d.drive(), 500);
+    }
   }, []);
 
   useEffect(() => {
@@ -1128,7 +1155,7 @@ function StudentCompactDashboard({
   return (
     <main className="student-compact-shell h-[100dvh] overflow-hidden">
       <section className="student-compact-stage mx-auto flex h-full w-full max-w-[520px] flex-col px-4 pb-3 pt-4 md:max-w-none">
-        <header className="student-compact-hud">
+        <header id="student-tour-1" className="student-compact-hud">
           <img
             className="student-compact-avatar"
             src={user.avatarUrl ?? `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(user.name)}`}
@@ -1142,8 +1169,8 @@ function StudentCompactDashboard({
             <CircleDollarSign className="h-5 w-5 text-yellow-500" />
             <span>4778</span>
           </div>
-          <button className="game-settings-button" disabled={busy} type="button" aria-label="Pengaturan">
-            <Settings className="h-5 w-5" />
+          <button className="game-settings-button" disabled={busy} type="button" onClick={() => setShowDailyMissions(true)} aria-label="Misi Harian">
+            <Target className="h-5 w-5" />
           </button>
           <button className="student-exit-button" disabled={busy} type="button" onClick={onLogout} aria-label="Keluar">
             <LogOut className="h-4 w-4" />
@@ -1159,7 +1186,7 @@ function StudentCompactDashboard({
           <div className="game-coin-stack">100</div>
         </div>
 
-        <section className="student-compact-map" aria-label={dashboard.title}>
+        <section id="student-tour-2" className="student-compact-map" aria-label={dashboard.title}>
           <StudentDesktopQuickAccess active={openPanel ?? activeMenu} notifications={indicators?.nav} onChange={handleChangeMenu} />
 
           <div className="student-compact-side is-left">
@@ -1177,7 +1204,7 @@ function StudentCompactDashboard({
                 style={{ animationDuration: '3s' }}
               />
               <div className="game-island__gate mt-[-20px] relative z-10">
-                <span>{content.badge}</span>
+                <span>{activeMenu === "map" ? (indicators?.meta.chapter ?? content.badge) : content.badge}</span>
               </div>
             </div>
           </div>
@@ -1191,7 +1218,7 @@ function StudentCompactDashboard({
           <StudentDailyMissionPanel />
         </section>
 
-        <section className="student-compact-actions">
+        <section id="student-tour-3" className="student-compact-actions">
           <button className="game-chapter-panel game-chapter-panel--button" type="button" onClick={handleOpenChapter}>
             <span>{indicators?.meta.chapter ?? content.badge}</span>
             <strong>{indicators?.meta.chapterProgress ?? content.progress}</strong>
@@ -1217,10 +1244,12 @@ function StudentCompactDashboard({
           onCompleteMaterial={completeMaterial}
           onCompleteQuest={completeQuest}
           onJoinClass={joinStudentClass}
+          selectedClassId={selectedClassId}
+          onSelectClass={setSelectedClassId}
         />
       ) : null}
 
-      <MobileGameNav active={openPanel ?? activeMenu} role="student" notifications={indicators?.nav} onChange={handleChangeMenu} />
+      <MobileGameNav id="student-tour-4" active={openPanel ?? activeMenu} role="student" notifications={indicators?.nav} onChange={handleChangeMenu} />
       
       {activeOrb && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
@@ -1265,6 +1294,18 @@ function StudentCompactDashboard({
             )}
             
             <button onClick={() => setActiveOrb(null)} className="mt-5 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-colors shadow-md shadow-blue-500/25">Tutup Info</button>
+          </div>
+        </div>
+      )}
+
+      {showDailyMissions && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowDailyMissions(false)} />
+          <div className="relative z-10 w-full max-w-sm animate-in zoom-in-95 duration-200 [&>aside]:!flex [&>aside]:!w-full">
+            <button onClick={() => setShowDailyMissions(false)} className="absolute top-3 right-3 text-white hover:text-slate-200 bg-black/20 hover:bg-black/40 rounded-full p-1.5 transition-colors z-20">
+              <X className="w-5 h-5" />
+            </button>
+            <StudentDailyMissionPanel />
           </div>
         </div>
       )}
@@ -1373,7 +1414,11 @@ function StudentMapIcon({
     >
       <span className="student-map-icon__orb">
         <Icon className="student-map-icon__glyph" strokeWidth={2.8} />
-        {item.badge ? <span className={item.badge === "!" ? "student-map-icon__badge is-alert" : "student-map-icon__badge"}>{item.badge}</span> : null}
+        {item.badge ? (
+          <span className={item.badge === "!" || item.id === "tasks" || item.id === "quest" ? "student-map-icon__badge is-alert" : "student-map-icon__badge"}>
+            {item.badge}
+          </span>
+        ) : null}
       </span>
       <span className="student-map-icon__plate">{item.subtitle}</span>
     </button>
@@ -1470,7 +1515,9 @@ function StudentContentModal({
   onClose,
   onCompleteMaterial,
   onCompleteQuest,
-  onJoinClass
+  onJoinClass,
+  selectedClassId,
+  onSelectClass
 }: {
   active: Exclude<MobileNavId, "profile">;
   classes: StudentClass[];
@@ -1484,11 +1531,12 @@ function StudentContentModal({
   onCompleteMaterial: (materialId: string) => void;
   onCompleteQuest: (questId: string) => void;
   onJoinClass: (classCode: string) => void;
+  selectedClassId: string | null;
+  onSelectClass: (id: string | null) => void;
 }) {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [classCode, setClassCode] = useState("");
   const [showClasses, setShowClasses] = useState(false);
-  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   
   const activeClassId = selectedClassId ?? classes[0]?.id ?? null;
   const activeMaterials = materials.filter(m => !activeClassId || m.classId === activeClassId);
@@ -1753,7 +1801,7 @@ function StudentContentModal({
                       </div>
                       <button 
                         type="button"
-                        onClick={() => setSelectedClassId(kelas.id)}
+                        onClick={() => onSelectClass(kelas.id)}
                         className={`text-xs px-3 py-1.5 rounded-full font-bold ml-3 border-b-2 transition-colors ${activeClassId === kelas.id ? "bg-[#e6b12a] text-white border-[#d69818]" : "bg-white text-[#7d2f0f] border-[#f0c34a] hover:bg-[#fff9e6]"}`}
                       >
                         {activeClassId === kelas.id ? "Terpilih" : "Masuk"}
@@ -2086,8 +2134,7 @@ function ProfessionalDashboard({
   const adminActions: { label: string; view: AdminView; description: string; icon: typeof ShieldCheck }[] = [
     { label: "Verifikasi user baru", view: "users", description: "Aktifkan user dan atur role.", icon: UserCog },
     { label: "Kelola kelas global", view: "classes", description: "CRUD semua kelas yang dibuat guru.", icon: GraduationCap },
-    { label: "Atur role dan permission", view: "access", description: "Kelola izin tiap role.", icon: ShieldCheck },
-    { label: "Pantau konfigurasi sistem", view: "system", description: "Lihat ringkasan konfigurasi.", icon: Settings },
+    { label: "Pantau konfigurasi sistem", view: "system", description: "Lihat ringkasan konfigurasi dan atur hak akses.", icon: Settings },
     { label: "Persetujuan Bank Idetech", view: "quick_action", description: "Persetujuan Bank Idetech dan aksi instan lainnya.", icon: Rocket },
     { label: "Manajemen Orang Tua & Siswa", view: "parent_students", description: "Kelola relasi orang tua dan anak.", icon: Users },
     { label: "Pengaturan Lanjutan", view: "advanced_features", description: "Log aktivitas, pengumuman global, dan master data.", icon: Boxes }
@@ -2284,7 +2331,6 @@ function AdminBottomNav({
   const shortNames: Record<string, string> = {
     users: "User",
     classes: "Kelas",
-    access: "Akses",
     system: "Sistem"
   };
 
@@ -2826,6 +2872,7 @@ function TeacherSpaceDashboard({
   const [classSummary, setClassSummary] = useState<TeacherClassSummary | null>(null);
   const [activeClassFilter, setActiveClassFilter] = useState<string>("all");
   const [activeFeature, setActiveFeature] = useState<string | null>(null);
+  const [showRppGenerator, setShowRppGenerator] = useState(false);
   const [classForm, setClassForm] = useState({
     name: "",
     subject: "",
@@ -3278,6 +3325,23 @@ function TeacherSpaceDashboard({
                     <ChevronRight className="teacher-feature-arrow h-5 w-5" />
                   </button>
                 ))}
+                
+                {/* Custom RPP Generator Banner Card */}
+                <button
+                  className="teacher-space-planet-card bg-gradient-to-br from-indigo-500 to-purple-600 border-none relative overflow-hidden"
+                  type="button"
+                  onClick={() => setShowRppGenerator(true)}
+                >
+                  <div className="absolute top-0 right-0 p-4 opacity-20">
+                    <Sparkles className="w-16 h-16 text-white" />
+                  </div>
+                  <span className="flex items-center justify-center w-12 h-12 bg-white/20 rounded-full mb-3 shrink-0 relative z-10 backdrop-blur-md text-white shadow-inner">
+                    <Sparkles className="h-6 w-6" />
+                  </span>
+                  <strong className="text-white relative z-10 text-lg">AI RPP Generator</strong>
+                  <small className="text-white/80 relative z-10 leading-relaxed max-w-[200px]">Buat Modul Ajar Kurikulum Merdeka instan</small>
+                  <ChevronRight className="teacher-feature-arrow h-5 w-5 text-white absolute bottom-5 right-5 z-10" />
+                </button>
               </section>
 
               <section className="teacher-space-list">
@@ -3400,6 +3464,11 @@ Fitur ini menganalisis semua aktivitas siswa di kelas Anda:
         >
           <MessageCircle size={28} />
         </button>
+      )}
+
+      {/* RPP Generator Modal */}
+      {showRppGenerator && (
+        <TeacherRPPGenerator onClose={() => setShowRppGenerator(false)} />
       )}
     </main>
   );
@@ -5281,15 +5350,17 @@ function MobileGameNav({
   active,
   role,
   notifications,
-  onChange
+  onChange,
+  id
 }: {
   active: MobileNavId;
   role: RoleName;
   notifications?: Partial<Record<MobileNavId, boolean>>;
   onChange: (id: MobileNavId) => void;
+  id?: string;
 }) {
   return (
-    <nav className="game-mobile-nav md:hidden" aria-label="Navigasi mobile">
+    <nav id={id} className="game-mobile-nav md:hidden" aria-label="Navigasi mobile">
       <div className="game-mobile-nav__sky" />
       <div className="game-mobile-nav__bar">
         {mobileNavItems.map((item) => {
@@ -5724,9 +5795,7 @@ function AdminSubPage({
         <AdminClassManager users={users} classes={classes} busy={busy} onCreate={onCreateClass} onUpdate={onUpdateClass} onDelete={onDeleteClass} />
       ) : null}
 
-      {view === "access" ? <AdminPermissionPanel access={access} busy={busy} onUpdateRolePermissions={onUpdateRolePermissions} /> : null}
-
-      {view === "system" ? <AdminSystemConfig access={access} /> : null}
+      {view === "system" ? <AdminSystemConfig access={access} globalBusy={busy} onUpdateRolePermissions={onUpdateRolePermissions} /> : null}
 
       {view === "quick_action" ? <AdminBankApprovalPanel /> : null}
 
@@ -5750,12 +5819,52 @@ function AdminUserVerificationGrid({
   onUpdateUser: (id: string, payload: { status?: string; roles?: RoleName[] }) => void;
   onDeleteUser?: (id: string) => void;
 }) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterRole, setFilterRole] = useState("all");
+
+  const filteredUsers = users.filter((item) => {
+    const query = searchQuery.trim().toLowerCase();
+    if (query && !item.name.toLowerCase().includes(query) && !item.email.toLowerCase().includes(query)) return false;
+    if (filterStatus !== "all" && item.status !== filterStatus) return false;
+    if (filterRole !== "all" && !item.roles.some((r) => r.name === filterRole)) return false;
+    return true;
+  });
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-      {users.map((item) => {
-        const selectedRoles = item.roles.map((role) => role.name as RoleName);
-        return (
-          <Card key={item.id} className="professional-card p-4 flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col md:flex-row gap-4 bg-white/60 backdrop-blur p-4 rounded-xl border border-slate-200">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input 
+            type="text" 
+            placeholder="Cari nama atau email..." 
+            value={searchQuery} 
+            onChange={(e) => setSearchQuery(e.target.value)} 
+            className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" 
+          />
+        </div>
+        <div className="flex gap-4">
+          <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-full md:w-40 bg-white">
+            <option value="all">Semua Status</option>
+            <option value="active">Aktif</option>
+            <option value="pending">Pending</option>
+            <option value="suspended">Suspend</option>
+          </Select>
+          <Select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="w-full md:w-40 bg-white">
+            <option value="all">Semua Role</option>
+            {roles.map((r) => (
+              <option key={r.name} value={r.name}>{r.label}</option>
+            ))}
+          </Select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {filteredUsers.length > 0 ? filteredUsers.map((item) => {
+          const selectedRoles = item.roles.map((role) => role.name as RoleName);
+          return (
+            <Card key={item.id} className="professional-card p-4 flex flex-col gap-4">
             <div className="flex flex-col gap-1.5 flex-1">
               <div className="flex justify-between items-start">
                 <span className="font-semibold text-lg">{item.name}</span>
@@ -5801,7 +5910,12 @@ function AdminUserVerificationGrid({
             </div>
           </Card>
         );
-      })}
+        }) : (
+          <div className="col-span-full py-12 text-center text-slate-500 bg-white/30 rounded-2xl border border-dashed border-slate-300">
+            Tidak ada user yang sesuai dengan pencarian atau filter.
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -6090,7 +6204,15 @@ function AdminClassCard({
   );
 }
 
-function AdminSystemConfig({ access }: { access: AdminAccess | null }) {
+function AdminSystemConfig({ 
+  access,
+  globalBusy,
+  onUpdateRolePermissions
+}: { 
+  access: AdminAccess | null;
+  globalBusy: boolean;
+  onUpdateRolePermissions: (role: RoleName, permissions: string[]) => void;
+}) {
   const [settings, setSettings] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -6284,6 +6406,8 @@ function AdminSystemConfig({ access }: { access: AdminAccess | null }) {
           </button>
         </form>
       </Card>
+
+      <AdminPermissionPanel access={access} busy={globalBusy} onUpdateRolePermissions={onUpdateRolePermissions} />
     </div>
   );
 }

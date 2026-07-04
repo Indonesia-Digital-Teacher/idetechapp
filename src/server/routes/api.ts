@@ -1517,9 +1517,10 @@ app.get("/student/indicators", requireRole(["student"]), async (c) => {
   const user = c.get("authUser");
   const hasReportAccess = user.permissions.includes("report.view");
   const classIds = await getStudentClassIds(user.id);
+  const queryClassId = c.req.query("classId");
   const allClasses = await db.select().from(classes).orderBy(desc(classes.updatedAt));
   const studentClasses = allClasses.filter((item) => classIds.includes(item.id));
-  const activeClass = studentClasses[0] ?? null;
+  const activeClass = (queryClassId ? studentClasses.find(c => c.id === queryClassId) : null) ?? studentClasses[0] ?? null;
   const materialProgressRows = await db.select().from(studentMaterialProgress).where(eq(studentMaterialProgress.studentUserId, user.id));
   const visibleMaterials = (await db.select().from(materials))
     .filter((material) => classIds.includes(material.classId) && material.status === "published");
@@ -1540,7 +1541,7 @@ app.get("/student/indicators", requireRole(["student"]), async (c) => {
   const completedUnits = completedMaterials + completedQuests;
   const levelValue = 1 + completedQuests;
   const chapterValue = activeClass ? Math.max(1, visibleMaterials.length) : 1;
-  const chapterLabel = activeClass ? `Chapter ${chapterValue}` : "Belum Masuk Kelas";
+  const chapterLabel = activeClass ? activeClass.name : "Belum Masuk Kelas";
   const chapterProgressLabel = totalUnits > 0 ? `${completedUnits}/${totalUnits}` : "0/0";
   const progressPercent = totalUnits > 0 ? Math.round((completedUnits / totalUnits) * 100) : 0;
 
@@ -1583,7 +1584,7 @@ app.get("/student/indicators", requireRole(["student"]), async (c) => {
         title: "Map",
         subtitle: formatTimeLeft(nextMaterialDueDate),
         targetDate: nextMaterialDueDate,
-        badge: dueSoonCount > 0 ? `+${dueSoonCount}` : undefined,
+        badge: undefined,
         connected: pendingCount > 0
       },
       {
@@ -1627,9 +1628,9 @@ app.get("/student/indicators", requireRole(["student"]), async (c) => {
       }
     ],
     nav: {
-      studio: dueSoonCount > 0,
-      rank: earnedBadges > 0,
-      map: pendingCount > 0,
+      studio: dueSoonCount > 0 || pendingCount > 0,
+      rank: false,
+      map: false,
       quest: dueSoonCount > 0 || pendingCount > 0,
       profile: false
     },
