@@ -63,7 +63,7 @@ export function ParentFriendlyDashboard({
     parentApi<{ children: any[] }>("/api/parent/reports")
       .then((res) => {
         setChildren(res.children);
-        setSelectedChild(current => {
+        setSelectedChild((current: any) => {
           if (current) {
             const updated = res.children.find(c => c.id === current.id);
             return updated || current;
@@ -95,7 +95,7 @@ export function ParentFriendlyDashboard({
       parentApi<{ children: any[] }>("/api/parent/reports")
         .then((res) => {
           setChildren(res.children);
-          setSelectedChild(current => {
+          setSelectedChild((current: any) => {
             if (current) {
               const updated = res.children.find(c => c.id === current.id);
               return updated || current;

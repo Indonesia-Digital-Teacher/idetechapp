@@ -44,6 +44,7 @@ import {
   UserCog,
   UserRound,
   Users,
+  User,
   X,
   Smile,
   Frown,
