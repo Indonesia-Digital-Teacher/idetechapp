@@ -106,6 +106,7 @@ type Dashboard = {
 type DashboardResponse = {
   user: AuthUser;
   dashboard: Dashboard;
+  announcements?: any[];
 };
 
 type AdminUser = {
@@ -348,13 +349,11 @@ const roleFeatures: Record<RoleName, RoleFeature[]> = {
     { name: "Kelola Bank Ide", permission: "bank.manage", access: "full", description: "Kurasi dan bagikan materi di Bank Ide.", cta: "Kelola Bank" }
   ],
   teacher: [
-    { name: "Peringatan Dini", permission: "radar.view", access: "full", description: "Pantau siswa yang butuh intervensi segera hari ini.", cta: "Lihat peringatan" },
-    { name: "Grading Queue", permission: "quest.manage", access: "full", description: "Periksa dan nilai tugas siswa yang menunggu antrean.", cta: "Mulai koreksi" },
+    { name: "Lihat progres siswa", permission: "report.view", access: "full", description: "Melihat progres siswa di kelasnya.", cta: "Lihat progres" },
     { name: "Jurnal Mengajar", permission: "class.manage", access: "full", description: "Tulis catatan personal atau kejadian penting di kelas hari ini.", cta: "Tulis jurnal" },
     { name: "Kelola kelas", permission: "class.manage", access: "full", description: "Membuat kelas dan mengatur daftar siswa.", cta: "Kelola kelas" },
     { name: "Buat materi", permission: "material.create", access: "full", description: "Membuat materi interaktif di IdeStudio.", cta: "Buat materi" },
     { name: "Buat IdeQuest", permission: "quest.manage", access: "full", description: "Membuat misi, kuis, dan tugas belajar.", cta: "Buat IdeQuest" },
-    { name: "Lihat progres siswa", permission: "report.view", access: "full", description: "Melihat progres siswa di kelasnya.", cta: "Lihat progres" },
     { name: "Lihat Radar Pintar", permission: "radar.view", access: "full", description: "Menganalisis performa dan risiko belajar.", cta: "Buka Radar" },
     { name: "Kelola Bank Ide", permission: "bank.manage", access: "full", description: "Menyimpan dan membagikan materi ajar.", cta: "Kelola Bank" }
   ],
@@ -575,6 +574,7 @@ const roleMenuContent: Record<RoleName, Record<MobileNavId, GameMenuContent>> = 
 function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
   const [adminAccess, setAdminAccess] = useState<AdminAccess | null>(null);
   const [adminClasses, setAdminClasses] = useState<AdminClass[]>([]);
@@ -610,6 +610,7 @@ function App() {
     const payload = await api<DashboardResponse>("/api/dashboard");
     setUser(payload.user);
     setDashboard(payload.dashboard);
+    setAnnouncements(payload.announcements || []);
 
     if (payload.user.activeRole === "admin") {
       const [usersResponse, accessResponse, classResponse] = await Promise.all([
@@ -799,43 +800,70 @@ function App() {
     return <ProfileSetupScreen user={user} busy={busy} error={error} onSave={saveProfile} onLogout={logout} />;
   }
 
-  if (user.activeRole === "student") {
-    return (
-      <StudentCompactDashboard
-        user={user}
-        dashboard={dashboard}
-        busy={busy}
-        activeMenu={activeMobileMenu}
-        onChangeMenu={setActiveMobileMenu}
-        onLogout={logout}
-      />
-    );
-  }
-
-  if (user.activeRole === "parent") {
-    return <ParentFriendlyDashboard user={user} onLogout={logout} />;
-  }
-
   return (
-    <ProfessionalDashboard
-      user={user}
-      dashboard={dashboard}
-      adminUsers={adminUsers}
-      adminAccess={adminAccess}
-      adminClasses={adminClasses}
-      activeMenu={activeMobileMenu}
-      busy={busy}
-      error={error}
-      onChangeMenu={setActiveMobileMenu}
-      onLogout={logout}
-      onSwitchRole={switchRole}
-      onUpdateAdminUser={updateAdminUser}
-      onDeleteAdminUser={deleteAdminUser}
-      onUpdateRolePermissions={updateRolePermissions}
-      onCreateAdminClass={createAdminClass}
-      onUpdateAdminClass={updateAdminClass}
-      onDeleteAdminClass={deleteAdminClass}
-    />
+    <>
+      <GlobalAnnouncementsBanner announcements={announcements} />
+      {user.activeRole === "student" ? (
+        <StudentCompactDashboard
+          user={user}
+          dashboard={dashboard}
+          busy={busy}
+          activeMenu={activeMobileMenu}
+          onChangeMenu={setActiveMobileMenu}
+          onLogout={logout}
+        />
+      ) : user.activeRole === "parent" ? (
+        <ParentFriendlyDashboard user={user} onLogout={logout} />
+      ) : (
+        <ProfessionalDashboard
+          user={user}
+          dashboard={dashboard}
+          adminUsers={adminUsers}
+          adminAccess={adminAccess}
+          adminClasses={adminClasses}
+          activeMenu={activeMobileMenu}
+          busy={busy}
+          error={error}
+          onChangeMenu={setActiveMobileMenu}
+          onLogout={logout}
+          onSwitchRole={switchRole}
+          onUpdateAdminUser={updateAdminUser}
+          onDeleteAdminUser={deleteAdminUser}
+          onUpdateRolePermissions={updateRolePermissions}
+          onCreateAdminClass={createAdminClass}
+          onUpdateAdminClass={updateAdminClass}
+          onDeleteAdminClass={deleteAdminClass}
+        />
+      )}
+    </>
+  );
+}
+
+function GlobalAnnouncementsBanner({ announcements }: { announcements: any[] }) {
+  if (!announcements || announcements.length === 0) return null;
+  
+  // Ambil pengumuman pertama (yang paling baru/penting)
+  const [closed, setClosed] = useState(false);
+  
+  if (closed) return null;
+  const active = announcements[0];
+  
+  return (
+    <div className={`fixed top-0 left-0 w-full z-[100] border-b shadow-sm flex items-center justify-between px-4 py-3 ${
+      active.type === 'warning' ? 'bg-orange-50 border-orange-200 text-orange-800' :
+      active.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' :
+      'bg-blue-50 border-blue-200 text-blue-800'
+    }`}>
+      <div className="flex items-center gap-3 w-full justify-center text-sm">
+        <Bell className="w-5 h-5 shrink-0" />
+        <p className="font-medium text-center">
+          <strong>{active.title}:</strong> {active.content}
+        </p>
+      </div>
+      <button onClick={() => setClosed(true)} className="p-1 hover:bg-black/5 rounded-full shrink-0 transition-colors">
+        <X className="w-4 h-4" />
+      </button>
+    </div>
   );
 }
 
@@ -1123,11 +1151,25 @@ function StudentCompactDashboard({
       setStudentPanelBusy(false);
     }
   };
-  const completeQuest = async (questId: string) => {
+  const completeQuest = async (questId: string, answerText: string, file: File | null) => {
     setStudentPanelBusy(true);
     setStudentPanelError("");
     try {
-      await api(`/api/student/quests/${questId}/complete`, { method: "POST" });
+      const formData = new FormData();
+      if (answerText) formData.append("answerText", answerText);
+      if (file) formData.append("file", file);
+
+      const res = await fetch(`/api/student/quests/${questId}/complete`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
+        },
+        body: formData
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.message || "Gagal mengumpulkan IdeQuest.");
+      }
       await loadStudentPanelData();
       refreshIndicators();
     } catch (err) {
@@ -1530,7 +1572,7 @@ function StudentContentModal({
   error: string;
   onClose: () => void;
   onCompleteMaterial: (materialId: string) => void;
-  onCompleteQuest: (questId: string) => void;
+  onCompleteQuest: (questId: string, answerText: string, file: File | null) => void;
   onJoinClass: (classCode: string) => void;
   selectedClassId: string | null;
   onSelectClass: (id: string | null) => void;
@@ -1555,6 +1597,9 @@ function StudentContentModal({
   const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
   const [showQuizResults, setShowQuizResults] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [questAnswerText, setQuestAnswerText] = useState("");
+  const [questAnswerFile, setQuestAnswerFile] = useState<File | null>(null);
+  const [questSubmitMode, setQuestSubmitMode] = useState<"text" | "file">("text");
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -1563,7 +1608,7 @@ function StudentContentModal({
   const totalTaskPages = Math.max(1, Math.ceil(activeMaterials.length / 9));
   const taskSlots = Array.from({ length: 9 }, (_, index) => activeMaterials[index + taskPage * 9] ?? null);
   const completedTasks = taskSlots.filter((material) => material && material.progress >= 100).length;
-  const selectedTask = selectedTaskId ? materials.find((material) => material.id === selectedTaskId) ?? null : null;
+  const selectedTask = selectedTaskId ? materials.find((material) => material.id === selectedTaskId) ?? quests.find((quest) => quest.id === selectedTaskId) ?? null : null;
 
   useEffect(() => {
     setSelectedTaskId(null);
@@ -1574,6 +1619,9 @@ function StudentContentModal({
     setReadingProgress(0);
     setQuizAnswers({});
     setShowQuizResults(false);
+    setQuestAnswerText("");
+    setQuestAnswerFile(null);
+    setQuestSubmitMode("text");
     const timer = setTimeout(() => {
       const el = document.getElementById("lesson-scroll-container");
       if (el && el.scrollHeight <= el.clientHeight) {
@@ -1885,7 +1933,11 @@ function StudentContentModal({
             </button>
             <small>{(selectedTask as any).type || 'IdeQuest'}</small>
             <h3>{selectedTask.title}</h3>
-            <p>{(selectedTask as any).description || (selectedTask as any).mission}</p>
+            <div className="text-justify whitespace-pre-wrap text-[15px] leading-relaxed prose prose-sm max-w-none text-slate-700">
+              <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex, rehypeRaw]}>
+                {(selectedTask as any).description || (selectedTask as any).mission}
+              </ReactMarkdown>
+            </div>
             
             { (selectedTask as any).content && (
               <div className="mt-4 mb-6 bg-slate-50 border border-slate-200 rounded-xl p-4 overflow-hidden shadow-inner">
@@ -2023,6 +2075,72 @@ function StudentContentModal({
               </div>
             )}
 
+            { 'mission' in selectedTask && selectedTask.progress < 100 && (
+              <div className="mt-4 p-4 bg-blue-50/50 rounded-xl border border-blue-100 mb-4">
+                <div className="flex gap-2 mb-3">
+                  <button 
+                    type="button" 
+                    onClick={() => setQuestSubmitMode("text")} 
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${questSubmitMode === "text" ? "bg-blue-600 text-white shadow-sm" : "bg-white text-blue-600 border border-blue-200 hover:bg-blue-50"}`}
+                  >
+                    Kotak Isian
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => setQuestSubmitMode("file")} 
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${questSubmitMode === "file" ? "bg-blue-600 text-white shadow-sm" : "bg-white text-blue-600 border border-blue-200 hover:bg-blue-50"}`}
+                  >
+                    Unggah PDF
+                  </button>
+                </div>
+                
+                {questSubmitMode === "text" ? (
+                  <textarea 
+                    placeholder="Tuliskan jawaban misi kamu di sini..." 
+                    value={questAnswerText} 
+                    onChange={(e) => setQuestAnswerText(e.target.value)} 
+                    className="w-full text-sm p-3 border border-blue-200 rounded-lg min-h-[100px] focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white"
+                  />
+                ) : (
+                  <label className="flex flex-col gap-2">
+                    <span className="font-bold text-blue-900 text-sm">Unggah File Jawaban (Wajib PDF)</span>
+                    <input 
+                      type="file" 
+                      accept=".pdf,application/pdf"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        if (file && file.type !== "application/pdf" && !file.name.toLowerCase().endsWith('.pdf')) {
+                          showToast("Hanya file PDF yang diizinkan!");
+                          e.target.value = '';
+                          return;
+                        }
+                        setQuestAnswerFile(file);
+                      }} 
+                      className="text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700" 
+                    />
+                  </label>
+                )}
+              </div>
+            )}
+
+            { 'mission' in selectedTask && selectedTask.progress >= 100 && (
+              <div className="mt-4 p-4 bg-green-50 rounded-xl border border-green-200 mb-4 animate-in fade-in slide-in-from-bottom-2">
+                <h4 className="font-bold text-green-800 text-sm mb-2 flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5" /> 
+                  IdeQuest Telah Diselesaikan
+                </h4>
+                <div className="text-sm text-green-700">
+                  Kamu mendapatkan <strong className="text-xl">{(selectedTask as any).earnedPoints}</strong> / {(selectedTask as any).points} Poin.
+                </div>
+                {(selectedTask as any).teacherFeedback && (
+                  <div className="mt-4 p-3 bg-white border border-green-100 rounded-lg text-sm text-slate-700 relative shadow-sm">
+                    <div className="absolute -top-2.5 left-3 bg-green-100 text-green-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-200">Komentar Guru</div>
+                    <span className="italic mt-1 block leading-relaxed">"{(selectedTask as any).teacherFeedback}"</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="student-content-progress">
               <span>{((selectedTask as any).type === 'lesson' || (selectedTask as any).type === 'video' || (selectedTask as any).type === 'document' || (selectedTask as any).type === 'quiz') && selectedTask.progress < 100 ? readingProgress : selectedTask.progress}%</span>
               <i style={{ width: `${((selectedTask as any).type === 'lesson' || (selectedTask as any).type === 'video' || (selectedTask as any).type === 'document' || (selectedTask as any).type === 'quiz') && selectedTask.progress < 100 ? readingProgress : selectedTask.progress}%` }} />
@@ -2045,7 +2163,15 @@ function StudentContentModal({
                 }
 
                 if ('mission' in selectedTask) {
-                  onCompleteQuest(selectedTask.id);
+                  if (questSubmitMode === "text" && !questAnswerText.trim() && selectedTask.progress < 100) {
+                     showToast("Silakan isi teks jawaban terlebih dahulu!");
+                     return;
+                  }
+                  if (questSubmitMode === "file" && !questAnswerFile && selectedTask.progress < 100) {
+                     showToast("Silakan unggah file PDF jawaban terlebih dahulu!");
+                     return;
+                  }
+                  onCompleteQuest(selectedTask.id, questSubmitMode === "text" ? questAnswerText : "", questSubmitMode === "file" ? questAnswerFile : null);
                 } else {
                   onCompleteMaterial(selectedTask.id);
                 }
@@ -2919,7 +3045,7 @@ function TeacherSpaceDashboard({
     dueDate: ""
   });
   const featureGroups: Record<MobileNavId, RoleFeature[]> = {
-    map: roleFeatures.teacher,
+    map: roleFeatures.teacher.filter((feature) => feature.name === "Jurnal Mengajar"),
     quest: roleFeatures.teacher.filter((feature) => feature.name.includes("kelas") || feature.name.includes("progres")),
     studio: roleFeatures.teacher.filter((feature) => feature.name.includes("materi") || feature.name.includes("IdeQuest") || feature.name.includes("Bank")),
     rank: roleFeatures.teacher.filter((feature) => feature.name.includes("Radar") || feature.name.includes("progres")),
@@ -3285,8 +3411,6 @@ function TeacherSpaceDashboard({
 
           {activeFeature === "jurnal" ? (
             <TeacherJournalView onClose={() => { setActiveFeature(null); onChangeMenu("map"); }} />
-          ) : activeFeature === "radar" || activeFeature === "report" ? (
-            <TeacherRadarView onClose={() => setActiveFeature(null)} mode={activeFeature as "radar" | "report"} />
           ) : activeMenu === "studio" ? (
             <TeacherStudioManager
               classes={teacherClasses}
@@ -3321,10 +3445,33 @@ function TeacherSpaceDashboard({
             />
           ) : activeMenu === "profile" ? (
             <TeacherProfileView user={user} />
+          ) : activeMenu === "rank" ? (
+            <TeacherRadarView onClose={() => onChangeMenu("map")} mode="radar" />
           ) : (
             <>
               {activeMenu === "map" && (
-                <TeacherAgendaCalendar materials={materials} quests={ideQuestRows} classes={teacherClasses} />
+                <>
+                  <TeacherAgendaCalendar materials={materials} quests={ideQuestRows} classes={teacherClasses} />
+                  
+                  <div className="mb-6 flex flex-col gap-3">
+                    <div className="grid grid-cols-3 gap-3">
+                      {dashboard.metrics.slice(0, 3).map((metric, index) => (
+                        <div key={metric.label} className="bg-white/10 border border-white/20 rounded-2xl p-3 backdrop-blur-md flex flex-col justify-between">
+                          <span className="text-white/70 text-[9px] uppercase font-bold tracking-wider mb-1 leading-tight">{metric.label}</span>
+                          <span className="text-white text-2xl font-black">{metric.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {dashboard.metrics.slice(3, 5).map((metric, index) => (
+                        <div key={metric.label} className="bg-white/10 border border-white/20 rounded-2xl p-4 backdrop-blur-md flex flex-col justify-between">
+                          <span className="text-white/70 text-[11px] uppercase font-bold tracking-wider mb-2 leading-tight">{metric.label}</span>
+                          <span className="text-white text-3xl font-black">{metric.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
               )}
               <section className="teacher-space-card-grid">
                 {exploreCards.map((feature, index) => (
@@ -3364,29 +3511,31 @@ function TeacherSpaceDashboard({
                 </button>
               </section>
 
-              <section className="teacher-space-list">
-                {(listItems.length ? listItems : roleFeatures.teacher.slice(0, 3)).map((feature, index) => {
-                  const Icon = index === 0 ? Gauge : index === 1 ? BookOpen : Target;
+              {activeMenu !== "map" && (
+                <section className="teacher-space-list">
+                  {(listItems.length ? listItems : roleFeatures.teacher.slice(0, 3)).map((feature, index) => {
+                    const Icon = index === 0 ? Gauge : index === 1 ? BookOpen : Target;
 
-                  return (
-                    <button key={feature.name} className="teacher-space-list-card" type="button" onClick={() => openTeacherFeature(feature.name)}>
-                      <span>
-                        <Icon className="h-6 w-6" />
-                      </span>
-                      <div>
-                        <strong className="flex items-center gap-2">
-                          {feature.name}
-                          {feature.name === "Jurnal Mengajar" && hasUnpublishedJournalDraft && (
-                            <span className="h-2 w-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
-                          )}
-                        </strong>
-                        <small>{feature.description}</small>
-                      </div>
-                      <MoreHorizontal className="h-5 w-5" />
-                    </button>
-                  );
-                })}
-              </section>
+                    return (
+                      <button key={feature.name} className="teacher-space-list-card" type="button" onClick={() => openTeacherFeature(feature.name)}>
+                        <span>
+                          <Icon className="h-6 w-6" />
+                        </span>
+                        <div>
+                          <strong className="flex items-center gap-2">
+                            {feature.name}
+                            {feature.name === "Jurnal Mengajar" && hasUnpublishedJournalDraft && (
+                              <span className="h-2 w-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
+                            )}
+                          </strong>
+                          <small>{feature.description}</small>
+                        </div>
+                        <MoreHorizontal className="h-5 w-5" />
+                      </button>
+                    );
+                  })}
+                </section>
+              )}
             </>
           )}
 
@@ -3597,7 +3746,7 @@ function TeacherStudioManager({
   editingMaterialId?: string | null;
   editingQuestId?: string | null;
   onMaterialFormChange: React.Dispatch<React.SetStateAction<{ classId: string; title: string; type: TeacherMaterial["type"]; description: string; content: string; dueDate: string }>>;
-  onQuestFormChange: React.Dispatch<React.SetStateAction<{ classId: string; materialId: string; title: string; mission: string; points: string; dueDate: string }>>;
+  onQuestFormChange: React.Dispatch<React.SetStateAction<{ classId: string; materialId: string; title: string; mission: string; points: string; dueDate: string; photo: File | null }>>;
   onCreateMaterial: (event: React.FormEvent<HTMLFormElement>) => void;
   onCreateQuest: (event: React.FormEvent<HTMLFormElement>) => void;
   onEditMaterial?: (material: TeacherMaterial) => void;
@@ -3670,6 +3819,126 @@ function TeacherStudioManager({
 
   const updateQuizData = (newData: { soal: string; jawaban: string[]; pembahasan?: string }[]) => {
     onMaterialFormChange((current) => ({ ...current, content: JSON.stringify(newData) }));
+  };
+
+  const [isGeneratingAI, setIsGeneratingAI] = React.useState(false);
+
+  const handleGenerateAI = async () => {
+    if (!materialForm.title) {
+      showToast("Tulis judul materi terlebih dahulu!");
+      return;
+    }
+    
+    setIsGeneratingAI(true);
+    try {
+      const isQuiz = materialForm.type === 'quiz';
+      const prompt = isQuiz
+        ? `Buatkan 3 soal pilihan ganda tentang "${materialForm.title}".
+Berikan balasan HANYA berupa array JSON murni, tanpa backtick, tanpa markdown, tanpa teks pembuka/penutup.
+Contoh persis:
+[
+  {"soal": "Pertanyaan 1?", "jawaban": ["Jawaban Benar 1"], "pembahasan": "Penjelasan singkat"},
+  {"soal": "Pertanyaan 2?", "jawaban": ["Jawaban Benar 2"], "pembahasan": "Penjelasan singkat"}
+]`
+        : `Bertindaklah sebagai pengajar ahli. Buatkan materi pembelajaran (Lesson) ringkas dan mudah dipahami untuk topik: "${materialForm.title}".
+Gunakan format Markdown (Heading, tebal, miring, list). Sisipkan emoji agar menarik bagi siswa.
+Buat struktur: 1. Pendahuluan, 2. Isi Materi, 3. Kesimpulan.`;
+
+      const res = await fetch("https://asisten.ferilee.gurumuda.eu.org/api/integration/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: prompt, history: [] })
+      });
+      
+      const resText = await res.text();
+      let data;
+      try {
+        data = JSON.parse(resText);
+      } catch (e) {
+        showToast("Respons API tidak valid (Bukan JSON).");
+        return;
+      }
+      if (data.reply) {
+        let content = data.reply;
+        if (isQuiz) {
+          const startIdx = content.indexOf('[');
+          const endIdx = content.lastIndexOf(']');
+          if (startIdx !== -1 && endIdx !== -1) {
+            content = content.substring(startIdx, endIdx + 1);
+          }
+          try {
+             JSON.parse(content);
+          } catch(e) {
+             showToast("Dianyssa gagal merespons dengan format yang benar. Coba lagi.");
+             setIsGeneratingAI(false);
+             return;
+          }
+        }
+        onMaterialFormChange((current) => ({ ...current, content }));
+        showToast("Berhasil di-generate oleh Dianyssa AI!");
+      } else {
+        showToast("Gagal mendapatkan respons AI.");
+      }
+    } catch (err: any) {
+      showToast(`Kesalahan: ${err.message}`);
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
+
+  const [isGeneratingQuestAI, setIsGeneratingQuestAI] = React.useState(false);
+
+  const handleGenerateQuestAI = async () => {
+    if (!questForm.title) {
+      showToast("Tulis topik/judul dasar IdeQuest terlebih dahulu!");
+      return;
+    }
+    
+    setIsGeneratingQuestAI(true);
+    try {
+      const prompt = `Bertindaklah sebagai perancang game edukasi. Buatkan Judul Misi dan Deskripsi Misi yang epik, kreatif, dan menantang untuk topik: "${questForm.title}".
+Format harus teks biasa dengan pola berikut:
+Judul: [Tulis judul di sini]
+Misi: [Tulis deskripsi misi di sini]`;
+
+      const res = await fetch("https://asisten.ferilee.gurumuda.eu.org/api/integration/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: prompt, history: [] })
+      });
+      
+      const resText = await res.text();
+      let data;
+      try {
+        data = JSON.parse(resText);
+      } catch (e) {
+        showToast("Respons API tidak valid (Bukan JSON).");
+        return;
+      }
+      
+      if (data.reply) {
+        let content = data.reply;
+        const titleMatch = content.match(/Judul:\s*([^\n]+)/i);
+        const missionMatch = content.match(/Misi:\s*([\s\S]+)/i);
+        
+        if (titleMatch && missionMatch) {
+          onQuestFormChange((current) => ({ 
+            ...current, 
+            title: titleMatch[1].trim().replace(/["*]/g, ''),
+            mission: missionMatch[1].trim()
+          }));
+          showToast("IdeQuest berhasil dikembangkan oleh AI!");
+        } else {
+           showToast("Format balasan AI tidak sesuai (Gagal parsing).");
+        }
+      } else {
+        showToast("Gagal mendapatkan respons AI.");
+      }
+    } catch (err: any) {
+      showToast(`Kesalahan: ${err.message}`);
+    } finally {
+      setIsGeneratingQuestAI(false);
+    }
   };
 
   const [showBankModal, setShowBankModal] = React.useState(false);
@@ -3835,18 +4104,34 @@ function TeacherStudioManager({
         
         {materialForm.type === 'lesson' && (
           <label>
-            <span className="flex items-center gap-2 mb-2">
-              Isi Lesson (Teks/Markdown)
+            <div className="flex items-center justify-between w-full mb-2">
+              <span className="flex items-center gap-2">
+                Isi Lesson (Teks/Markdown)
+                <button
+                  type="button"
+                  onClick={() => setShowMarkdownGuide(true)}
+                  className="text-blue-500/70 hover:text-blue-500 transition-colors focus:outline-none rounded-full p-0.5 hover:bg-blue-50"
+                  aria-label="Petunjuk penulisan Markdown"
+                  title="Petunjuk penulisan Markdown"
+                >
+                  <Info className="h-4 w-4" />
+                </button>
+              </span>
               <button
                 type="button"
-                onClick={() => setShowMarkdownGuide(true)}
-                className="text-blue-500/70 hover:text-blue-500 transition-colors focus:outline-none rounded-full p-0.5 hover:bg-blue-50"
-                aria-label="Petunjuk penulisan Markdown"
-                title="Petunjuk penulisan Markdown"
+                onClick={handleGenerateAI}
+                disabled={isGeneratingAI || !materialForm.title}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
               >
-                <Info className="h-4 w-4" />
+                {isGeneratingAI ? (
+                  <div className="w-3.5 h-3.5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" />
+                )}
+                {isGeneratingAI ? "Generating..." : "Generate AI"}
               </button>
-            </span>
+            </div>
+
             <div className="flex flex-wrap gap-1 mb-2 bg-slate-100 p-1.5 rounded-md border border-slate-200">
               <button type="button" onClick={() => insertMarkdown("### ", "")} className="p-1.5 text-slate-600 hover:bg-white hover:text-blue-600 rounded transition-colors" title="Heading"><Heading className="w-4 h-4" /></button>
               <button type="button" onClick={() => insertMarkdown("**", "**")} className="p-1.5 text-slate-600 hover:bg-white hover:text-blue-600 rounded transition-colors" title="Tebal"><Bold className="w-4 h-4" /></button>
@@ -3897,7 +4182,22 @@ function TeacherStudioManager({
         
         {materialForm.type === 'quiz' && (
           <div className="flex flex-col gap-3">
-            <span className="font-semibold text-slate-700 text-sm">Daftar Pertanyaan Kuis</span>
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-slate-100 text-sm">Daftar Pertanyaan Kuis</span>
+              <button
+                type="button"
+                onClick={handleGenerateAI}
+                disabled={isGeneratingAI || !materialForm.title}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+              >
+                {isGeneratingAI ? (
+                  <div className="w-3.5 h-3.5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" />
+                )}
+                {isGeneratingAI ? "Generating..." : "Generate AI"}
+              </button>
+            </div>
             {quizData.map((q, i) => (
               <div key={i} className="flex flex-col gap-3 p-4 bg-slate-50 border border-slate-200 rounded-lg">
                 <div className="flex justify-between items-center">
@@ -4035,7 +4335,22 @@ function TeacherStudioManager({
           />
         </label>
         <label>
-          <span>Misi siswa</span>
+          <div className="flex items-center justify-between w-full mb-1">
+            <span>Misi siswa</span>
+            <button
+                type="button"
+                onClick={handleGenerateQuestAI}
+                disabled={isGeneratingQuestAI || !questForm.title}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+            >
+                {isGeneratingQuestAI ? (
+                  <div className="w-3.5 h-3.5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" />
+                )}
+                {isGeneratingQuestAI ? "Generating..." : "Generate AI"}
+            </button>
+          </div>
           <textarea
             value={questForm.mission}
             placeholder="Instruksi misi untuk siswa..."
@@ -4055,7 +4370,7 @@ function TeacherStudioManager({
           {showAdvancedQuest && (
             <div className="flex flex-col gap-3 mt-3 p-4 bg-slate-50 border border-slate-200 rounded-lg animate-in fade-in slide-in-from-top-2 duration-200">
               <label className="!mb-0">
-                <span className="flex items-center gap-1.5 text-slate-700" title="Hubungkan quest ini dengan materi tertentu agar siswa membaca materi sebelum mengerjakan">Materi Terkait <HelpCircle className="w-3.5 h-3.5 text-slate-400" /></span>
+                <span className="flex items-center gap-1.5 !text-slate-700" title="Hubungkan quest ini dengan materi tertentu agar siswa membaca materi sebelum mengerjakan">Materi Terkait <HelpCircle className="w-3.5 h-3.5 text-slate-400" /></span>
                 <select
                   value={questForm.materialId}
                   onChange={(event) => onQuestFormChange((current) => ({ ...current, materialId: event.target.value }))}
@@ -4068,7 +4383,7 @@ function TeacherStudioManager({
                 </select>
               </label>
               <label className="!mb-0">
-                <span className="flex items-center gap-1.5 text-slate-700">Tenggat Waktu / Deadline</span>
+                <span className="flex items-center gap-1.5 !text-slate-700">Tenggat Waktu / Deadline</span>
                 <input
                   type="datetime-local"
                   value={questForm.dueDate}
@@ -7464,7 +7779,8 @@ type StudentProgressReport = {
   quests: { id: string; title: string; type: string; progress: number; completedAt: string | null; dueDate: string | null; isLate: boolean }[];
 };
 
-function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mode?: "radar" | "report" }) {
+function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mode?: "radar" | "report" | "koreksi" }) {
+  const [currentMode, setCurrentMode] = useState<"radar" | "report" | "koreksi">(mode);
   const [data, setData] = useState<StudentProgressReport[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -7546,10 +7862,10 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
     <div className="bg-white rounded-t-3xl min-h-[60vh] p-4 md:p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] relative mt-4 animate-in slide-in-from-bottom-10">
       <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-slate-200 rounded-full" />
       
-      <div className="flex justify-between items-center mt-4 mb-6">
+      <div className="flex justify-between items-center mt-4 mb-2">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">{mode === "report" ? "Laporan Hasil Belajar" : "Radar Pintar (Progres Siswa)"}</h2>
-          <p className="text-sm text-slate-500">{mode === "report" ? "Rekapitulasi persentase penyelesaian tugas siswa" : "Analisis progres belajar, intervensi, dan risiko siswa"}</p>
+          <h2 className="text-xl font-bold text-slate-800">{currentMode === "report" ? "Laporan Hasil Belajar" : "Radar Pintar (Progres Siswa)"}</h2>
+          <p className="text-sm text-slate-500">{currentMode === "report" ? "Rekapitulasi persentase penyelesaian tugas siswa" : "Analisis progres belajar, intervensi, dan risiko siswa"}</p>
         </div>
         <div className="flex items-center gap-2">
           <button 
@@ -7565,6 +7881,27 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
             <X className="h-5 w-5" />
           </button>
         </div>
+      </div>
+      
+      <div className="flex gap-2 p-1 bg-slate-100 rounded-lg mb-6 w-full overflow-x-auto hide-scrollbar">
+        <button 
+          onClick={() => setCurrentMode("radar")}
+          className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${currentMode === "radar" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+        >
+          Radar Pintar
+        </button>
+        <button 
+          onClick={() => setCurrentMode("report")}
+          className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${currentMode === "report" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+        >
+          Laporan Hasil Belajar
+        </button>
+        <button 
+          onClick={() => setCurrentMode("koreksi")}
+          className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${currentMode === "koreksi" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+        >
+          Koreksi IdeQuest
+        </button>
       </div>
 
       {!loading && data.length > 0 && (
@@ -7621,7 +7958,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
             Reset Filter
           </button>
         </div>
-      ) : mode === "report" ? (
+      ) : currentMode === "report" ? (
         <div className="overflow-x-auto mt-6 bg-white border border-slate-200 rounded-xl shadow-sm">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -7671,6 +8008,94 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
               })}
             </tbody>
           </table>
+        </div>
+      ) : currentMode === "koreksi" ? (
+        <div className="mt-6 flex flex-col gap-4 animate-in fade-in slide-in-from-top-2">
+          {filteredData.map(student => {
+            const completedQuests = student.quests.filter(q => q.progress >= 100);
+            if (completedQuests.length === 0) return null;
+            
+            return (
+              <div key={student.studentId} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                <div className="flex items-center gap-3 mb-4 border-b border-slate-100 pb-3">
+                  {student.avatarUrl ? (
+                    <img src={student.avatarUrl} className="w-8 h-8 rounded-full object-cover" alt="" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0">
+                      {student.studentName[0].toUpperCase()}
+                    </div>
+                  )}
+                  <div>
+                    <div className="font-bold text-slate-800 text-sm leading-tight">{student.studentName}</div>
+                    <div className="text-xs text-slate-500">{student.className}</div>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col gap-4">
+                  {completedQuests.map(quest => (
+                    <div key={quest.id} className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h4 className="font-bold text-slate-700">{quest.title}</h4>
+                          <span className="text-xs text-slate-500">Dikumpulkan pada: {quest.completedAt ? new Date(quest.completedAt).toLocaleString('id-ID') : '-'}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-sm font-bold text-blue-600">{quest.earnedPoints} / {quest.maxPoints} Poin</span>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-3 space-y-3">
+                        {quest.submissionText && (
+                          <div className="text-sm text-slate-700 bg-white p-3 rounded border border-slate-200 whitespace-pre-wrap">
+                            <strong>Isian Jawaban:</strong><br/>
+                            {quest.submissionText}
+                          </div>
+                        )}
+                        {quest.submissionFileUrl && (
+                          <div>
+                            <a href={quest.submissionFileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-200 font-bold transition-colors">
+                              Buka File Jawaban PDF
+                            </a>
+                          </div>
+                        )}
+                        {(!quest.submissionText && !quest.submissionFileUrl) && (
+                          <p className="text-xs text-slate-400 italic">Diselesaikan tanpa lampiran (versi lawas)</p>
+                        )}
+                      </div>
+                      
+                      <form className="mt-4 flex flex-col gap-2 border-t border-slate-200 pt-3" onSubmit={async (e) => {
+                        e.preventDefault();
+                        const formData = new FormData(e.currentTarget);
+                        const newPoints = Number(formData.get("points"));
+                        const feedback = formData.get("feedback") as string;
+                        try {
+                          const res = await api("/api/teacher/student-progress/grade-quest", {
+                            method: "POST",
+                            body: JSON.stringify({ studentId: student.studentId, questId: quest.id, earnedPoints: newPoints, feedback })
+                          });
+                          alert("Koreksi berhasil disimpan!");
+                        } catch (err) {
+                          alert(err instanceof Error ? err.message : "Gagal menyimpan koreksi.");
+                        }
+                      }}>
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+                          <label className="flex flex-col flex-1">
+                            <span className="text-xs font-bold text-slate-600 mb-1">Berikan / Ubah Nilai (Max {quest.maxPoints})</span>
+                            <input type="number" name="points" min="0" max={quest.maxPoints} defaultValue={quest.earnedPoints} className="border border-slate-300 rounded px-3 py-2 sm:py-1.5 text-sm bg-slate-50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500" required />
+                          </label>
+                          <label className="flex flex-col flex-[2]">
+                            <span className="text-xs font-bold text-slate-600 mb-1">Umpan Balik (Opsional)</span>
+                            <input type="text" name="feedback" defaultValue={quest.teacherFeedback || ""} placeholder="Ketik pesan untuk siswa..." className="border border-slate-300 rounded px-3 py-2 sm:py-1.5 text-sm bg-slate-50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          </label>
+                          <button type="submit" className="mt-1 sm:mt-5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-4 py-2.5 sm:py-1.5 rounded-md transition-colors shadow-sm w-full sm:w-auto text-center">Simpan</button>
+                        </div>
+                      </form>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div className="space-y-6">
@@ -7811,11 +8236,234 @@ function AdminAdvancedFeaturesPanel() {
         </button>
       </div>
 
-      <div className="min-h-[300px] flex flex-col items-center justify-center text-center text-slate-500">
-        <Boxes className="h-12 w-12 text-slate-200 mb-4" />
-        <h3 className="font-semibold text-lg text-slate-700 mb-1">Struktur Database & API Telah Disiapkan</h3>
-        <p className="text-sm max-w-md">Fitur {tab === "logs" ? "Log Aktivitas" : tab === "master" ? "Master Data" : "Pengumuman Global"} saat ini sedang dalam pengembangan tampilan antarmuka lanjutan. Struktur tabel dan endpoint API sudah diimplementasikan.</p>
+      <div className="min-h-[300px]">
+        {tab === "announcements" && <AdvancedAnnouncements />}
+        {tab === "master" && <AdvancedMasterData />}
+        {tab === "logs" && <AdvancedActivityLogs />}
       </div>
+    </div>
+  );
+}
+
+function AdvancedAnnouncements() {
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [type, setType] = useState("info");
+  
+  const load = async () => {
+    try {
+      const res = await api<{ announcements: any[] }>("/api/admin/announcements");
+      setData(res.announcements || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  useEffect(() => { load(); }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title || !content) return;
+    try {
+      await api("/api/admin/announcements", {
+        method: "POST",
+        body: JSON.stringify({ title, content, type })
+      });
+      setTitle("");
+      setContent("");
+      setType("info");
+      load();
+    } catch (err) {
+      alert("Gagal menambahkan pengumuman");
+    }
+  };
+  
+  const handleDelete = async (id: string) => {
+    if (!confirm("Hapus pengumuman ini?")) return;
+    try {
+      await api(`/api/admin/announcements/${id}`, { method: "DELETE" });
+      load();
+    } catch (err) {
+      alert("Gagal menghapus");
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <form onSubmit={handleSubmit} className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-3">
+        <h3 className="font-bold text-slate-700 text-sm">Buat Pengumuman Baru</h3>
+        <input type="text" placeholder="Judul Pengumuman" value={title} onChange={e=>setTitle(e.target.value)} className="idetech-input bg-white" required />
+        <textarea placeholder="Isi pengumuman..." value={content} onChange={e=>setContent(e.target.value)} className="idetech-input bg-white min-h-[100px]" required />
+        <div className="flex gap-4 items-center">
+          <select value={type} onChange={e=>setType(e.target.value)} className="idetech-input bg-white w-auto">
+            <option value="info">Info</option>
+            <option value="warning">Peringatan</option>
+            <option value="success">Sukses</option>
+          </select>
+          <button type="submit" disabled={!title || !content} className="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 disabled:opacity-50">Kirim Pengumuman</button>
+        </div>
+      </form>
+      
+      <div className="space-y-3">
+        {loading ? <div className="text-center text-slate-500 py-4">Memuat pengumuman...</div> : 
+          data.length === 0 ? <div className="text-center text-slate-500 py-4 italic">Belum ada pengumuman</div> :
+          data.map(a => (
+            <div key={a.id} className={`p-4 rounded-xl border ${a.type === 'warning' ? 'bg-orange-50 border-orange-200' : a.type === 'success' ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
+              <div className="flex justify-between items-start">
+                <div>
+                  <h4 className="font-bold text-slate-800">{a.title}</h4>
+                  <p className="text-sm text-slate-600 mt-1 whitespace-pre-wrap">{a.content}</p>
+                  <p className="text-xs text-slate-400 mt-3">Oleh: {a.authorName} • {new Date(a.createdAt).toLocaleString('id-ID')}</p>
+                </div>
+                <button onClick={() => handleDelete(a.id)} className="text-red-500 hover:text-red-700 p-2"><Trash2 className="w-4 h-4" /></button>
+              </div>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  );
+}
+
+function AdvancedMasterData() {
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [grades, setGrades] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  const [newSubj, setNewSubj] = useState("");
+  const [newGrade, setNewGrade] = useState("");
+
+  const load = async () => {
+    try {
+      const res = await api<{ subjects: any[], grades: any[] }>("/api/admin/master");
+      setSubjects(res.subjects || []);
+      setGrades(res.grades || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  useEffect(() => { load(); }, []);
+
+  const handleAdd = async (type: "subjects" | "grades", name: string, setName: any) => {
+    if (!name) return;
+    try {
+      await api(`/api/admin/master/${type}`, { method: "POST", body: JSON.stringify({ name }) });
+      setName("");
+      load();
+    } catch (err: any) {
+      alert(err.message || "Gagal menambahkan");
+    }
+  };
+
+  const handleDelete = async (type: "subjects" | "grades", id: string) => {
+    if (!confirm("Hapus data master ini?")) return;
+    try {
+      await api(`/api/admin/master/${type}/${id}`, { method: "DELETE" });
+      load();
+    } catch (err: any) {
+      alert("Gagal menghapus");
+    }
+  };
+
+  if (loading) return <div className="text-center text-slate-500 py-8">Memuat master data...</div>;
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="border border-slate-200 rounded-xl overflow-hidden">
+        <div className="bg-slate-50 p-4 border-b border-slate-200">
+          <h3 className="font-bold text-slate-700">Master Mata Pelajaran</h3>
+        </div>
+        <div className="p-4 flex gap-2">
+          <input type="text" placeholder="Tambah Mapel Baru" value={newSubj} onChange={e=>setNewSubj(e.target.value)} className="idetech-input flex-1" />
+          <button onClick={() => handleAdd("subjects", newSubj, setNewSubj)} disabled={!newSubj} className="bg-blue-600 text-white px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50"><Plus className="w-5 h-5" /></button>
+        </div>
+        <div className="divide-y divide-slate-100 max-h-[300px] overflow-y-auto">
+          {subjects.map(s => (
+            <div key={s.id} className="flex justify-between items-center p-3 hover:bg-slate-50">
+              <span className="text-sm font-medium text-slate-700">{s.name}</span>
+              <button onClick={() => handleDelete("subjects", s.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      <div className="border border-slate-200 rounded-xl overflow-hidden">
+        <div className="bg-slate-50 p-4 border-b border-slate-200">
+          <h3 className="font-bold text-slate-700">Master Tingkatan Kelas</h3>
+        </div>
+        <div className="p-4 flex gap-2">
+          <input type="text" placeholder="Tambah Kelas Baru" value={newGrade} onChange={e=>setNewGrade(e.target.value)} className="idetech-input flex-1" />
+          <button onClick={() => handleAdd("grades", newGrade, setNewGrade)} disabled={!newGrade} className="bg-blue-600 text-white px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50"><Plus className="w-5 h-5" /></button>
+        </div>
+        <div className="divide-y divide-slate-100 max-h-[300px] overflow-y-auto">
+          {grades.map(g => (
+            <div key={g.id} className="flex justify-between items-center p-3 hover:bg-slate-50">
+              <span className="text-sm font-medium text-slate-700">{g.name}</span>
+              <button onClick={() => handleDelete("grades", g.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdvancedActivityLogs() {
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    async function fetchLogs() {
+      try {
+        const res = await api<{ logs: any[] }>("/api/admin/logs");
+        setLogs(res.logs || []);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchLogs();
+  }, []);
+
+  if (loading) return <div className="text-center text-slate-500 py-8">Memuat log aktivitas...</div>;
+  if (logs.length === 0) return <div className="text-center text-slate-500 py-8 italic">Belum ada aktivitas tercatat</div>;
+
+  return (
+    <div className="overflow-x-auto border border-slate-200 rounded-xl">
+      <table className="w-full text-left text-sm border-collapse">
+        <thead>
+          <tr className="bg-slate-50 text-slate-600">
+            <th className="p-3 font-bold border-b">Waktu</th>
+            <th className="p-3 font-bold border-b">Pengguna</th>
+            <th className="p-3 font-bold border-b">Aksi</th>
+            <th className="p-3 font-bold border-b">Tipe</th>
+            <th className="p-3 font-bold border-b">Detail Tambahan</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {logs.map(log => (
+            <tr key={log.id} className="hover:bg-slate-50 transition-colors">
+              <td className="p-3 text-slate-500 text-xs whitespace-nowrap">{new Date(log.createdAt).toLocaleString('id-ID')}</td>
+              <td className="p-3 font-medium text-slate-800">{log.userName}</td>
+              <td className="p-3">
+                <span className={`px-2 py-1 rounded text-xs font-bold ${log.action === 'create' ? 'bg-green-100 text-green-700' : log.action === 'update' ? 'bg-blue-100 text-blue-700' : log.action === 'delete' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}`}>
+                  {log.action.toUpperCase()}
+                </span>
+              </td>
+              <td className="p-3 text-slate-600">{log.resourceType}</td>
+              <td className="p-3 text-xs text-slate-500 max-w-[200px] truncate" title={log.details || "-"}>{log.details || "-"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

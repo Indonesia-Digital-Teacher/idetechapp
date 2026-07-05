@@ -236,6 +236,9 @@ export const studentQuestProgress = mysqlTable(
     questId: fk("quest_id").references(() => ideQuests.id, { onDelete: "cascade" }),
     progress: int("progress").notNull().default(0),
     earnedPoints: int("earned_points").notNull().default(0),
+    submissionText: text("submission_text"),
+    submissionFileUrl: text("submission_file_url"),
+    teacherFeedback: text("teacher_feedback"),
     completedAt: optionalTs("completed_at"),
     updatedAt: ts("updated_at")
   },

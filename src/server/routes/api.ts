@@ -68,9 +68,35 @@ app.get("/dashboard", async (c) => {
     dashboard.metrics[0].value = pendingUsersCount.toString();
     dashboard.metrics[1].value = activeClassesCount.toString();
     dashboard.metrics[2].value = permissionsCount.toString();
+  } else if (user.activeRole === "teacher") {
+    const allRoles = await db.select().from(roles);
+    const teacherRole = allRoles.find((r) => r.name === "teacher");
+    const studentRole = allRoles.find((r) => r.name === "student");
+    
+    const allUserRoles = await db.select().from(userRoles);
+    
+    const studentsCount = allUserRoles.filter((ur) => ur.roleId === studentRole?.id).length;
+    const teachersCount = allUserRoles.filter((ur) => ur.roleId === teacherRole?.id).length;
+    
+    const allClasses = await db.select().from(classes);
+    const classesCount = allClasses.length;
+    
+    const allMaterials = await db.select().from(materials);
+    const materialsCount = allMaterials.length;
+    
+    const allQuests = await db.select().from(ideQuests);
+    const questsCount = allQuests.length;
+
+    dashboard.metrics[0].value = studentsCount.toString();
+    dashboard.metrics[1].value = teachersCount.toString();
+    dashboard.metrics[2].value = classesCount.toString();
+    dashboard.metrics[3].value = materialsCount.toString();
+    dashboard.metrics[4].value = questsCount.toString();
   }
 
-  return c.json({ user, dashboard });
+  const activeAnnouncements = await db.select().from(globalAnnouncements).where(eq(globalAnnouncements.isActive, true)).orderBy(desc(globalAnnouncements.createdAt));
+
+  return c.json({ user, dashboard, announcements: activeAnnouncements });
 });
 
 app.get("/roles", async (c) => {
@@ -466,6 +492,126 @@ app.delete("/admin/classes/:id", requireRole(["admin"]), requirePermission("clas
   return c.json({ ok: true });
 });
 
+// --- ADVANCED FEATURES ENDPOINTS ---
+
+app.get("/admin/announcements", requireRole(["admin"]), async (c) => {
+  const rows = await db.select().from(globalAnnouncements).orderBy(desc(globalAnnouncements.createdAt));
+  const userRows = await db.select().from(users);
+  
+  const enriched = rows.map((item) => {
+    const author = userRows.find((u) => u.id === item.authorUserId);
+    return {
+      ...item,
+      authorName: author?.name || "System"
+    };
+  });
+  return c.json({ announcements: enriched });
+});
+
+app.post("/admin/announcements", requireRole(["admin"]), async (c) => {
+  const user = c.get("authUser");
+  const body = (await c.req.json().catch(() => ({}))) as any;
+  
+  if (!body.title || !body.content) {
+    return c.json({ message: "Judul dan konten wajib diisi." }, 400);
+  }
+  
+  const id = `ann_${crypto.randomUUID()}`;
+  const now = new Date();
+  await db.insert(globalAnnouncements).values({
+    id,
+    title: body.title,
+    content: body.content,
+    type: body.type || "info",
+    isActive: body.isActive !== undefined ? body.isActive : true,
+    authorUserId: user.id,
+    createdAt: now,
+    updatedAt: now
+  });
+  
+  await writeActivityLog({
+    userId: user.id,
+    action: "create",
+    resourceType: "announcement",
+    resourceId: id,
+    details: JSON.stringify({ title: body.title })
+  });
+  
+  const [created] = await db.select().from(globalAnnouncements).where(eq(globalAnnouncements.id, id));
+  return c.json({ announcement: created }, 201);
+});
+
+app.delete("/admin/announcements/:id", requireRole(["admin"]), async (c) => {
+  const id = c.req.param("id");
+  await db.delete(globalAnnouncements).where(eq(globalAnnouncements.id, id));
+  return c.json({ ok: true });
+});
+
+app.get("/admin/master", requireRole(["admin"]), async (c) => {
+  const [subjects, grades] = await Promise.all([
+    db.select().from(masterSubjects).orderBy(desc(masterSubjects.createdAt)),
+    db.select().from(masterGrades).orderBy(desc(masterGrades.createdAt))
+  ]);
+  return c.json({ subjects, grades });
+});
+
+app.post("/admin/master/subjects", requireRole(["admin"]), async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as any;
+  if (!body.name) return c.json({ message: "Nama mata pelajaran wajib diisi." }, 400);
+  
+  const id = `ms_${crypto.randomUUID()}`;
+  await db.insert(masterSubjects).values({
+    id,
+    name: body.name,
+    description: body.description || "",
+    createdAt: new Date()
+  });
+  
+  return c.json({ ok: true }, 201);
+});
+
+app.post("/admin/master/grades", requireRole(["admin"]), async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as any;
+  if (!body.name) return c.json({ message: "Nama tingkatan kelas wajib diisi." }, 400);
+  
+  const id = `mg_${crypto.randomUUID()}`;
+  await db.insert(masterGrades).values({
+    id,
+    name: body.name,
+    description: body.description || "",
+    createdAt: new Date()
+  });
+  
+  return c.json({ ok: true }, 201);
+});
+
+app.delete("/admin/master/:type/:id", requireRole(["admin"]), async (c) => {
+  const { type, id } = c.req.param();
+  if (type === "subjects") {
+    await db.delete(masterSubjects).where(eq(masterSubjects.id, id));
+  } else if (type === "grades") {
+    await db.delete(masterGrades).where(eq(masterGrades.id, id));
+  }
+  return c.json({ ok: true });
+});
+
+app.get("/admin/logs", requireRole(["admin"]), async (c) => {
+  const rows = await db.select().from(activityLogs).orderBy(desc(activityLogs.createdAt)).limit(100);
+  const userRows = await db.select().from(users);
+  
+  const enriched = rows.map((item) => {
+    const user = userRows.find((u) => u.id === item.userId);
+    return {
+      ...item,
+      userName: user?.name || "Unknown",
+      userEmail: user?.email || "-"
+    };
+  });
+  
+  return c.json({ logs: enriched });
+});
+
+
 app.get("/teacher/search-students", requireRole(["teacher", "admin"]), async (c) => {
   const q = c.req.query("q") || "";
   if (!q || q.length < 2) {
@@ -706,18 +852,20 @@ app.get("/teacher/idequests", requireRole(["teacher", "admin"]), requirePermissi
 
 app.post("/teacher/idequests", requireRole(["teacher", "admin"]), requirePermission("quest.manage"), async (c) => {
   const user = c.get("authUser");
-  const body = (await c.req.json().catch(() => ({}))) as {
-    classId?: string;
-    materialId?: string;
-    title?: string;
-    mission?: string;
-    points?: number;
-    dueDate?: string;
-  };
+  
+  let body: any = {};
+  const contentType = c.req.header("content-type") || "";
+  if (contentType.includes("multipart/form-data") || contentType.includes("application/x-www-form-urlencoded")) {
+    body = await c.req.parseBody();
+  } else {
+    body = await c.req.json().catch(() => ({}));
+  }
 
-  const title = body.title?.trim();
-  const mission = body.mission?.trim();
-  const dueDate = body.dueDate?.trim() || "7d";
+  const title = (body.title as string)?.trim();
+  let mission = (body.mission as string)?.trim();
+  const dueDate = (body.dueDate as string)?.trim() || "7d";
+  const photo = body.photo as File | undefined;
+  
   if (!body.classId || !title || !mission) {
     return c.json({ message: "Kelas, judul IdeQuest, dan misi wajib diisi." }, 400);
   }
@@ -728,9 +876,41 @@ app.post("/teacher/idequests", requireRole(["teacher", "admin"]), requirePermiss
   }
 
   if (body.materialId) {
-    const [targetMaterial] = await db.select().from(materials).where(eq(materials.id, body.materialId));
+    const [targetMaterial] = await db.select().from(materials).where(eq(materials.id, body.materialId as string));
     if (!targetMaterial || targetMaterial.classId !== body.classId) {
       return c.json({ message: "Materi tidak ditemukan di kelas yang dipilih." }, 400);
+    }
+  }
+
+  if (photo) {
+    try {
+      const s3Config = getS3Config();
+      const s3 = new S3Client({
+        endpoint: s3Config.endpoint,
+        region: s3Config.region,
+        credentials: {
+          accessKeyId: s3Config.accessKeyId,
+          secretAccessKey: s3Config.secretAccessKey
+        },
+        forcePathStyle: true
+      });
+
+      const ext = photo.name.split('.').pop() || "png";
+      const key = `quests/${user.id}-${Date.now()}.${ext}`;
+      const buffer = await photo.arrayBuffer();
+
+      await s3.send(new PutObjectCommand({
+        Bucket: s3Config.bucket,
+        Key: key,
+        Body: Buffer.from(buffer),
+        ContentType: photo.type
+      }));
+
+      const photoUrl = `${s3Config.publicBaseUrl}/${key}`;
+      mission += `\n\n![Lampiran Gambar](${photoUrl})`;
+    } catch (err) {
+      console.error("Gagal upload lampiran gambar quest ke RustFS:", err);
+      return c.json({ message: "Gagal mengunggah gambar lampiran." }, 500);
     }
   }
 
@@ -741,8 +921,8 @@ app.post("/teacher/idequests", requireRole(["teacher", "admin"]), requirePermiss
     .values({
       id: questId,
       teacherUserId: user.id,
-      classId: body.classId,
-      materialId: body.materialId || null,
+      classId: body.classId as string,
+      materialId: (body.materialId as string) || null,
       title,
       mission,
       points: Math.max(0, Number(body.points ?? 100)),
@@ -906,7 +1086,12 @@ app.get("/teacher/student-progress", requireRole(["teacher", "admin"]), requireP
         progress: prog?.progress || 0,
         completedAt: prog?.completedAt || null,
         dueDate: q.dueDate || null,
-        isLate
+        isLate,
+        submissionText: prog?.submissionText || null,
+        submissionFileUrl: prog?.submissionFileUrl || null,
+        teacherFeedback: prog?.teacherFeedback || null,
+        earnedPoints: prog?.earnedPoints || 0,
+        maxPoints: q.points
       };
     });
 
@@ -922,6 +1107,46 @@ app.get("/teacher/student-progress", requireRole(["teacher", "admin"]), requireP
   });
 
   return c.json({ progress: result });
+});
+
+app.post("/teacher/student-progress/grade-quest", requireRole(["teacher", "admin"]), requirePermission("report.view"), async (c) => {
+  const user = c.get("authUser");
+  const body = await c.req.json().catch(() => ({}));
+  
+  if (!body.studentId || !body.questId || typeof body.earnedPoints !== 'number') {
+    return c.json({ message: "Parameter tidak lengkap." }, 400);
+  }
+
+  const [quest] = await db.select().from(ideQuests).where(eq(ideQuests.id, body.questId));
+  if (!quest || (user.activeRole !== "admin" && quest.teacherUserId !== user.id)) {
+    return c.json({ message: "IdeQuest tidak ditemukan atau bukan milik Anda." }, 403);
+  }
+
+  const progressRows = await db.select().from(studentQuestProgress)
+    .where(eq(studentQuestProgress.studentUserId, body.studentId));
+  const progress = progressRows.find(p => p.questId === body.questId);
+  
+  if (!progress) {
+    return c.json({ message: "Siswa belum mengumpulkan IdeQuest ini." }, 400);
+  }
+
+  await db.update(studentQuestProgress)
+    .set({
+      earnedPoints: body.earnedPoints,
+      teacherFeedback: body.feedback || null,
+      updatedAt: new Date()
+    })
+    .where(eq(studentQuestProgress.id, progress.id));
+
+  await writeActivityLog({
+    userId: user.id,
+    action: "grade",
+    resourceType: "student_quest_progress",
+    resourceId: progress.id,
+    details: { earnedPoints: body.earnedPoints, feedback: body.feedback }
+  });
+
+  return c.json({ ok: true });
 });
 
 app.post("/teacher/journals", requireRole(["teacher", "admin"]), requirePermission("journal.manage"), async (c) => {
@@ -1444,6 +1669,7 @@ app.get("/student/quests", requireRole(["student"]), requirePermission("quest.pl
         points: quest.points,
         progress: progress?.progress ?? 0,
         earnedPoints: progress?.earnedPoints ?? 0,
+        teacherFeedback: progress?.teacherFeedback ?? null,
         completedAt: progress?.completedAt ?? null,
         dueDate: quest.dueDate,
         mission: quest.mission,
@@ -1469,6 +1695,15 @@ app.post("/student/quests/:id/complete", requireRole(["student"]), requirePermis
   const user = c.get("authUser");
   const id = c.req.param("id");
   if (!id) return c.json({ message: "ID IdeQuest wajib diisi." }, 400);
+
+  let body: any = {};
+  const contentType = c.req.header("content-type") || "";
+  if (contentType.includes("multipart/form-data") || contentType.includes("application/x-www-form-urlencoded")) {
+    body = await c.req.parseBody();
+  }
+
+  const answerText = (body.answerText as string)?.trim() || null;
+  const file = body.file as File | undefined;
   const classIds = await getStudentClassIds(user.id);
   const [quest] = await db.select().from(ideQuests).where(eq(ideQuests.id, id));
   if (!quest || quest.status !== "published" || !classIds.includes(quest.classId)) {
@@ -1483,6 +1718,38 @@ app.post("/student/quests/:id/complete", requireRole(["student"]), requirePermis
     }
   }
 
+  let submissionFileUrl = null;
+  if (file) {
+    try {
+      const s3Config = getS3Config();
+      const s3 = new S3Client({
+        endpoint: s3Config.endpoint,
+        region: s3Config.region,
+        credentials: {
+          accessKeyId: s3Config.accessKeyId,
+          secretAccessKey: s3Config.secretAccessKey
+        },
+        forcePathStyle: true
+      });
+
+      const ext = file.name.split('.').pop() || "pdf";
+      const key = `submissions/${user.id}-${Date.now()}.${ext}`;
+      const buffer = await file.arrayBuffer();
+
+      await s3.send(new PutObjectCommand({
+        Bucket: s3Config.bucket,
+        Key: key,
+        Body: Buffer.from(buffer),
+        ContentType: file.type
+      }));
+
+      submissionFileUrl = `${s3Config.publicBaseUrl}/${key}`;
+    } catch (err) {
+      console.error("Gagal upload file jawaban ke RustFS:", err);
+      return c.json({ message: "Gagal mengunggah file jawaban." }, 500);
+    }
+  }
+
   const now = new Date();
   const progressId = `sqp_${crypto.randomUUID()}`;
   await db
@@ -1493,6 +1760,8 @@ app.post("/student/quests/:id/complete", requireRole(["student"]), requirePermis
       questId: id,
       progress: 100,
       earnedPoints: quest.points,
+      submissionText: answerText,
+      submissionFileUrl: submissionFileUrl,
       completedAt: now,
       updatedAt: now
     })
@@ -1500,6 +1769,8 @@ app.post("/student/quests/:id/complete", requireRole(["student"]), requirePermis
       set: {
         progress: 100,
         earnedPoints: quest.points,
+        submissionText: answerText,
+        submissionFileUrl: submissionFileUrl,
         completedAt: now,
         updatedAt: now
       }

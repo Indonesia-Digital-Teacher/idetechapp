@@ -820,7 +820,8 @@ describe("Backend API Endpoints", () => {
         expect(json.children).toHaveLength(1);
         expect(json.children[0]).toHaveProperty("name", "Test User");
         expect(json.children[0]).toHaveProperty("progress", 100);
-        expect(json.children[0]).toHaveProperty("teacherNote", "Belum ada catatan guru.");
+        expect(json.children[0]).toHaveProperty("teacherNotes");
+        expect(Array.isArray(json.children[0].teacherNotes)).toBe(true);
       });
 
       test("Admin dapat membuat, mengubah, dan menghapus relasi", async () => {

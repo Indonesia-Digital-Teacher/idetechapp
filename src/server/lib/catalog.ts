@@ -55,9 +55,11 @@ export const dashboardCatalog = {
     title: "Dashboard Guru",
     description: "Buat materi, susun IdeQuest, kelola kelas, dan pantau siswa melalui Radar Pintar.",
     metrics: [
-      { label: "Kelas saya", value: "5", hint: "3 aktif hari ini" },
-      { label: "Materi IdeStudio", value: "18", hint: "6 siap dibagikan" },
-      { label: "Rata-rata progres", value: "76%", hint: "Naik 9% pekan ini" }
+      { label: "Jumlah Siswa", value: "0", hint: "Total siswa" },
+      { label: "Jumlah Guru", value: "0", hint: "Total guru" },
+      { label: "Jumlah Kelas", value: "0", hint: "Total kelas" },
+      { label: "Jumlah Materi", value: "0", hint: "Total materi" },
+      { label: "Jumlah IdeQuest", value: "0", hint: "Total quest" }
     ],
     actions: ["Buat kelas", "Susun IdeQuest", "Buka Radar Pintar"],
     modules: ["IdeStudio", "IdeQuest Builder", "Co-Lab", "Bank Ide", "Radar Pintar"]
