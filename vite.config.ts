@@ -36,7 +36,7 @@ export default defineConfig({
   server: {
     port: 2016,
     proxy: {
-      "/api": "http://localhost:2017"
+      "/api": "http://127.0.0.1:2017"
     }
   }
 });

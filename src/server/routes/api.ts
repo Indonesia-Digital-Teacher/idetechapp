@@ -1459,10 +1459,15 @@ app.post("/teacher/bank-requests", requireRole(["teacher", "admin"]), requirePer
     if (!item || item.bankStatus !== "approved") return c.json({ message: "Materi tidak tersedia di bank." }, 404);
     if (item.teacherUserId === user.id) return c.json({ message: "Anda tidak perlu meminta materi Anda sendiri." }, 400);
     ownerUserId = item.teacherUserId;
-  } else {
+  } else if (body.itemType === "quest") {
     const [item] = await db.select().from(ideQuests).where(eq(ideQuests.id, body.itemId)).limit(1);
     if (!item || item.bankStatus !== "approved") return c.json({ message: "IdeQuest tidak tersedia di bank." }, 404);
     if (item.teacherUserId === user.id) return c.json({ message: "Anda tidak perlu meminta IdeQuest Anda sendiri." }, 400);
+    ownerUserId = item.teacherUserId;
+  } else if (body.itemType === "rpp") {
+    const [item] = await db.select().from(lessonPlans).where(eq(lessonPlans.id, body.itemId)).limit(1);
+    if (!item || item.bankStatus !== "approved") return c.json({ message: "RPP tidak tersedia di bank." }, 404);
+    if (item.teacherUserId === user.id) return c.json({ message: "Anda tidak perlu meminta RPP Anda sendiri." }, 400);
     ownerUserId = item.teacherUserId;
   }
 
@@ -1489,26 +1494,32 @@ app.post("/teacher/bank-requests", requireRole(["teacher", "admin"]), requirePer
 
 app.get("/teacher/bank-requests", requireRole(["teacher", "admin"]), requirePermission("bank.manage"), async (c) => {
   const user = c.get("authUser");
-  const [incoming, outgoing, userRows, materialRows, questRows] = await Promise.all([
+  const [incoming, outgoing, userRows, materialRows, questRows, rppRows] = await Promise.all([
     db.select().from(bankRequests).where(eq(bankRequests.ownerUserId, user.id)).orderBy(desc(bankRequests.createdAt)),
     db.select().from(bankRequests).where(eq(bankRequests.requesterUserId, user.id)).orderBy(desc(bankRequests.createdAt)),
     db.select().from(users),
     db.select().from(materials),
-    db.select().from(ideQuests)
+    db.select().from(ideQuests),
+    db.select().from(lessonPlans)
   ]);
 
   const mapRequest = (req: any) => {
     const requester = userRows.find((u) => u.id === req.requesterUserId);
     const owner = userRows.find((u) => u.id === req.ownerUserId);
-    const item = req.itemType === "material" 
-      ? materialRows.find(m => m.id === req.itemId) 
-      : questRows.find(q => q.id === req.itemId);
+    let itemTitle = "Item tidak diketahui";
+    if (req.itemType === "material") {
+      itemTitle = materialRows.find(m => m.id === req.itemId)?.title ?? itemTitle;
+    } else if (req.itemType === "quest") {
+      itemTitle = questRows.find(q => q.id === req.itemId)?.title ?? itemTitle;
+    } else if (req.itemType === "rpp") {
+      itemTitle = rppRows.find(r => r.id === req.itemId)?.topic ?? itemTitle;
+    }
     
     return {
       ...req,
       requesterName: requester?.fullName ?? requester?.name ?? "Guru",
       ownerName: owner?.fullName ?? owner?.name ?? "Guru",
-      itemTitle: item?.title ?? "Item tidak diketahui"
+      itemTitle
     };
   };
 
@@ -1551,7 +1562,7 @@ app.patch("/teacher/bank-requests/:id", requireRole(["teacher", "admin"]), requi
           updatedAt: now
         });
       }
-    } else {
+    } else if (request.itemType === "quest") {
       const [item] = await db.select().from(ideQuests).where(eq(ideQuests.id, request.itemId)).limit(1);
       if (item) {
         await db.insert(ideQuests).values({
@@ -1564,6 +1575,22 @@ app.patch("/teacher/bank-requests/:id", requireRole(["teacher", "admin"]), requi
           points: item.points,
           dueDate: item.dueDate,
           status: "published",
+          bankStatus: "none",
+          createdAt: now,
+          updatedAt: now
+        });
+      }
+    } else if (request.itemType === "rpp") {
+      const [item] = await db.select().from(lessonPlans).where(eq(lessonPlans.id, request.itemId)).limit(1);
+      if (item) {
+        await db.insert(lessonPlans).values({
+          id: `rpp_${crypto.randomUUID()}`,
+          teacherUserId: request.requesterUserId,
+          topic: `${item.topic} (Clone)`,
+          grade: item.grade,
+          duration: item.duration,
+          model: item.model,
+          content: item.content,
           bankStatus: "none",
           createdAt: now,
           updatedAt: now
