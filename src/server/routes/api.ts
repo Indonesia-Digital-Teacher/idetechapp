@@ -535,7 +535,7 @@ app.post("/admin/announcements", requireRole(["admin"]), async (c) => {
     action: "create",
     resourceType: "announcement",
     resourceId: id,
-    details: JSON.stringify({ title: body.title })
+    details: { title: body.title }
   });
   
   const [created] = await db.select().from(globalAnnouncements).where(eq(globalAnnouncements.id, id));
@@ -544,6 +544,7 @@ app.post("/admin/announcements", requireRole(["admin"]), async (c) => {
 
 app.delete("/admin/announcements/:id", requireRole(["admin"]), async (c) => {
   const id = c.req.param("id");
+  if (!id) return c.json({ message: "ID wajib disertakan" }, 400);
   await db.delete(globalAnnouncements).where(eq(globalAnnouncements.id, id));
   return c.json({ ok: true });
 });

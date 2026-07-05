@@ -3746,7 +3746,7 @@ function TeacherStudioManager({
   editingMaterialId?: string | null;
   editingQuestId?: string | null;
   onMaterialFormChange: React.Dispatch<React.SetStateAction<{ classId: string; title: string; type: TeacherMaterial["type"]; description: string; content: string; dueDate: string }>>;
-  onQuestFormChange: React.Dispatch<React.SetStateAction<{ classId: string; materialId: string; title: string; mission: string; points: string; dueDate: string; photo: File | null }>>;
+  onQuestFormChange: React.Dispatch<React.SetStateAction<{ classId: string; materialId: string; title: string; mission: string; points: string; dueDate: string }>>;
   onCreateMaterial: (event: React.FormEvent<HTMLFormElement>) => void;
   onCreateQuest: (event: React.FormEvent<HTMLFormElement>) => void;
   onEditMaterial?: (material: TeacherMaterial) => void;
@@ -7805,7 +7805,20 @@ type StudentProgressReport = {
   avatarUrl: string | null;
   className: string;
   materials: { id: string; title: string; type: string; progress: number; completedAt: string | null; dueDate: string | null; isLate: boolean }[];
-  quests: { id: string; title: string; type: string; progress: number; completedAt: string | null; dueDate: string | null; isLate: boolean }[];
+  quests: { 
+    id: string; 
+    title: string; 
+    type: string; 
+    progress: number; 
+    completedAt: string | null; 
+    dueDate: string | null; 
+    isLate: boolean;
+    earnedPoints?: number;
+    maxPoints?: number;
+    submissionText?: string | null;
+    submissionFileUrl?: string | null;
+    teacherFeedback?: string | null;
+  }[];
 };
 
 function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mode?: "radar" | "report" | "koreksi" }) {

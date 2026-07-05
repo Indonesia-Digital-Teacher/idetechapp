@@ -281,7 +281,7 @@ export const bankRequests = mysqlTable("bank_requests", {
   requesterUserId: fk("requester_user_id").references(() => users.id, { onDelete: "cascade" }),
   ownerUserId: fk("owner_user_id").references(() => users.id, { onDelete: "cascade" }),
   targetClassId: fk("target_class_id").references(() => classes.id, { onDelete: "cascade" }),
-  itemType: mysqlEnum("item_type", ["material", "quest"]).notNull(),
+  itemType: mysqlEnum("item_type", ["material", "quest", "rpp"]).notNull(),
   itemId: fk("item_id"),
   status: mysqlEnum("status", ["pending", "approved", "rejected"]).notNull().default("pending"),
   createdAt: ts("created_at"),
