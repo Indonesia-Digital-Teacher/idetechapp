@@ -1471,6 +1471,8 @@ app.post("/teacher/bank-requests", requireRole(["teacher", "admin"]), requirePer
     ownerUserId = item.teacherUserId;
   }
 
+  if (!ownerUserId) return c.json({ message: "Tipe item tidak dikenali." }, 400);
+
   const [targetClass] = await db.select().from(classes).where(eq(classes.id, body.targetClassId)).limit(1);
   if (!targetClass || targetClass.teacherUserId !== user.id) return c.json({ message: "Kelas target tidak valid." }, 400);
 
