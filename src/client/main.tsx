@@ -3943,16 +3943,16 @@ Misi: [Tulis deskripsi misi di sini]`;
 
   const [showBankModal, setShowBankModal] = React.useState(false);
   const [showRequestsModal, setShowRequestsModal] = React.useState(false);
-  const [bankTab, setBankTab] = React.useState<"material" | "quest">("material");
+  const [bankTab, setBankTab] = React.useState<"material" | "quest" | "rpp">("material");
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
   
-  const [bankItems, setBankItems] = React.useState<{ materials: any[]; quests: any[] }>({ materials: [], quests: [] });
+  const [bankItems, setBankItems] = React.useState<{ materials: any[]; quests: any[]; lessonPlans: any[] }>({ materials: [], quests: [], lessonPlans: [] });
   const [bankRequests, setBankRequests] = React.useState<{ incoming: any[]; outgoing: any[] }>({ incoming: [], outgoing: [] });
   const [requestTargetClass, setRequestTargetClass] = React.useState<Record<string, string>>({});
   
   const loadBankPublic = async () => {
     try {
-      const data = await api<{ materials: any[]; quests: any[] }>("/api/teacher/bank-public");
+      const data = await api<{ materials: any[]; quests: any[]; lessonPlans: any[] }>("/api/teacher/bank-public");
       setBankItems(data);
     } catch (err) {
       console.error(err);
@@ -4669,6 +4669,13 @@ Misi: [Tulis deskripsi misi di sini]`;
               >
                 Bank IdeQuest
               </button>
+              <button
+                type="button"
+                className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${bankTab === 'rpp' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+                onClick={() => setBankTab('rpp')}
+              >
+                Bank RPP (AI)
+              </button>
             </div>
 
             <div className="p-6 overflow-y-auto flex-1 bg-slate-50 space-y-4">
@@ -4697,7 +4704,7 @@ Misi: [Tulis deskripsi misi di sini]`;
                     </div>
                   ))
                 )
-              ) : (
+              ) : bankTab === 'quest' ? (
                 bankItems.quests.length === 0 ? (
                   <div className="text-center p-8 text-slate-500 bg-white rounded-xl border border-slate-100 shadow-sm">Belum ada IdeQuest di bank.</div>
                 ) : (
@@ -4718,6 +4725,28 @@ Misi: [Tulis deskripsi misi di sini]`;
                           {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                         <Button type="button" onClick={() => sendBankRequest("quest", item.id)} className="w-full text-xs py-1.5">Minta Izin Penggunaan</Button>
+                      </div>
+                    </div>
+                  ))
+                )
+              ) : (
+                bankItems.lessonPlans?.length === 0 ? (
+                  <div className="text-center p-8 text-slate-500 bg-white rounded-xl border border-slate-100 shadow-sm">Belum ada RPP di bank.</div>
+                ) : (
+                  bankItems.lessonPlans?.map(item => (
+                    <div key={item.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-slate-800">{item.topic}</h4>
+                          <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-[10px] font-bold">Kelas {item.grade}</span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1">Oleh: {item.teacherName} • {item.duration} • {item.model}</p>
+                      </div>
+                      <div className="flex flex-col gap-2 min-w-[160px]">
+                        <Button type="button" onClick={() => {
+                          navigator.clipboard.writeText(item.content);
+                          alert('Isi RPP disalin ke clipboard!');
+                        }} className="w-full text-xs py-1.5 bg-white text-blue-600 border border-blue-200 hover:bg-blue-50">Salin Isi RPP</Button>
                       </div>
                     </div>
                   ))

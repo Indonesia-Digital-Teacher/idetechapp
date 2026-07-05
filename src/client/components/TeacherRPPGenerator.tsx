@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Sparkles, BookOpen, Clock, Users, ChevronRight, FileText, Download } from 'lucide-react';
+import { X, Sparkles, BookOpen, Clock, Users, ChevronRight, FileText, Download, ChevronUp, ChevronDown, Share2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
@@ -7,6 +7,7 @@ import rehypeRaw from 'rehype-raw';
 
 export function TeacherRPPGenerator({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState<1 | 2>(1);
+  const [formMinimized, setFormMinimized] = useState(false);
   const [form, setForm] = useState({
     topic: '',
     grade: '7',
@@ -14,8 +15,35 @@ export function TeacherRPPGenerator({ onClose }: { onClose: () => void }) {
     model: 'Project Based Learning'
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [isSubmittingBank, setIsSubmittingBank] = useState(false);
   const [result, setResult] = useState('');
   const [error, setError] = useState('');
+
+  async function handleBankSubmit() {
+    setIsSubmittingBank(true);
+    try {
+      const res = await fetch("/api/teacher/rpp-bank-submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: form.topic,
+          grade: form.grade,
+          duration: form.duration,
+          model: form.model,
+          content: result
+        })
+      });
+      if (res.ok) {
+        alert("RPP berhasil dikirim ke antrean kurasi Bank Ide!");
+      } else {
+        alert("Gagal mengirim ke Bank Ide.");
+      }
+    } catch (err) {
+      alert("Terjadi kesalahan koneksi.");
+    } finally {
+      setIsSubmittingBank(false);
+    }
+  }
 
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault();
@@ -46,6 +74,7 @@ Formatlah menggunakan Markdown dengan struktur yang rapi (Informasi Umum, Kompon
       const data = await res.json();
       if (data.reply) {
         setResult(data.reply);
+        setFormMinimized(true);
       } else {
         setError('Gagal mendapatkan respon dari AI Dianyssa.');
       }
@@ -75,7 +104,7 @@ Formatlah menggunakan Markdown dengan struktur yang rapi (Informasi Umum, Kompon
         
         <div className="flex flex-col md:flex-row h-full overflow-hidden">
           {/* Sidebar / Header Form */}
-          <div className="w-full md:w-2/5 bg-gradient-to-br from-blue-600 to-indigo-700 p-8 flex flex-col shrink-0 overflow-y-auto">
+          <div className={`w-full md:w-2/5 bg-gradient-to-br from-blue-600 to-indigo-700 p-8 flex-col shrink-0 overflow-y-auto transition-all ${formMinimized && result && !isLoading ? 'hidden md:flex' : 'flex'}`}>
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/20 text-white w-fit text-sm font-bold mb-6 border border-white/20 shadow-sm">
               <Sparkles className="w-4 h-4 text-amber-300" /> AI RPP Generator
             </div>
@@ -168,6 +197,20 @@ Formatlah menggunakan Markdown dengan struktur yang rapi (Informasi Umum, Kompon
             </form>
           </div>
           
+          {/* Toggle Button for Mobile */}
+          {result && !isLoading && (
+            <button 
+              onClick={() => setFormMinimized(!formMinimized)}
+              className="md:hidden w-full bg-slate-200 text-slate-700 flex items-center justify-center py-2 shadow-sm border-y border-slate-300 shrink-0 font-bold text-sm"
+            >
+              {formMinimized ? (
+                <><ChevronDown className="w-5 h-5 mr-2" /> Buka Form</>
+              ) : (
+                <><ChevronUp className="w-5 h-5 mr-2" /> Sembunyikan Form</>
+              )}
+            </button>
+          )}
+
           {/* Output Area */}
           <div className="w-full md:w-3/5 bg-slate-50 flex flex-col relative overflow-hidden">
             {step === 1 ? (
@@ -197,11 +240,16 @@ Formatlah menggunakan Markdown dengan struktur yang rapi (Informasi Umum, Kompon
               </div>
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden">
-                <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200 shrink-0">
+                <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 bg-white border-b border-slate-200 shrink-0">
                   <h3 className="font-bold text-slate-800">Hasil RPP AI</h3>
-                  <button onClick={handleCopy} className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 rounded-lg text-sm font-bold transition-colors">
-                    <Download className="w-4 h-4" /> Salin Teks
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button onClick={handleBankSubmit} disabled={isSubmittingBank} className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 rounded-lg text-sm font-bold transition-colors disabled:opacity-50">
+                      <Share2 className="w-4 h-4" /> {isSubmittingBank ? "Mengirim..." : "Ke Bank Ide"}
+                    </button>
+                    <button onClick={handleCopy} className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 rounded-lg text-sm font-bold transition-colors">
+                      <Download className="w-4 h-4" /> Salin Teks
+                    </button>
+                  </div>
                 </div>
                 <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
                   <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm prose prose-sm md:prose-base prose-blue max-w-none prose-headings:font-black prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-p:text-slate-600 prose-li:text-slate-600">

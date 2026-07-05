@@ -210,6 +210,19 @@ export const ideQuests = mysqlTable("ide_quests", {
   updatedAt: ts("updated_at")
 });
 
+export const lessonPlans = mysqlTable("lesson_plans", {
+  id: pk(),
+  teacherUserId: fk("teacher_user_id").references(() => users.id, { onDelete: "cascade" }),
+  topic: varchar("topic", { length: 255 }).notNull(),
+  grade: varchar("grade", { length: 50 }).notNull(),
+  duration: varchar("duration", { length: 100 }).notNull(),
+  model: varchar("model", { length: 255 }).notNull(),
+  content: text("content").notNull(),
+  bankStatus: mysqlEnum("bank_status", ["none", "pending", "approved", "rejected"]).notNull().default("none"),
+  createdAt: ts("created_at"),
+  updatedAt: ts("updated_at")
+});
+
 export const studentMaterialProgress = mysqlTable(
   "student_material_progress",
   {

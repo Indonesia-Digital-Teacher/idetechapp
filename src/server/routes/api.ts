@@ -23,7 +23,8 @@ import {
   globalAnnouncements,
   masterSubjects,
   masterGrades,
-  systemSettings
+  systemSettings,
+  lessonPlans
 } from "../db/schema";
 import type { RoleName } from "../db/schema";
 import { type AppEnv, authRequired, requirePermission, requireRole } from "../lib/auth";
@@ -1339,10 +1340,39 @@ app.post("/teacher/bank-submit", requireRole(["teacher", "admin"]), requirePermi
   return c.json({ ok: true });
 });
 
+app.post("/teacher/rpp-bank-submit", requireRole(["teacher", "admin"]), requirePermission("bank.manage"), async (c) => {
+  const user = c.get("authUser");
+  const body = (await c.req.json().catch(() => ({}))) as {
+    topic: string;
+    grade: string;
+    duration: string;
+    model: string;
+    content: string;
+  };
+  
+  if (!body.topic || !body.content) return c.json({ message: "Data RPP tidak valid." }, 400);
+
+  await db.insert(lessonPlans).values({
+    id: `rpp_${nanoid(12)}`,
+    teacherUserId: user.id,
+    topic: body.topic,
+    grade: body.grade,
+    duration: body.duration,
+    model: body.model,
+    content: body.content,
+    bankStatus: "pending",
+    createdAt: new Date(),
+    updatedAt: new Date()
+  });
+
+  return c.json({ ok: true });
+});
+
 app.get("/admin/bank-queue", requireRole(["admin"]), requirePermission("bank.manage"), async (c) => {
-  const [materialRows, questRows, userRows] = await Promise.all([
+  const [materialRows, questRows, rppRows, userRows] = await Promise.all([
     db.select().from(materials).where(eq(materials.bankStatus, "pending")).orderBy(desc(materials.updatedAt)),
     db.select().from(ideQuests).where(eq(ideQuests.bankStatus, "pending")).orderBy(desc(ideQuests.updatedAt)),
+    db.select().from(lessonPlans).where(eq(lessonPlans.bankStatus, "pending")).orderBy(desc(lessonPlans.updatedAt)),
     db.select().from(users)
   ]);
 
@@ -1352,6 +1382,10 @@ app.get("/admin/bank-queue", requireRole(["admin"]), requirePermission("bank.man
       teacherName: userRows.find((u) => u.id === item.teacherUserId)?.fullName ?? "Guru"
     })),
     quests: questRows.map((item) => ({
+      ...item,
+      teacherName: userRows.find((u) => u.id === item.teacherUserId)?.fullName ?? "Guru"
+    })),
+    lessonPlans: rppRows.map((item) => ({
       ...item,
       teacherName: userRows.find((u) => u.id === item.teacherUserId)?.fullName ?? "Guru"
     }))
@@ -1369,6 +1403,8 @@ app.patch("/admin/bank-queue/:type/:id", requireRole(["admin"]), requirePermissi
     await db.update(materials).set({ bankStatus: body.status, updatedAt: new Date() }).where(eq(materials.id, id));
   } else if (type === "quest") {
     await db.update(ideQuests).set({ bankStatus: body.status, updatedAt: new Date() }).where(eq(ideQuests.id, id));
+  } else if (type === "rpp") {
+    await db.update(lessonPlans).set({ bankStatus: body.status, updatedAt: new Date() }).where(eq(lessonPlans.id, id));
   }
 
   await writeActivityLog({
@@ -1383,9 +1419,10 @@ app.patch("/admin/bank-queue/:type/:id", requireRole(["admin"]), requirePermissi
 });
 
 app.get("/teacher/bank-public", requireRole(["teacher", "admin"]), requirePermission("bank.manage"), async (c) => {
-  const [materialRows, questRows, userRows] = await Promise.all([
+  const [materialRows, questRows, rppRows, userRows] = await Promise.all([
     db.select().from(materials).where(eq(materials.bankStatus, "approved")).orderBy(desc(materials.updatedAt)),
     db.select().from(ideQuests).where(eq(ideQuests.bankStatus, "approved")).orderBy(desc(ideQuests.updatedAt)),
+    db.select().from(lessonPlans).where(eq(lessonPlans.bankStatus, "approved")).orderBy(desc(lessonPlans.updatedAt)),
     db.select().from(users)
   ]);
 
@@ -1397,6 +1434,10 @@ app.get("/teacher/bank-public", requireRole(["teacher", "admin"]), requirePermis
     quests: questRows.map((item) => ({
       ...item,
       teacherName: userRows.find((u) => u.id === item.teacherUserId)?.fullName ?? "Guru"
+    })),
+    lessonPlans: rppRows.map((item) => ({
+      ...item,
+      teacherName: userRows.find((u) => u.id === item.teacherUserId)?.fullName ?? "Guru"
     }))
   });
 });
@@ -1404,7 +1445,7 @@ app.get("/teacher/bank-public", requireRole(["teacher", "admin"]), requirePermis
 app.post("/teacher/bank-requests", requireRole(["teacher", "admin"]), requirePermission("bank.manage"), async (c) => {
   const user = c.get("authUser");
   const body = (await c.req.json().catch(() => ({}))) as {
-    itemType: "material" | "quest";
+    itemType: "material" | "quest" | "rpp";
     itemId: string;
     targetClassId: string;
   };
