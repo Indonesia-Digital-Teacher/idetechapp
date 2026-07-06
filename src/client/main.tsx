@@ -6216,6 +6216,7 @@ function AdminSubPage({
     quick_action: "Persetujuan Bank Idetech",
     parent_students: "Manajemen Orang Tua & Siswa",
     advanced_features: "Pengaturan Lanjutan",
+    blog: "Kelola Blog",
     home: "Beranda admin"
   }[view];
 
