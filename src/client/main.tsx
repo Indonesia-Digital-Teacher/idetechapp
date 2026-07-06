@@ -346,7 +346,8 @@ const roleFeatures: Record<RoleName, RoleFeature[]> = {
     { name: "Buat IdeQuest", permission: "quest.manage", access: "full", description: "Menyusun jalur belajar gamifikasi.", cta: "Buat IdeQuest" },
     { name: "Lihat progres siswa", permission: "report.view", access: "full", description: "Melihat laporan semua siswa dan kelas.", cta: "Lihat progres" },
     { name: "Lihat Radar Pintar", permission: "radar.view", access: "full", description: "Pantau insight belajar lintas kelas.", cta: "Buka Radar" },
-    { name: "Kelola Bank Ide", permission: "bank.manage", access: "full", description: "Kurasi dan bagikan materi di Bank Ide.", cta: "Kelola Bank" }
+    { name: "Kelola Bank Ide", permission: "bank.manage", access: "full", description: "Kurasi dan bagikan materi di Bank Ide.", cta: "Kelola Bank" },
+    { name: "Kelola Blog", permission: "blog.manage", access: "full", description: "Menulis dan mengelola artikel blog publik.", cta: "Kelola Blog" }
   ],
   teacher: [
     { name: "Lihat progres siswa", permission: "report.view", access: "full", description: "Melihat progres siswa di kelasnya.", cta: "Lihat progres" },
@@ -356,12 +357,14 @@ const roleFeatures: Record<RoleName, RoleFeature[]> = {
     { name: "Buat IdeQuest", permission: "quest.manage", access: "full", description: "Membuat misi, kuis, dan tugas belajar.", cta: "Buat IdeQuest" },
     { name: "Lihat Radar Pintar", permission: "radar.view", access: "full", description: "Menganalisis performa dan risiko belajar.", cta: "Buka Radar" },
     { name: "Kelola Bank Ide", permission: "bank.manage", access: "full", description: "Menyimpan dan membagikan materi ajar.", cta: "Kelola Bank" }
+    // { name: "Tulis Blog", permission: "blog.write", access: "full", description: "Menulis artikel blog (Menunggu persetujuan).", cta: "Tulis Artikel" }
   ],
   student: [
     { name: "Ikut IdeQuest", permission: "quest.play", access: "full", description: "Mengikuti jalur misi IdeQuest yang tersedia.", cta: "Masuk Quest" },
     { name: "Kerjakan kuis", permission: "quest.play", access: "full", description: "Mengerjakan kuis dan tantangan aktif.", cta: "Kerjakan kuis" },
     { name: "Lihat progres siswa", permission: "report.view", access: "self", description: "Melihat progres belajar diri sendiri.", cta: "Progres saya" },
     { name: "Lihat Radar Pintar", permission: "radar.view", access: "limited", description: "Insight belajar tampil terbatas untuk siswa.", cta: "Lihat ringkasan" }
+    // { name: "Tulis Blog", permission: "blog.write", access: "full", description: "Membagikan cerita/pengalaman di blog sekolah.", cta: "Tulis Cerita" }
   ],
   parent: [
     { name: "Lihat progres siswa", permission: "report.view", access: "child", description: "Melihat progres anak yang terhubung.", cta: "Progres anak" },
@@ -5170,7 +5173,7 @@ function LoginScreen({
   onDemoLogin: (email: string) => void;
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeView, setActiveView] = useState<"home" | "shop" | "demo" | "usecases" | "contact">("home");
+  const [activeView, setActiveView] = useState<"home" | "shop" | "blog" | "demo" | "usecases" | "contact">("home");
   const [shopSearch, setShopSearch] = useState("");
   const [shopSort, setShopSort] = useState<"asc" | "desc">("asc");
   const [selectedShopItem, setSelectedShopItem] = useState<any | null>(null);
@@ -5246,7 +5249,8 @@ function LoginScreen({
           <nav className="landing-links hidden lg:flex" aria-label="Navigasi utama">
             <a href="#" onClick={(e) => { e.preventDefault(); setActiveView("home"); }} className={`flex items-center gap-2 hover:text-blue-600 ${activeView === 'home' ? '!text-blue-600' : ''}`}><House className="w-4 h-4"/> Home</a>
             <a href="#" onClick={(e) => { e.preventDefault(); setActiveView("usecases"); }} className={`flex items-center gap-2 hover:text-blue-600 ${activeView === 'usecases' ? '!text-blue-600' : ''}`}><BookOpen className="w-4 h-4"/> Usecases</a>
-            <a href="#" onClick={(e) => { e.preventDefault(); setActiveView("shop"); }} className={`flex items-center gap-2 hover:text-blue-600 ${activeView === 'shop' ? '!text-blue-600' : ''}`}><ShoppingCart className="w-4 h-4"/> Shop</a>
+            {/* <a href="#" onClick={(e) => { e.preventDefault(); setActiveView("shop"); }} className={`flex items-center gap-2 hover:text-blue-600 ${activeView === 'shop' ? '!text-blue-600' : ''}`}><ShoppingCart className="w-4 h-4"/> Shop</a> */}
+            <a href="#" onClick={(e) => { e.preventDefault(); setActiveView("blog"); }} className={`flex items-center gap-2 hover:text-blue-600 ${activeView === 'blog' ? '!text-blue-600' : ''}`}><BookOpen className="w-4 h-4"/> Blog</a>
             <a href="#" onClick={(e) => { e.preventDefault(); setActiveView("demo"); }} className={`flex items-center gap-2 hover:text-blue-600 ${activeView === 'demo' ? '!text-blue-600' : ''}`}><LayoutDashboard className="w-4 h-4"/> Demo</a>
             <a href="#" onClick={(e) => { e.preventDefault(); setActiveView("contact"); }} className={`flex items-center gap-2 hover:text-blue-600 ${activeView === 'contact' ? '!text-blue-600' : ''}`}><MessageCircle className="w-4 h-4"/> Contact</a>
           </nav>
@@ -5271,7 +5275,8 @@ function LoginScreen({
           <div className="lg:hidden absolute top-24 left-4 right-4 z-50 p-4 bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-200/50 flex flex-col space-y-4">
             <a href="#" onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); setActiveView("home"); }} className={`flex items-center gap-2 font-medium hover:text-blue-600 px-2 py-1 ${activeView === 'home' ? 'text-blue-600' : 'text-slate-700'}`}><House className="w-4 h-4"/> Home</a>
             <a href="#" onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); setActiveView("usecases"); }} className={`flex items-center gap-2 font-medium hover:text-blue-600 px-2 py-1 ${activeView === 'usecases' ? 'text-blue-600' : 'text-slate-700'}`}><BookOpen className="w-4 h-4"/> Usecases</a>
-            <a href="#" onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); setActiveView("shop"); }} className={`flex items-center gap-2 font-medium hover:text-blue-600 px-2 py-1 ${activeView === 'shop' ? 'text-blue-600' : 'text-slate-700'}`}><ShoppingCart className="w-4 h-4"/> Shop</a>
+            {/* <a href="#" onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); setActiveView("shop"); }} className={`flex items-center gap-2 font-medium hover:text-blue-600 px-2 py-1 ${activeView === 'shop' ? 'text-blue-600' : 'text-slate-700'}`}><ShoppingCart className="w-4 h-4"/> Shop</a> */}
+            <a href="#" onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); setActiveView("blog"); }} className={`flex items-center gap-2 font-medium hover:text-blue-600 px-2 py-1 ${activeView === 'blog' ? 'text-blue-600' : 'text-slate-700'}`}><BookOpen className="w-4 h-4"/> Blog</a>
             <a href="#" onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); setActiveView("demo"); }} className={`flex items-center gap-2 font-medium hover:text-blue-600 px-2 py-1 ${activeView === 'demo' ? 'text-blue-600' : 'text-slate-700'}`}><LayoutDashboard className="w-4 h-4"/> Demo</a>
             <a href="#" onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); setActiveView("contact"); }} className={`flex items-center gap-2 font-medium hover:text-blue-600 px-2 py-1 ${activeView === 'contact' ? 'text-blue-600' : 'text-slate-700'}`}><MessageCircle className="w-4 h-4"/> Contact</a>
           </div>
@@ -5493,6 +5498,56 @@ function LoginScreen({
             )}
           </section>
         )}
+
+        {activeView === "blog" && (
+          <section className="landing-demo-panel mt-12" id="blog">
+            <div className="landing-demo-panel__header mb-6 flex-col items-start gap-2">
+              <div className="flex items-center gap-2">
+                <p className="landing-demo-panel__eyebrow !mb-0">Blog IdeTech</p>
+                <BookOpen className="h-5 w-5 text-slate-700" />
+              </div>
+              <h2 className="text-2xl font-black text-slate-800 mt-2">Kabar dan Artikel Terbaru</h2>
+              <p className="text-slate-600">Simak berita, tips, dan informasi terbaru seputar pendidikan dan inovasi pembelajaran.</p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-2">
+              <div className="bg-white/80 border border-slate-200 rounded-2xl overflow-hidden hover:shadow-xl transition-all cursor-pointer">
+                <div className="h-48 bg-slate-200 relative">
+                  <img src="https://placehold.co/600x400/3b82f6/ffffff?text=IdeTech" alt="Mengenal IdeTech" className="w-full h-full object-cover" />
+                  <span className="absolute top-3 right-3 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full">Baru</span>
+                </div>
+                <div className="p-6">
+                  <h3 className="text-xl font-bold text-slate-900 mb-2 leading-tight">Ngobrolin IdeTech: Bikin Sekolah Jadi Kayak Main Game</h3>
+                  <p className="text-slate-600 text-sm mb-4 line-clamp-3">Pernah ngerasa nggak sih, sistem belajar di sekolah tuh kadang kaku banget? Anak-anak gampang bosan, guru kecapekan. Nah IdeTech hadir buat mengatasi itu semua...</p>
+                  <button className="text-blue-600 font-bold text-sm flex items-center gap-1 hover:text-blue-700 transition-colors">Baca selengkapnya <ArrowRight className="w-4 h-4" /></button>
+                </div>
+              </div>
+
+              <div className="bg-white/80 border border-slate-200 rounded-2xl overflow-hidden hover:shadow-xl transition-all cursor-pointer">
+                <div className="h-48 bg-slate-200 relative">
+                  <img src="https://placehold.co/600x400/10b981/ffffff?text=Gamifikasi" alt="Gamifikasi" className="w-full h-full object-cover" />
+                </div>
+                <div className="p-6">
+                  <h3 className="text-xl font-bold text-slate-900 mb-2 leading-tight">Pentingnya Gamifikasi dalam Pembelajaran Interaktif</h3>
+                  <p className="text-slate-600 text-sm mb-4 line-clamp-3">Banyak siswa kehilangan motivasi saat belajar pasif. Gamifikasi seperti IdeQuest hadir memberikan rasa pencapaian melalui sistem poin dan lencana yang efektif.</p>
+                  <button className="text-blue-600 font-bold text-sm flex items-center gap-1 hover:text-blue-700 transition-colors">Baca selengkapnya <ArrowRight className="w-4 h-4" /></button>
+                </div>
+              </div>
+
+              <div className="bg-white/80 border border-slate-200 rounded-2xl overflow-hidden hover:shadow-xl transition-all cursor-pointer">
+                <div className="h-48 bg-slate-200 relative">
+                  <img src="https://placehold.co/600x400/8b5cf6/ffffff?text=AI+Guru" alt="AI untuk Guru" className="w-full h-full object-cover" />
+                </div>
+                <div className="p-6">
+                  <h3 className="text-xl font-bold text-slate-900 mb-2 leading-tight">AI sebagai Asisten Guru: Mengurangi Beban Administrasi</h3>
+                  <p className="text-slate-600 text-sm mb-4 line-clamp-3">Menyusun RPP memakan banyak waktu berharga yang seharusnya bisa digunakan untuk berinteraksi dengan siswa. Pelajari cara AI mempercepat proses repetitif ini.</p>
+                  <button className="text-blue-600 font-bold text-sm flex items-center gap-1 hover:text-blue-700 transition-colors">Baca selengkapnya <ArrowRight className="w-4 h-4" /></button>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
 
         {activeView === "demo" && (
           <section className="landing-demo-panel mt-12" id="demo">

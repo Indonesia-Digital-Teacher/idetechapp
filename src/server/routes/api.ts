@@ -1326,22 +1326,36 @@ app.post("/teacher/chat", requireRole(["teacher", "admin"]), requirePermission("
 
 app.post("/teacher/bank-submit", requireRole(["teacher", "admin"]), requirePermission("bank.manage"), async (c) => {
   const user = c.get("authUser");
-  const body = (await c.req.json().catch(() => ({}))) as { type: "material" | "quest"; id: string };
+  const body = (await c.req.json().catch(() => ({}))) as { type: "material" | "quest" | "rpp"; id: string };
   if (!body.type || !body.id) return c.json({ message: "Type dan ID wajib diisi." }, 400);
 
   if (body.type === "material") {
     const [item] = await db.select().from(materials).where(eq(materials.id, body.id)).limit(1);
     if (!item || (user.activeRole !== "admin" && item.teacherUserId !== user.id)) return c.json({ message: "Materi tidak ditemukan." }, 404);
     await db.update(materials).set({ bankStatus: "pending", updatedAt: new Date() }).where(eq(materials.id, body.id));
-  } else {
+  } else if (body.type === "quest") {
     const [item] = await db.select().from(ideQuests).where(eq(ideQuests.id, body.id)).limit(1);
     if (!item || (user.activeRole !== "admin" && item.teacherUserId !== user.id)) return c.json({ message: "IdeQuest tidak ditemukan." }, 404);
     await db.update(ideQuests).set({ bankStatus: "pending", updatedAt: new Date() }).where(eq(ideQuests.id, body.id));
+  } else if (body.type === "rpp") {
+    const [item] = await db.select().from(lessonPlans).where(eq(lessonPlans.id, body.id)).limit(1);
+    if (!item || (user.activeRole !== "admin" && item.teacherUserId !== user.id)) return c.json({ message: "RPP tidak ditemukan." }, 404);
+    await db.update(lessonPlans).set({ bankStatus: "pending", updatedAt: new Date() }).where(eq(lessonPlans.id, body.id));
+  } else {
+    return c.json({ message: "Tipe item tidak valid." }, 400);
   }
   return c.json({ ok: true });
 });
 
-app.post("/teacher/rpp-bank-submit", requireRole(["teacher", "admin"]), requirePermission("bank.manage"), async (c) => {
+app.get("/teacher/rpps", requireRole(["teacher", "admin"]), async (c) => {
+  const user = c.get("authUser");
+  const rpps = await db.select().from(lessonPlans).where(eq(lessonPlans.teacherUserId, user.id)).orderBy(desc(lessonPlans.updatedAt));
+  const subjects = await db.select().from(masterSubjects);
+  const classList = await db.select().from(classes).where(eq(classes.teacherUserId, user.id));
+  return c.json({ rpps, subjects, classes: classList });
+});
+
+app.post("/teacher/rpps", requireRole(["teacher", "admin"]), async (c) => {
   const user = c.get("authUser");
   const body = (await c.req.json().catch(() => ({}))) as {
     topic: string;
@@ -1349,23 +1363,64 @@ app.post("/teacher/rpp-bank-submit", requireRole(["teacher", "admin"]), requireP
     duration: string;
     model: string;
     content: string;
+    status?: "draft" | "published";
+    classId?: string;
+    subjectId?: string;
   };
   
   if (!body.topic || !body.content) return c.json({ message: "Data RPP tidak valid." }, 400);
 
+  const newId = `rpp_${nanoid(12)}`;
+  const now = new Date();
+  
   await db.insert(lessonPlans).values({
-    id: `rpp_${nanoid(12)}`,
+    id: newId,
     teacherUserId: user.id,
     topic: body.topic,
     grade: body.grade,
     duration: body.duration,
     model: body.model,
     content: body.content,
-    bankStatus: "pending",
-    createdAt: new Date(),
-    updatedAt: new Date()
+    status: body.status || "draft",
+    classId: body.classId || null,
+    subjectId: body.subjectId || null,
+    bankStatus: "none",
+    createdAt: now,
+    updatedAt: now
   });
 
+  return c.json({ id: newId, ok: true });
+});
+
+app.put("/teacher/rpps/:id", requireRole(["teacher", "admin"]), async (c) => {
+  const user = c.get("authUser");
+  const id = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as any; // Allow partial updates
+  
+  const [existing] = await db.select().from(lessonPlans).where(eq(lessonPlans.id, id)).limit(1);
+  if (!existing || existing.teacherUserId !== user.id) return c.json({ message: "RPP tidak ditemukan." }, 404);
+  
+  const updateData: any = { updatedAt: new Date() };
+  if (body.topic !== undefined) updateData.topic = body.topic;
+  if (body.grade !== undefined) updateData.grade = body.grade;
+  if (body.duration !== undefined) updateData.duration = body.duration;
+  if (body.model !== undefined) updateData.model = body.model;
+  if (body.content !== undefined) updateData.content = body.content;
+  if (body.status !== undefined) updateData.status = body.status;
+  if (body.classId !== undefined) updateData.classId = body.classId;
+  if (body.subjectId !== undefined) updateData.subjectId = body.subjectId;
+  
+  await db.update(lessonPlans).set(updateData).where(eq(lessonPlans.id, id));
+  return c.json({ ok: true });
+});
+
+app.delete("/teacher/rpps/:id", requireRole(["teacher", "admin"]), async (c) => {
+  const user = c.get("authUser");
+  const id = c.req.param("id");
+  const [existing] = await db.select().from(lessonPlans).where(eq(lessonPlans.id, id)).limit(1);
+  if (!existing || existing.teacherUserId !== user.id) return c.json({ message: "RPP tidak ditemukan." }, 404);
+  
+  await db.delete(lessonPlans).where(eq(lessonPlans.id, id));
   return c.json({ ok: true });
 });
 

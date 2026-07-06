@@ -14,7 +14,7 @@ CREATE TABLE `bank_requests` (
 	`requester_user_id` varchar(64) NOT NULL,
 	`owner_user_id` varchar(64) NOT NULL,
 	`target_class_id` varchar(64) NOT NULL,
-	`item_type` enum('material','quest') NOT NULL,
+	`item_type` enum('material','quest','rpp') NOT NULL,
 	`item_id` varchar(64) NOT NULL,
 	`status` enum('pending','approved','rejected') NOT NULL DEFAULT 'pending',
 	`created_at` datetime(3) NOT NULL,
@@ -83,6 +83,23 @@ CREATE TABLE `ide_quests` (
 	`created_at` datetime(3) NOT NULL,
 	`updated_at` datetime(3) NOT NULL,
 	CONSTRAINT `ide_quests_id` PRIMARY KEY(`id`)
+);
+--> statement-breakpoint
+CREATE TABLE `lesson_plans` (
+	`id` varchar(64) NOT NULL,
+	`teacher_user_id` varchar(64) NOT NULL,
+	`class_id` varchar(64),
+	`subject_id` varchar(64),
+	`topic` varchar(255) NOT NULL,
+	`grade` varchar(50) NOT NULL,
+	`duration` varchar(100) NOT NULL,
+	`model` varchar(255) NOT NULL,
+	`content` text NOT NULL,
+	`status` enum('draft','published') NOT NULL DEFAULT 'draft',
+	`bank_status` enum('none','pending','approved','rejected') NOT NULL DEFAULT 'none',
+	`created_at` datetime(3) NOT NULL,
+	`updated_at` datetime(3) NOT NULL,
+	CONSTRAINT `lesson_plans_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
 CREATE TABLE `master_grades` (
@@ -197,6 +214,9 @@ CREATE TABLE `student_quest_progress` (
 	`quest_id` varchar(64) NOT NULL,
 	`progress` int NOT NULL DEFAULT 0,
 	`earned_points` int NOT NULL DEFAULT 0,
+	`submission_text` text,
+	`submission_file_url` text,
+	`teacher_feedback` text,
 	`completed_at` datetime(3),
 	`updated_at` datetime(3) NOT NULL,
 	CONSTRAINT `student_quest_progress_id` PRIMARY KEY(`id`),
@@ -264,6 +284,9 @@ ALTER TABLE `global_announcements` ADD CONSTRAINT `global_announcements_author_u
 ALTER TABLE `ide_quests` ADD CONSTRAINT `ide_quests_teacher_user_id_users_id_fk` FOREIGN KEY (`teacher_user_id`) REFERENCES `users`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `ide_quests` ADD CONSTRAINT `ide_quests_class_id_classes_id_fk` FOREIGN KEY (`class_id`) REFERENCES `classes`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `ide_quests` ADD CONSTRAINT `ide_quests_material_id_materials_id_fk` FOREIGN KEY (`material_id`) REFERENCES `materials`(`id`) ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `lesson_plans` ADD CONSTRAINT `lesson_plans_teacher_user_id_users_id_fk` FOREIGN KEY (`teacher_user_id`) REFERENCES `users`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `lesson_plans` ADD CONSTRAINT `lesson_plans_class_id_classes_id_fk` FOREIGN KEY (`class_id`) REFERENCES `classes`(`id`) ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `lesson_plans` ADD CONSTRAINT `lesson_plans_subject_id_master_subjects_id_fk` FOREIGN KEY (`subject_id`) REFERENCES `master_subjects`(`id`) ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `materials` ADD CONSTRAINT `materials_teacher_user_id_users_id_fk` FOREIGN KEY (`teacher_user_id`) REFERENCES `users`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `materials` ADD CONSTRAINT `materials_class_id_classes_id_fk` FOREIGN KEY (`class_id`) REFERENCES `classes`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `oauth_accounts` ADD CONSTRAINT `oauth_accounts_user_id_users_id_fk` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

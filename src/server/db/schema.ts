@@ -213,11 +213,14 @@ export const ideQuests = mysqlTable("ide_quests", {
 export const lessonPlans = mysqlTable("lesson_plans", {
   id: pk(),
   teacherUserId: fk("teacher_user_id").references(() => users.id, { onDelete: "cascade" }),
+  classId: varchar("class_id", { length: 64 }).references(() => classes.id, { onDelete: "set null" }),
+  subjectId: varchar("subject_id", { length: 64 }).references(() => masterSubjects.id, { onDelete: "set null" }),
   topic: varchar("topic", { length: 255 }).notNull(),
   grade: varchar("grade", { length: 50 }).notNull(),
   duration: varchar("duration", { length: 100 }).notNull(),
   model: varchar("model", { length: 255 }).notNull(),
   content: text("content").notNull(),
+  status: mysqlEnum("status", ["draft", "published"]).notNull().default("draft"),
   bankStatus: mysqlEnum("bank_status", ["none", "pending", "approved", "rejected"]).notNull().default("none"),
   createdAt: ts("created_at"),
   updatedAt: ts("updated_at")

@@ -9,6 +9,7 @@ export function TeacherRPPGenerator({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState<1 | 2>(1);
   const [formMinimized, setFormMinimized] = useState(false);
   const [form, setForm] = useState({
+    subjectId: '',
     topic: '',
     grade: '7',
     duration: '2x45 Menit',
@@ -18,25 +19,53 @@ export function TeacherRPPGenerator({ onClose }: { onClose: () => void }) {
   const [isSubmittingBank, setIsSubmittingBank] = useState(false);
   const [result, setResult] = useState('');
   const [error, setError] = useState('');
+  const [subjects, setSubjects] = useState<{id: string, name: string}[]>([]);
+  const [classes, setClasses] = useState<{id: string, name: string}[]>([]);
+
+  React.useEffect(() => {
+    fetch('/api/teacher/rpps')
+      .then(res => res.json())
+      .then(data => {
+        if (data.subjects) setSubjects(data.subjects);
+        if (data.classes) setClasses(data.classes);
+      })
+      .catch(console.error);
+  }, []);
 
   async function handleBankSubmit() {
     setIsSubmittingBank(true);
     try {
-      const res = await fetch("/api/teacher/rpp-bank-submit", {
+      // 1. Save RPP as published
+      const res = await fetch("/api/teacher/rpps", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          subjectId: form.subjectId || undefined,
           topic: form.topic,
           grade: form.grade,
           duration: form.duration,
           model: form.model,
-          content: result
+          content: result,
+          status: "published"
         })
       });
+      
       if (res.ok) {
-        alert("RPP berhasil dikirim ke antrean kurasi Bank Ide!");
+        const data = await res.json();
+        // 2. Submit to Bank Ide
+        const submitRes = await fetch("/api/teacher/bank-submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "rpp", id: data.id })
+        });
+        
+        if (submitRes.ok) {
+          alert("RPP berhasil disimpan dan dikirim ke antrean kurasi Bank Ide!");
+        } else {
+          alert("RPP berhasil disimpan, tetapi gagal dikirim ke Bank Ide.");
+        }
       } else {
-        alert("Gagal mengirim ke Bank Ide.");
+        alert("Gagal menyimpan RPP.");
       }
     } catch (err) {
       alert("Terjadi kesalahan koneksi.");
@@ -112,20 +141,35 @@ Formatlah menggunakan Markdown dengan struktur yang rapi (Informasi Umum, Kompon
             <p className="text-blue-100 text-sm mb-8 leading-relaxed">Buat RPP dan Modul Ajar Kurikulum Merdeka hanya dalam hitungan detik dengan bantuan Dianyssa AI.</p>
             
             <form onSubmit={handleGenerate} className="space-y-5 mt-auto">
-              <div>
-                <label className="block text-blue-100 text-xs font-bold uppercase tracking-wider mb-2">Topik / Mata Pelajaran</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <BookOpen className="h-4 w-4 text-blue-300" />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-blue-100 text-xs font-bold uppercase tracking-wider mb-2">Mata Pelajaran (Opsional)</label>
+                  <select 
+                    value={form.subjectId}
+                    onChange={e => setForm({...form, subjectId: e.target.value})}
+                    className="w-full px-4 py-3 bg-white/10 border border-blue-400/30 rounded-xl text-white focus:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all text-sm font-medium appearance-none"
+                  >
+                    <option value="" className="text-slate-800">-- Pilih Mapel --</option>
+                    {subjects.map(s => (
+                      <option key={s.id} value={s.id} className="text-slate-800">{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-blue-100 text-xs font-bold uppercase tracking-wider mb-2">Topik / Materi</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <BookOpen className="h-4 w-4 text-blue-300" />
+                    </div>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="Cth: Sistem Tata Surya"
+                      value={form.topic}
+                      onChange={e => setForm({...form, topic: e.target.value})}
+                      className="w-full pl-10 pr-4 py-3 bg-white/10 border border-blue-400/30 rounded-xl text-white placeholder-blue-300/50 focus:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all text-sm font-medium"
+                    />
                   </div>
-                  <input 
-                    type="text" 
-                    required
-                    placeholder="Cth: Sistem Tata Surya (IPA)"
-                    value={form.topic}
-                    onChange={e => setForm({...form, topic: e.target.value})}
-                    className="w-full pl-10 pr-4 py-3 bg-white/10 border border-blue-400/30 rounded-xl text-white placeholder-blue-300/50 focus:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all text-sm font-medium"
-                  />
                 </div>
               </div>
               
