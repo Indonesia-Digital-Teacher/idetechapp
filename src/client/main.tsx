@@ -899,19 +899,9 @@ function ProfileSetupScreen({
 
     const timer = window.setTimeout(() => {
       setSchoolBusy(true);
-      fetch(`https://api-sekolah-indonesia.vercel.app/sekolah/s?sekolah=${encodeURIComponent(schoolName)}`)
+      api<{ schools: SchoolOption[] }>(`/api/schools/search?q=${encodeURIComponent(schoolName)}`)
         .then((res) => {
-          if (!res.ok) throw new Error("Gagal");
-          return res.json();
-        })
-        .then((payload: any) => {
-          const data = payload.dataSekolah || [];
-          const schools = data.map((s: any) => ({
-            name: s.sekolah,
-            city: s.kabupaten_kota,
-            province: s.propinsi
-          })).slice(0, 10);
-          setSchools(schools);
+          setSchools(res.schools || []);
         })
         .catch(() => setSchools([]))
         .finally(() => setSchoolBusy(false));
