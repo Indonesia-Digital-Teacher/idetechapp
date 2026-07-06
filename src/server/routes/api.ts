@@ -1394,7 +1394,7 @@ app.post("/teacher/rpps", requireRole(["teacher", "admin"]), async (c) => {
 
 app.put("/teacher/rpps/:id", requireRole(["teacher", "admin"]), async (c) => {
   const user = c.get("authUser");
-  const id = c.req.param("id");
+  const id = c.req.param("id") as string;
   const body = (await c.req.json().catch(() => ({}))) as any; // Allow partial updates
   
   const [existing] = await db.select().from(lessonPlans).where(eq(lessonPlans.id, id)).limit(1);
@@ -1416,7 +1416,7 @@ app.put("/teacher/rpps/:id", requireRole(["teacher", "admin"]), async (c) => {
 
 app.delete("/teacher/rpps/:id", requireRole(["teacher", "admin"]), async (c) => {
   const user = c.get("authUser");
-  const id = c.req.param("id");
+  const id = c.req.param("id") as string;
   const [existing] = await db.select().from(lessonPlans).where(eq(lessonPlans.id, id)).limit(1);
   if (!existing || existing.teacherUserId !== user.id) return c.json({ message: "RPP tidak ditemukan." }, 404);
   
