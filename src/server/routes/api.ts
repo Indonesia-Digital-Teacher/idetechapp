@@ -24,7 +24,8 @@ import {
   masterSubjects,
   masterGrades,
   systemSettings,
-  lessonPlans
+  lessonPlans,
+  blogs
 } from "../db/schema";
 import type { RoleName } from "../db/schema";
 import { type AppEnv, authRequired, requirePermission, requireRole } from "../lib/auth";
@@ -2733,6 +2734,105 @@ app.delete("/admin/settings/:key", requireRole(["admin"]), requirePermission("sy
   });
 
   return c.json({ ok: true });
+});
+
+// Blog Endpoints
+app.get("/public/blogs", async (c) => {
+  const allBlogs = await db.select().from(blogs).where(eq(blogs.status, "published")).orderBy(desc(blogs.createdAt));
+  return c.json({ blogs: allBlogs });
+});
+
+app.get("/admin/blogs", requireRole(["admin"]), requirePermission("blog.manage"), async (c) => {
+  const allBlogs = await db.select().from(blogs).orderBy(desc(blogs.createdAt));
+  return c.json({ blogs: allBlogs });
+});
+
+app.post("/admin/blogs", requireRole(["admin"]), requirePermission("blog.manage"), async (c) => {
+  const user = c.get("authUser");
+  const body = await c.req.json().catch(() => ({}));
+  if (!body.title || !body.content) return c.json({ message: "Judul dan konten wajib diisi." }, 400);
+
+  const slug = body.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') + '-' + nanoid(6);
+  const now = new Date();
+  const id = `blg_${nanoid(12)}`;
+
+  await db.insert(blogs).values({
+    id,
+    authorUserId: user.id,
+    title: body.title,
+    slug,
+    excerpt: body.excerpt || null,
+    content: body.content,
+    coverImageUrl: body.coverImageUrl || null,
+    status: body.status || "draft",
+    createdAt: now,
+    updatedAt: now
+  });
+
+  return c.json({ id, ok: true });
+});
+
+app.put("/admin/blogs/:id", requireRole(["admin"]), requirePermission("blog.manage"), async (c) => {
+  const id = c.req.param("id") as string;
+  const body = await c.req.json().catch(() => ({}));
+
+  const [existing] = await db.select().from(blogs).where(eq(blogs.id, id)).limit(1);
+  if (!existing) return c.json({ message: "Blog tidak ditemukan." }, 404);
+
+  const updateData: any = { updatedAt: new Date() };
+  if (body.title !== undefined) {
+    updateData.title = body.title;
+    if (body.title !== existing.title) {
+      updateData.slug = body.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') + '-' + nanoid(6);
+    }
+  }
+  if (body.excerpt !== undefined) updateData.excerpt = body.excerpt;
+  if (body.content !== undefined) updateData.content = body.content;
+  if (body.coverImageUrl !== undefined) updateData.coverImageUrl = body.coverImageUrl;
+  if (body.status !== undefined) updateData.status = body.status;
+
+  await db.update(blogs).set(updateData).where(eq(blogs.id, id));
+  return c.json({ ok: true });
+});
+
+app.delete("/admin/blogs/:id", requireRole(["admin"]), requirePermission("blog.manage"), async (c) => {
+  const id = c.req.param("id") as string;
+  const [existing] = await db.select().from(blogs).where(eq(blogs.id, id)).limit(1);
+  if (!existing) return c.json({ message: "Blog tidak ditemukan." }, 404);
+
+  await db.delete(blogs).where(eq(blogs.id, id));
+  return c.json({ ok: true });
+});
+
+app.post("/admin/blogs/generate", requireRole(["admin"]), requirePermission("blog.manage"), async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const prompt = body.prompt;
+  
+  if (!prompt) return c.json({ message: "Topik atau ide tulisan wajib diisi." }, 400);
+
+  const message = `Buatkan artikel blog edukasi/pendidikan dengan format Markdown yang rapi berdasarkan topik berikut: ${prompt}.
+Artikel harus memiliki judul utama (H1), pendahuluan yang menarik, 2-3 poin pembahasan (H2/H3), dan penutup. Gaya bahasa usahakan santai tapi profesional, cocok untuk audiens guru dan orang tua. Jangan sertakan tag markdown \`\`\`markdown di awal/akhir respons, langsung saja berikan teksnya.`;
+
+  try {
+    const cybraUrl = process.env.CYBRA_API_URL || "https://cybrabot.ferilee.gurumuda.eu.org";
+    const response = await fetch(`${cybraUrl}/api/integration/chat`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (IdeTech Server) AppleWebKit/537.36"
+      },
+      body: JSON.stringify({ message })
+    });
+
+    if (!response.ok) {
+      return c.json({ message: "Gagal memanggil AI generator." }, 502);
+    }
+
+    const data = await response.json();
+    return c.json({ content: data.reply });
+  } catch (err: any) {
+    return c.json({ message: `Koneksi AI gagal: ${err.message}` }, 500);
+  }
 });
 
 export default app;

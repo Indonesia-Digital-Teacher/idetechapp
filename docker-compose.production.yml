@@ -34,7 +34,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 2016
-      DATABASE_URL: mysql://${MYSQL_USER:-idetech}:${MYSQL_PASSWORD:-idetech_secret}@mariadb:3306/${MYSQL_DATABASE:-idetech}
+      DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD:-idetech_root_secret}@mariadb:3306/${MYSQL_DATABASE:-idetech}
     networks:
       - ferileenet
     restart: always

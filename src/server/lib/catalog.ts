@@ -18,7 +18,8 @@ export const permissionCatalog = [
   { id: "perm_bank_manage", name: "bank.manage", description: "Mengelola Bank Ide." },
   { id: "perm_system_setting", name: "system.setting", description: "Mengatur konfigurasi aplikasi." },
   { id: "perm_journal_manage", name: "journal.manage", description: "Mengelola jurnal refleksi guru." },
-  { id: "perm_chat_use", name: "chat.use", description: "Menggunakan obrolan AI guru." }
+  { id: "perm_chat_use", name: "chat.use", description: "Menggunakan obrolan AI guru." },
+  { id: "perm_blog_manage", name: "blog.manage", description: "Mengelola tulisan blog edukasi." }
 ] as const;
 
 export const rolePermissions: Record<RoleName, string[]> = {
@@ -32,7 +33,8 @@ export const rolePermissions: Record<RoleName, string[]> = {
     "bank.manage",
     "system.setting",
     "journal.manage",
-    "chat.use"
+    "chat.use",
+    "blog.manage"
   ],
   teacher: ["class.manage", "material.create", "quest.manage", "report.view", "radar.view", "bank.manage", "journal.manage", "chat.use"],
   student: ["quest.play", "report.view", "radar.view"],

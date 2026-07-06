@@ -73,6 +73,7 @@ import {
   Send,
   Menu,
   ShoppingCart,
+  Wand2,
 } from "lucide-react";
 import { Button, Card, SecondaryButton, Select, StatusPill } from "./components/ui";
 import "./styles.css";
@@ -139,7 +140,7 @@ type AdminClass = TeacherClass & {
   teacherEmail: string;
 };
 
-type AdminView = "home" | "users" | "classes" | "system" | "quick_action" | "advanced_features" | "parent_students";
+type AdminView = "home" | "users" | "classes" | "system" | "quick_action" | "advanced_features" | "parent_students" | "blog";
 
 type SchoolOption = {
   name: string;
@@ -2266,6 +2267,7 @@ function ProfessionalDashboard({
     { label: "Kelola kelas global", view: "classes", description: "CRUD semua kelas yang dibuat guru.", icon: GraduationCap },
     { label: "Pantau konfigurasi sistem", view: "system", description: "Lihat ringkasan konfigurasi dan atur hak akses.", icon: Settings },
     { label: "Persetujuan Bank Idetech", view: "quick_action", description: "Persetujuan Bank Idetech dan aksi instan lainnya.", icon: Rocket },
+    { label: "Kelola Blog", view: "blog", description: "Tulis dan publikasikan artikel blog edukatif menggunakan AI.", icon: BookOpen },
     { label: "Manajemen Orang Tua & Siswa", view: "parent_students", description: "Kelola relasi orang tua dan anak.", icon: Users },
     { label: "Pengaturan Lanjutan", view: "advanced_features", description: "Log aktivitas, pengumuman global, dan master data.", icon: Boxes }
   ];
@@ -5174,6 +5176,7 @@ function LoginScreen({
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeView, setActiveView] = useState<"home" | "shop" | "blog" | "demo" | "usecases" | "contact">("home");
+  const [readingBlog, setReadingBlog] = useState<any | null>(null);
   const [shopSearch, setShopSearch] = useState("");
   const [shopSort, setShopSort] = useState<"asc" | "desc">("asc");
   const [selectedShopItem, setSelectedShopItem] = useState<any | null>(null);
@@ -5197,6 +5200,24 @@ function LoginScreen({
     }, 10000);
     return () => clearInterval(timer);
   }, [testimonials.length]);
+
+  const [publicBlogs, setPublicBlogs] = useState<any[]>([]);
+  const [publicBlogsBusy, setPublicBlogsBusy] = useState(false);
+  useEffect(() => {
+    if (activeView === "blog" && publicBlogs.length === 0) {
+      setPublicBlogsBusy(true);
+      api<{ blogs: any[] }>("/api/public/blogs").then(res => {
+        if (res.blogs) setPublicBlogs(res.blogs);
+      }).catch(e => console.error("Gagal memuat blog:", e))
+      .finally(() => setPublicBlogsBusy(false));
+    }
+  }, [activeView, publicBlogs.length]);
+
+  useEffect(() => {
+    if (activeView !== "blog") {
+      setReadingBlog(null);
+    }
+  }, [activeView]);
 
   const nextTestimoni = () => setActiveTestimoniIndex((prev) => (prev + 1) % testimonials.length);
   const prevTestimoni = () => setActiveTestimoniIndex((prev) => (prev - 1 + testimonials.length) % testimonials.length);
@@ -5499,7 +5520,7 @@ function LoginScreen({
           </section>
         )}
 
-        {activeView === "blog" && (
+        {activeView === "blog" && !readingBlog && (
           <section className="landing-demo-panel mt-12" id="blog">
             <div className="landing-demo-panel__header mb-6 flex-col items-start gap-2">
               <div className="flex items-center gap-2">
@@ -5511,39 +5532,46 @@ function LoginScreen({
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-2">
-              <div className="bg-white/80 border border-slate-200 rounded-2xl overflow-hidden hover:shadow-xl transition-all cursor-pointer">
-                <div className="h-48 bg-slate-200 relative">
-                  <img src="https://placehold.co/600x400/3b82f6/ffffff?text=IdeTech" alt="Mengenal IdeTech" className="w-full h-full object-cover" />
-                  <span className="absolute top-3 right-3 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full">Baru</span>
-                </div>
-                <div className="p-6">
-                  <h3 className="text-xl font-bold text-slate-900 mb-2 leading-tight">Ngobrolin IdeTech: Bikin Sekolah Jadi Kayak Main Game</h3>
-                  <p className="text-slate-600 text-sm mb-4 line-clamp-3">Pernah ngerasa nggak sih, sistem belajar di sekolah tuh kadang kaku banget? Anak-anak gampang bosan, guru kecapekan. Nah IdeTech hadir buat mengatasi itu semua...</p>
-                  <button className="text-blue-600 font-bold text-sm flex items-center gap-1 hover:text-blue-700 transition-colors">Baca selengkapnya <ArrowRight className="w-4 h-4" /></button>
-                </div>
-              </div>
+              {publicBlogsBusy ? (
+                <div className="col-span-full text-center py-10 text-slate-500">Memuat artikel terbaru...</div>
+              ) : publicBlogs.length === 0 ? (
+                <div className="col-span-full text-center py-10 text-slate-500 bg-white/50 border border-slate-200 rounded-xl">Belum ada artikel yang dipublikasikan.</div>
+              ) : (
+                publicBlogs.map(blog => (
+                  <div key={blog.id} onClick={() => setReadingBlog(blog)} className="bg-white/80 border border-slate-200 rounded-2xl overflow-hidden hover:shadow-xl transition-all cursor-pointer">
+                    <div className="h-48 bg-slate-200 relative">
+                      <img src={blog.coverImageUrl || `https://placehold.co/600x400/3b82f6/ffffff?text=${encodeURIComponent(blog.title)}`} alt={blog.title} className="w-full h-full object-cover" />
+                      {new Date().getTime() - new Date(blog.createdAt).getTime() < 7 * 24 * 60 * 60 * 1000 && (
+                        <span className="absolute top-3 right-3 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full">Baru</span>
+                      )}
+                    </div>
+                    <div className="p-6">
+                      <h3 className="text-xl font-bold text-slate-900 mb-2 leading-tight">{blog.title}</h3>
+                      <p className="text-slate-600 text-sm mb-4 line-clamp-3">{blog.excerpt || blog.content.substring(0, 150) + "..."}</p>
+                      <button type="button" className="text-blue-600 font-bold text-sm flex items-center gap-1 hover:text-blue-700 transition-colors">Baca selengkapnya <ArrowRight className="w-4 h-4" /></button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        )}
 
-              <div className="bg-white/80 border border-slate-200 rounded-2xl overflow-hidden hover:shadow-xl transition-all cursor-pointer">
-                <div className="h-48 bg-slate-200 relative">
-                  <img src="https://placehold.co/600x400/10b981/ffffff?text=Gamifikasi" alt="Gamifikasi" className="w-full h-full object-cover" />
-                </div>
-                <div className="p-6">
-                  <h3 className="text-xl font-bold text-slate-900 mb-2 leading-tight">Pentingnya Gamifikasi dalam Pembelajaran Interaktif</h3>
-                  <p className="text-slate-600 text-sm mb-4 line-clamp-3">Banyak siswa kehilangan motivasi saat belajar pasif. Gamifikasi seperti IdeQuest hadir memberikan rasa pencapaian melalui sistem poin dan lencana yang efektif.</p>
-                  <button className="text-blue-600 font-bold text-sm flex items-center gap-1 hover:text-blue-700 transition-colors">Baca selengkapnya <ArrowRight className="w-4 h-4" /></button>
-                </div>
-              </div>
-
-              <div className="bg-white/80 border border-slate-200 rounded-2xl overflow-hidden hover:shadow-xl transition-all cursor-pointer">
-                <div className="h-48 bg-slate-200 relative">
-                  <img src="https://placehold.co/600x400/8b5cf6/ffffff?text=AI+Guru" alt="AI untuk Guru" className="w-full h-full object-cover" />
-                </div>
-                <div className="p-6">
-                  <h3 className="text-xl font-bold text-slate-900 mb-2 leading-tight">AI sebagai Asisten Guru: Mengurangi Beban Administrasi</h3>
-                  <p className="text-slate-600 text-sm mb-4 line-clamp-3">Menyusun RPP memakan banyak waktu berharga yang seharusnya bisa digunakan untuk berinteraksi dengan siswa. Pelajari cara AI mempercepat proses repetitif ini.</p>
-                  <button className="text-blue-600 font-bold text-sm flex items-center gap-1 hover:text-blue-700 transition-colors">Baca selengkapnya <ArrowRight className="w-4 h-4" /></button>
-                </div>
-              </div>
+        {activeView === "blog" && readingBlog && (
+          <section className="landing-demo-panel mt-12 bg-white/90 p-8 md:p-12 rounded-3xl shadow-sm border border-slate-200" id="blog-read">
+            <button onClick={() => setReadingBlog(null)} className="mb-8 flex items-center gap-2 text-slate-500 hover:text-blue-600 font-semibold transition-colors bg-white rounded-full px-4 py-2 shadow-sm border border-slate-100 w-fit">
+              <ChevronLeft className="w-5 h-5"/> Kembali ke Artikel
+            </button>
+            {readingBlog.coverImageUrl && <img src={readingBlog.coverImageUrl} className="w-full h-64 md:h-96 object-cover rounded-2xl mb-8 shadow-sm" alt={readingBlog.title} />}
+            <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-4 leading-tight">{readingBlog.title}</h1>
+            <p className="text-sm font-semibold text-slate-500 mb-10 flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              {new Date(readingBlog.createdAt).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' })} 
+              <span className="text-slate-300 mx-2">•</span> 
+              Dipublikasikan oleh Tim IdeTech
+            </p>
+            <div className="prose prose-slate max-w-none prose-img:rounded-2xl prose-img:shadow-sm prose-headings:text-slate-800 prose-a:text-blue-600 hover:prose-a:text-blue-700 prose-h1:text-3xl prose-h2:text-2xl prose-h2:mt-10 prose-p:leading-relaxed">
+              <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeKatex]} remarkPlugins={[remarkMath]}>{readingBlog.content}</ReactMarkdown>
             </div>
           </section>
         )}
@@ -6226,6 +6254,8 @@ function AdminSubPage({
       {view === "parent_students" ? <AdminParentStudents users={users} /> : null}
 
       {view === "advanced_features" ? <AdminAdvancedFeaturesPanel /> : null}
+
+      {view === "blog" ? <AdminBlogManager /> : null}
     </section>
   );
 }
@@ -8740,6 +8770,180 @@ function AdminParentStudents({ users }: { users: AdminUser[] }) {
           </table>
         </div>
       </Card>
+    </div>
+  );
+}
+
+function AdminBlogManager() {
+  const [blogs, setBlogs] = useState<any[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [form, setForm] = useState({ title: "", excerpt: "", content: "", status: "draft", prompt: "" });
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const fetchBlogs = async () => {
+    setBusy(true);
+    setErrorMsg(null);
+    try {
+      const res = await api<{ blogs: any[] }>("/api/admin/blogs");
+      if (res.blogs) setBlogs(res.blogs);
+    } catch (e: any) {
+      setErrorMsg("Gagal memuat blog: " + e.message);
+    }
+    setBusy(false);
+  };
+
+  useEffect(() => {
+    fetchBlogs();
+  }, []);
+
+  const handleGenerateAI = async () => {
+    if (!form.prompt) {
+      setErrorMsg("Masukkan ide tulisan untuk AI!");
+      return;
+    }
+    setBusy(true);
+    setErrorMsg(null);
+    try {
+      const res = await api<{ content: string }>("/api/admin/blogs/generate", {
+        method: "POST",
+        body: JSON.stringify({ prompt: form.prompt })
+      });
+      if (res.content) {
+        setForm({ ...form, content: res.content });
+      }
+    } catch (e: any) {
+      // Fallback response for demonstration if API fails
+      setErrorMsg("Gagal menggunakan AI: " + e.message);
+      setForm({ ...form, content: `# ${form.title || 'Artikel Baru'}\n\nIni adalah draf yang dihasilkan sistem karena AI sedang tidak dapat dijangkau. Silakan lengkapi draf ini secara manual.` });
+    }
+    setBusy(false);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setErrorMsg(null);
+    try {
+      await api("/api/admin/blogs", {
+        method: "POST",
+        body: JSON.stringify(form)
+      });
+      setIsFormOpen(false);
+      setForm({ title: "", excerpt: "", content: "", status: "draft", prompt: "" });
+      fetchBlogs();
+    } catch (e: any) {
+      setErrorMsg("Gagal menyimpan blog: " + e.message);
+    }
+    setBusy(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Hapus artikel ini?")) return;
+    setBusy(true);
+    setErrorMsg(null);
+    try {
+      await api("/api/admin/blogs/" + id, { method: "DELETE" });
+      fetchBlogs();
+    } catch (e: any) {
+      setErrorMsg("Gagal menghapus: " + e.message);
+    }
+    setBusy(false);
+  };
+
+  const ErrorAlert = () => errorMsg ? (
+    <div className="bg-red-50 text-red-600 p-4 rounded-xl border border-red-100 text-sm mb-4 flex justify-between items-center shadow-sm">
+      <span>{errorMsg}</span>
+      <button type="button" onClick={() => setErrorMsg(null)} className="hover:bg-red-100 p-1 rounded-md transition-colors">
+        <X className="w-4 h-4" />
+      </button>
+    </div>
+  ) : null;
+
+  if (isFormOpen) {
+    return (
+      <div className="bg-white rounded-xl shadow p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-bold">Buat Artikel Blog</h3>
+          <button onClick={() => setIsFormOpen(false)} className="text-slate-500 hover:text-slate-700">Kembali</button>
+        </div>
+        <ErrorAlert />
+        <form onSubmit={handleSave} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Judul Artikel</label>
+            <input required type="text" className="professional-input" value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder="Contoh: Pentingnya Gamifikasi" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Kutipan Pendek (Excerpt)</label>
+            <textarea className="professional-input" rows={2} value={form.excerpt} onChange={e => setForm({...form, excerpt: e.target.value})} placeholder="Ringkasan singkat untuk halaman depan..." />
+          </div>
+          
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="font-semibold text-blue-800 flex items-center gap-2 mb-2"><Wand2 className="w-4 h-4"/> AI Writer</h4>
+            <div className="flex gap-2">
+              <input type="text" className="professional-input flex-1 bg-white" placeholder="Ide tulisan: Manfaat teknologi di kelas..." value={form.prompt} onChange={e => setForm({...form, prompt: e.target.value})} />
+              <button type="button" onClick={handleGenerateAI} disabled={busy} className="professional-button is-primary whitespace-nowrap">
+                {busy ? "Loading AI..." : "Generate Draft"}
+              </button>
+            </div>
+            <p className="text-xs text-blue-600 mt-2">AI akan membantu menuliskan draf panjang untuk artikel Anda.</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Konten (Markdown)</label>
+            <textarea required className="professional-input font-mono text-sm" rows={12} value={form.content} onChange={e => setForm({...form, content: e.target.value})} placeholder="# Judul Besar&#10;&#10;Isi tulisan..." />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium mb-1">Status Publikasi</label>
+            <select className="professional-input" value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
+              <option value="draft">Draf (Disembunyikan)</option>
+              <option value="published">Publikasi Terbuka</option>
+            </select>
+          </div>
+          
+          <button type="submit" disabled={busy} className="professional-button is-primary w-full justify-center">Simpan Artikel</button>
+        </form>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div>
+          <h3 className="font-bold text-slate-800">Daftar Artikel Blog</h3>
+          <p className="text-sm text-slate-500">Kelola informasi publik dan pembaruan IdeTech.</p>
+        </div>
+        <button onClick={() => setIsFormOpen(true)} className="professional-button is-primary flex items-center gap-2"><Plus className="w-4 h-4"/> Buat Artikel Baru</button>
+      </div>
+
+      <ErrorAlert />
+      
+      {busy && blogs.length === 0 ? (
+        <p className="text-center text-slate-500">Memuat data blog...</p>
+      ) : blogs.length === 0 ? (
+        <div className="text-center bg-white p-8 rounded-xl border border-slate-200 text-slate-500">
+          Belum ada artikel. Klik "Buat Artikel Baru" untuk mulai.
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          {blogs.map(blog => (
+            <div key={blog.id} className="bg-white p-4 rounded-xl border border-slate-200 flex justify-between items-center">
+              <div>
+                <h4 className="font-bold text-slate-800">{blog.title}</h4>
+                <div className="flex items-center gap-3 text-sm mt-1">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${blog.status === 'published' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                    {blog.status.toUpperCase()}
+                  </span>
+                  <span className="text-slate-500">{new Date(blog.createdAt).toLocaleDateString()}</span>
+                </div>
+              </div>
+              <button onClick={() => handleDelete(blog.id)} disabled={busy} className="professional-button text-red-600 hover:bg-red-50">Hapus</button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

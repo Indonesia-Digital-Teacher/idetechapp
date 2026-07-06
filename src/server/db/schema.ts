@@ -402,4 +402,17 @@ export const systemSettings = mysqlTable("system_settings", {
   updatedAt: ts("updated_at")
 });
 
+export const blogs = mysqlTable("blogs", {
+  id: pk(),
+  authorUserId: fk("author_user_id").references(() => users.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 255 }).notNull().unique(),
+  excerpt: text("excerpt"),
+  content: text("content").notNull(),
+  coverImageUrl: text("cover_image_url"),
+  status: mysqlEnum("status", ["draft", "published"]).notNull().default("draft"),
+  createdAt: ts("created_at"),
+  updatedAt: ts("updated_at")
+});
+
 export type RoleName = "admin" | "teacher" | "student" | "parent";
