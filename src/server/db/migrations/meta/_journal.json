@@ -29,6 +29,20 @@
       "when": 1783307500000,
       "tag": "0003_coin_transactions",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1783308000000,
+      "tag": "0004_consultations",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1783308500000,
+      "tag": "0005_add_hp_and_welcome_bonus",
+      "breakpoints": true
     }
   ]
 }
