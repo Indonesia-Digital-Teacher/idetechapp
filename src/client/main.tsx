@@ -103,6 +103,9 @@ type AuthUser = {
   profileCompleted: boolean;
   status: "active" | "pending" | "suspended";
   hp: number;
+  coins: number;
+  lastCheckInDate: string | null;
+  checkInStreak: number;
   welcomeBonusClaimed: boolean;
   roles: RoleName[];
   activeRole: RoleName;

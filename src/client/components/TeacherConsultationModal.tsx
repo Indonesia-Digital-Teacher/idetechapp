@@ -55,7 +55,7 @@ export function TeacherConsultationModal({ onClose }: { onClose: () => void }) {
     if (!activeThreadId) return;
     if (!confirm("Tutup konsultasi ini?")) return;
     await fetch(`/api/teacher/consultations/${activeThreadId}/close`, { method: "POST" });
-    setActiveThread(prev => ({ ...prev, status: "closed" }));
+    setActiveThread((prev: any) => ({ ...prev, status: "closed" }));
     // reload list
     const data = await fetch("/api/teacher/consultations").then(r => r.json());
     setThreads(data.threads || []);
