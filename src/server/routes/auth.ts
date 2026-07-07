@@ -19,7 +19,9 @@ const app = new Hono<AppEnv>();
 
 app.get("/me", async (c) => {
   const user = await getSessionUser(getCookie(c, sessionCookieName));
-  return c.json({ user });
+  const { getGeneralSettings } = await import("../lib/settings");
+  const settings = await getGeneralSettings();
+  return c.json({ user, settings });
 });
 
 app.get("/google", (c) => {

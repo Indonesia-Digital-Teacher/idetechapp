@@ -6,6 +6,7 @@ import { db } from "../db/client";
 import {
   bankRequests,
   chatQuotas,
+  aiGenerationQuotas,
   classes,
   classStudents,
   ideQuests,
@@ -25,12 +26,15 @@ import {
   masterGrades,
   systemSettings,
   lessonPlans,
-  blogs
+  blogs,
+  coinTransactions,
+  consultationThreads,
+  consultationMessages
 } from "../db/schema";
 import type { RoleName } from "../db/schema";
 import { type AppEnv, authRequired, requirePermission, requireRole } from "../lib/auth";
 import { writeActivityLog } from "../lib/activity";
-import { getChatQuotaConfig } from "../lib/settings";
+import { getChatQuotaConfig, getAiGenerationQuotaConfig } from "../lib/settings";
 import { getS3Config } from "../lib/storage";
 import { dashboardCatalog, permissionCatalog, roleCatalog, studentQuestCatalog } from "../lib/catalog";
 import authRoutes from "./auth";
@@ -326,7 +330,7 @@ app.patch("/admin/settings", requireRole(["admin"]), requirePermission("system.s
   const body = (await c.req.json().catch(() => ({}))) as { key: string; value: string };
   if (!body.key || !body.value) return c.json({ message: "Key dan Value wajib diisi." }, 400);
 
-  if (body.key === "google_auth_rules") {
+  if (body.key === "google.role_rule") {
     try {
       JSON.parse(body.value);
     } catch {
@@ -547,6 +551,77 @@ app.delete("/admin/announcements/:id", requireRole(["admin"]), async (c) => {
   const id = c.req.param("id");
   if (!id) return c.json({ message: "ID wajib disertakan" }, 400);
   await db.delete(globalAnnouncements).where(eq(globalAnnouncements.id, id));
+  return c.json({ ok: true });
+});
+
+// --- WELCOME QUOTES ENDPOINTS ---
+
+// Public: fetch active quotes per role (called on client after login)
+app.get("/welcome-quotes", authRequired, async (c) => {
+  const { getWelcomeQuotesConfig } = await import("../lib/settings");
+  const config = await getWelcomeQuotesConfig();
+  return c.json({ quotes: config.quotes });
+});
+
+// Admin: get all quotes (including inactive)
+app.get("/admin/welcome-quotes", requireRole(["admin"]), async (c) => {
+  const { getWelcomeQuotesConfig } = await import("../lib/settings");
+  const config = await getWelcomeQuotesConfig();
+  return c.json({ quotes: config.quotes });
+});
+
+// Admin: add a new quote
+app.post("/admin/welcome-quotes", requireRole(["admin"]), async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as {
+    text?: string;
+    author?: string;
+    roles?: string[];
+  };
+  if (!body.text?.trim()) return c.json({ message: "Teks kutipan wajib diisi." }, 400);
+  if (!body.roles?.length) return c.json({ message: "Minimal satu role wajib dipilih." }, 400);
+
+  const { getWelcomeQuotesConfig, setSystemSetting } = await import("../lib/settings");
+  const config = await getWelcomeQuotesConfig();
+  const newQuote = {
+    id: `wq_${nanoid(8)}`,
+    text: body.text.trim(),
+    author: body.author?.trim() || undefined,
+    roles: body.roles as ("teacher" | "student" | "parent")[],
+    isActive: true
+  };
+  config.quotes.push(newQuote);
+  await setSystemSetting("welcome.quotes_config", config, "Konfigurasi quotes selamat datang per role.");
+  return c.json({ quote: newQuote }, 201);
+});
+
+// Admin: toggle active/inactive
+app.patch("/admin/welcome-quotes/:id", requireRole(["admin"]), async (c) => {
+  const id = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as { isActive?: boolean; text?: string; author?: string; roles?: string[] };
+
+  const { getWelcomeQuotesConfig, setSystemSetting } = await import("../lib/settings");
+  const config = await getWelcomeQuotesConfig();
+  const idx = config.quotes.findIndex((q) => q.id === id);
+  if (idx === -1) return c.json({ message: "Quote tidak ditemukan." }, 404);
+
+  if (body.isActive !== undefined) config.quotes[idx].isActive = body.isActive;
+  if (body.text !== undefined) config.quotes[idx].text = body.text.trim();
+  if (body.author !== undefined) config.quotes[idx].author = body.author.trim() || undefined;
+  if (body.roles !== undefined) config.quotes[idx].roles = body.roles as ("teacher" | "student" | "parent")[];
+
+  await setSystemSetting("welcome.quotes_config", config, "Konfigurasi quotes selamat datang per role.");
+  return c.json({ quote: config.quotes[idx] });
+});
+
+// Admin: delete a quote
+app.delete("/admin/welcome-quotes/:id", requireRole(["admin"]), async (c) => {
+  const id = c.req.param("id");
+  const { getWelcomeQuotesConfig, setSystemSetting } = await import("../lib/settings");
+  const config = await getWelcomeQuotesConfig();
+  const before = config.quotes.length;
+  config.quotes = config.quotes.filter((q) => q.id !== id);
+  if (config.quotes.length === before) return c.json({ message: "Quote tidak ditemukan." }, 404);
+  await setSystemSetting("welcome.quotes_config", config, "Konfigurasi quotes selamat datang per role.");
   return c.json({ ok: true });
 });
 
@@ -1325,6 +1400,77 @@ app.post("/teacher/chat", requireRole(["teacher", "admin"]), requirePermission("
   }
 });
 
+app.post("/teacher/generate-ai", requireRole(["teacher", "admin"]), requirePermission("chat.use"), async (c) => {
+  const user = c.get("authUser");
+  const body = (await c.req.json().catch(() => ({}))) as { prompt: string };
+  if (!body.prompt) return c.json({ message: "Prompt tidak boleh kosong." }, 400);
+
+  const now = new Date();
+  
+  // Calculate most recent 06:00 AM
+  const last06 = new Date(now);
+  if (now.getHours() < 6) {
+    last06.setDate(last06.getDate() - 1);
+  }
+  last06.setHours(6, 0, 0, 0);
+
+  const { defaultLimit, overrides } = await getAiGenerationQuotaConfig();
+  const limit = overrides[user.email] !== undefined ? overrides[user.email] : defaultLimit;
+
+  let [quota] = await db.select().from(aiGenerationQuotas).where(eq(aiGenerationQuotas.userId, user.id)).limit(1);
+
+  if (!quota) {
+    await db.insert(aiGenerationQuotas).values({
+      id: `aig_${nanoid(12)}`,
+      userId: user.id,
+      generationsCount: 1,
+      lastResetAt: now,
+      updatedAt: now
+    });
+  } else {
+    const isExpired = quota.lastResetAt.getTime() < last06.getTime();
+    if (isExpired) {
+      await db.update(aiGenerationQuotas).set({
+        generationsCount: 1,
+        lastResetAt: now,
+        updatedAt: now
+      }).where(eq(aiGenerationQuotas.id, quota.id));
+    } else {
+      if (quota.generationsCount >= limit) {
+        return c.json({ message: `Kuota harian untuk Generate AI (RPP/Materi/Quest) sudah habis. Maksimal ${limit} kali per hari.` }, 429);
+      }
+      await db.update(aiGenerationQuotas).set({
+        generationsCount: quota.generationsCount + 1,
+        updatedAt: now
+      }).where(eq(aiGenerationQuotas.id, quota.id));
+    }
+  }
+
+  try {
+    const cybraUrl = process.env.CYBRA_API_URL || "https://cybrabot.ferilee.gurumuda.eu.org";
+    const response = await fetch(`${cybraUrl}/api/integration/chat`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (IdeTech Server) AppleWebKit/537.36"
+      },
+      body: JSON.stringify({ message: body.prompt, history: [] })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      console.error(`Cybra AI error ${response.status}:`, errorText);
+      return c.json({ message: `Gagal terhubung ke AI Dianyssa. Status: ${response.status}` }, 502);
+    }
+
+    const data = await response.json();
+    return c.json(data);
+  } catch (err: any) {
+    console.error("Cybra AI error:", err);
+    return c.json({ message: `Koneksi ke backend AI gagal: ${err.message}` }, 500);
+  }
+});
+
 app.post("/teacher/bank-submit", requireRole(["teacher", "admin"]), requirePermission("bank.manage"), async (c) => {
   const user = c.get("authUser");
   const body = (await c.req.json().catch(() => ({}))) as { type: "material" | "quest" | "rpp"; id: string };
@@ -1674,6 +1820,80 @@ app.get("/student/classes", requireRole(["student"]), async (c) => {
   return c.json({ classes: studentClasses });
 });
 
+app.post("/student/claim-welcome", requireRole(["student"]), async (c) => {
+  const user = c.get("authUser");
+  if (user.welcomeBonusClaimed) {
+    return c.json({ message: "Welcome bonus sudah diklaim sebelumnya." }, 400);
+  }
+  
+  const newCoins = user.coins + 100;
+  await db.update(users).set({ 
+    welcomeBonusClaimed: true, 
+    coins: newCoins,
+    updatedAt: new Date() 
+  }).where(eq(users.id, user.id));
+  
+  await db.insert(coinTransactions).values({
+    id: crypto.randomUUID(),
+    userId: user.id,
+    amount: 100,
+    type: "welcome_bonus",
+    description: "Bonus pendaftaran IdeTech",
+    createdAt: new Date()
+  });
+  
+  return c.json({ ok: true, bonus: 100 });
+});
+
+app.get("/student/coins/history", requireRole(["student"]), async (c) => {
+  const user = c.get("authUser");
+  const history = await db.select().from(coinTransactions).where(eq(coinTransactions.userId, user.id)).orderBy(desc(coinTransactions.createdAt)).limit(20);
+  return c.json(history);
+});
+
+app.post("/student/check-in", requireRole(["student"]), async (c) => {
+  const user = c.get("authUser");
+  const now = new Date();
+  const today = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }); // YYYY-MM-DD in WIB
+  
+  if (user.lastCheckInDate === today) {
+    return c.json({ message: "Anda sudah melakukan check-in hari ini." }, 400);
+  }
+  
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const yesterdayStr = yesterday.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+  
+  let newStreak = 1;
+  if (user.lastCheckInDate === yesterdayStr) {
+    newStreak = (user.checkInStreak % 7) + 1;
+  }
+  
+  let reward = 10;
+  if (newStreak === 2 || newStreak === 5) reward = 40;
+  if (newStreak === 3 || newStreak === 6) reward = 100;
+  if (newStreak === 7) reward = 500; // Gift Box Max
+  
+  const newCoins = user.coins + reward;
+  
+  await db.update(users).set({ 
+    coins: newCoins, 
+    checkInStreak: newStreak, 
+    lastCheckInDate: today, 
+    updatedAt: new Date() 
+  }).where(eq(users.id, user.id));
+  
+  await db.insert(coinTransactions).values({
+    id: crypto.randomUUID(),
+    userId: user.id,
+    amount: reward,
+    type: "check_in",
+    description: `Hadiah Cek-in Harian (Hari ke-${newStreak})`,
+    createdAt: new Date()
+  });
+  
+  return c.json({ ok: true, coins: newCoins, streak: newStreak, reward, checkInDate: today });
+});
+
 app.post("/student/classes/join", requireRole(["student"]), async (c) => {
   const user = c.get("authUser");
   const body = (await c.req.json().catch(() => ({}))) as { classCode?: string };
@@ -1804,16 +2024,15 @@ app.get("/student/quests", requireRole(["student"]), requirePermission("quest.pl
         materialId: quest.materialId
       };
     });
-  const fallbackQuests = studentQuestCatalog.map(({ dueSoon, ...quest }) => quest);
-  const quests = dbQuests.length ? dbQuests : fallbackQuests;
+  const quests = dbQuests;
 
   return c.json({
     quests,
     meta: {
       pendingCount: quests.filter((quest) => quest.progress < 100).length,
-      dueSoonCount: dbQuests.length ? quests.filter((quest) => quest.progress < 100).length : studentQuestCatalog.filter((quest) => quest.dueSoon).length,
+      dueSoonCount: quests.filter((quest) => quest.progress < 100).length,
       earnedBadges: quests.filter((quest) => quest.progress >= 80).length,
-      totalPoints: quests.reduce((total, quest) => total + quest.points, 0)
+      totalPoints: quests.reduce((total, quest) => total + quest.earnedPoints, 0) + (user.welcomeBonusClaimed ? 100 : 0)
     }
   });
 });
@@ -1951,18 +2170,15 @@ app.get("/student/indicators", requireRole(["student"]), async (c) => {
     .filter((material) => classIds.includes(material.classId) && material.status === "published");
   const questProgressRows = await db.select().from(studentQuestProgress).where(eq(studentQuestProgress.studentUserId, user.id));
   const dbQuests = (await db.select().from(ideQuests)).filter((quest) => classIds.includes(quest.classId) && quest.status === "published");
-  const pendingCount = dbQuests.length ? dbQuests.filter((quest) => (questProgressRows.find((row) => row.questId === quest.id)?.progress ?? 0) < 100).length : studentQuestCatalog.filter((quest) => quest.progress < 100).length;
-  const dueSoonCount = dbQuests.length ? pendingCount : studentQuestCatalog.filter((quest) => quest.dueSoon).length;
-  const earnedBadges = dbQuests.length ? questProgressRows.filter((row) => row.progress >= 100).length : studentQuestCatalog.filter((quest) => quest.progress >= 80).length;
-  const totalPoints = dbQuests.length
-    ? questProgressRows.reduce((total, progress) => total + progress.earnedPoints, 0)
-    : studentQuestCatalog.reduce((total, quest) => total + quest.points, 0);
-  const radarWarning = dbQuests.length ? dbQuests.some((quest) => quest.points < 100) : studentQuestCatalog.some((quest) => quest.progress < 50);
+  const pendingCount = dbQuests.filter((quest) => (questProgressRows.find((row) => row.questId === quest.id)?.progress ?? 0) < 100).length;
+  const dueSoonCount = pendingCount;
+  const earnedBadges = questProgressRows.filter((row) => row.progress >= 100).length;
+  const basePoints = questProgressRows.reduce((total, progress) => total + progress.earnedPoints, 0);
+  const totalPoints = basePoints + (user.welcomeBonusClaimed ? 100 : 0);
+  const radarWarning = dbQuests.some((quest) => quest.points < 100);
   const completedMaterials = visibleMaterials.filter((material) => (materialProgressRows.find((row) => row.materialId === material.id)?.progress ?? 0) >= 100).length;
-  const completedQuests = dbQuests.length
-    ? dbQuests.filter((quest) => (questProgressRows.find((row) => row.questId === quest.id)?.progress ?? 0) >= 100).length
-    : studentQuestCatalog.filter((quest) => quest.progress >= 100).length;
-  const totalUnits = visibleMaterials.length + (dbQuests.length || studentQuestCatalog.length);
+  const completedQuests = dbQuests.filter((quest) => (questProgressRows.find((row) => row.questId === quest.id)?.progress ?? 0) >= 100).length;
+  const totalUnits = visibleMaterials.length + dbQuests.length;
   const completedUnits = completedMaterials + completedQuests;
   const levelValue = 1 + completedQuests;
   const chapterValue = activeClass ? Math.max(1, visibleMaterials.length) : 1;
@@ -2064,7 +2280,14 @@ app.get("/student/indicators", requireRole(["student"]), async (c) => {
       chapterProgress: chapterProgressLabel,
       levelButton: `Level ${levelValue}`,
       progressPercent,
-      summary: activeClass ? `${activeClass.name} • ${activeClass.subject}` : "Gabung ke kelas untuk mulai progres"
+      summary: activeClass ? `${activeClass.name} • ${activeClass.subject}` : "Gabung ke kelas untuk mulai progres",
+      stats: {
+        totalPoints,
+        completedQuests,
+        completedMaterials,
+        earnedBadges,
+        classesJoined: classIds.length
+      }
     }
   });
 });
@@ -2321,6 +2544,226 @@ app.post("/parent/connect", requireRole(["parent"]), requirePermission("report.v
   });
 
   return c.json({ connection: created }, 201);
+});
+
+// Consultation endpoints for Parents
+app.get("/parent/teachers", requireRole(["parent"]), async (c) => {
+  const user = c.get("authUser");
+  const studentId = c.req.query("studentId");
+  if (!studentId) return c.json({ message: "studentId required" }, 400);
+
+  // Check relationship
+  const [ps] = await db.select().from(parentStudents)
+    .where(and(eq(parentStudents.parentUserId, user.id), eq(parentStudents.studentUserId, studentId))).limit(1);
+  if (!ps) return c.json({ message: "Unauthorized" }, 403);
+
+  // Get teachers for this student
+  const teacherRows = await db.select({
+    id: users.id,
+    name: users.name,
+    email: users.email,
+    avatarUrl: users.avatarUrl
+  })
+    .from(classStudents)
+    .innerJoin(classes, eq(classStudents.classId, classes.id))
+    .innerJoin(users, eq(classes.teacherUserId, users.id))
+    .where(eq(classStudents.studentUserId, studentId));
+  
+  // Dedup
+  const uniqueTeachers = Array.from(new Map(teacherRows.map(t => [t.id, t])).values());
+
+  return c.json({ teachers: uniqueTeachers });
+});
+
+app.get("/parent/consultations", requireRole(["parent"]), async (c) => {
+  const user = c.get("authUser");
+  const threads = await db.select({
+    id: consultationThreads.id,
+    studentId: consultationThreads.studentUserId,
+    teacherId: consultationThreads.teacherUserId,
+    topic: consultationThreads.topic,
+    status: consultationThreads.status,
+    updatedAt: consultationThreads.updatedAt,
+    teacherName: users.name
+  })
+    .from(consultationThreads)
+    .innerJoin(users, eq(consultationThreads.teacherUserId, users.id))
+    .where(eq(consultationThreads.parentUserId, user.id))
+    .orderBy(desc(consultationThreads.updatedAt));
+
+  return c.json({ threads });
+});
+
+app.post("/parent/consultations", requireRole(["parent"]), async (c) => {
+  const user = c.get("authUser");
+  const body = await c.req.json().catch(() => ({}));
+  if (!body.studentId || !body.teacherId || !body.topic || !body.content) {
+    return c.json({ message: "Data tidak lengkap" }, 400);
+  }
+
+  // verify ps
+  const [ps] = await db.select().from(parentStudents)
+    .where(and(eq(parentStudents.parentUserId, user.id), eq(parentStudents.studentUserId, body.studentId))).limit(1);
+  if (!ps) return c.json({ message: "Unauthorized" }, 403);
+
+  const threadId = `thr_${nanoid(12)}`;
+  const now = new Date();
+
+  await db.insert(consultationThreads).values({
+    id: threadId,
+    studentUserId: body.studentId,
+    parentUserId: user.id,
+    teacherUserId: body.teacherId,
+    topic: body.topic,
+    createdAt: now,
+    updatedAt: now
+  });
+
+  await db.insert(consultationMessages).values({
+    id: `msg_${nanoid(12)}`,
+    threadId,
+    senderUserId: user.id,
+    content: body.content,
+    createdAt: now
+  });
+
+  const [thread] = await db.select().from(consultationThreads).where(eq(consultationThreads.id, threadId)).limit(1);
+  return c.json({ thread }, 201);
+});
+
+app.get("/parent/consultations/:id", requireRole(["parent"]), async (c) => {
+  const user = c.get("authUser");
+  const threadId = c.req.param("id");
+
+  const [thread] = await db.select().from(consultationThreads)
+    .where(and(eq(consultationThreads.id, String(threadId)), eq(consultationThreads.parentUserId, user.id))).limit(1);
+  
+  if (!thread) return c.json({ message: "Not found" }, 404);
+
+  const messages = await db.select({
+    id: consultationMessages.id,
+    senderId: consultationMessages.senderUserId,
+    content: consultationMessages.content,
+    createdAt: consultationMessages.createdAt,
+    senderName: users.name
+  })
+    .from(consultationMessages)
+    .innerJoin(users, eq(consultationMessages.senderUserId, users.id))
+    .where(eq(consultationMessages.threadId, String(threadId)))
+    .orderBy(consultationMessages.createdAt);
+
+  return c.json({ thread, messages });
+});
+
+app.post("/parent/consultations/:id/reply", requireRole(["parent"]), async (c) => {
+  const user = c.get("authUser");
+  const threadId = c.req.param("id");
+  const body = await c.req.json().catch(() => ({}));
+  if (!body.content) return c.json({ message: "Pesan kosong" }, 400);
+
+  const [thread] = await db.select().from(consultationThreads)
+    .where(and(eq(consultationThreads.id, String(threadId)), eq(consultationThreads.parentUserId, user.id))).limit(1);
+  if (!thread) return c.json({ message: "Not found" }, 404);
+
+  const now = new Date();
+  await db.insert(consultationMessages).values({
+    id: `msg_${nanoid(12)}`,
+    threadId: String(threadId),
+    senderUserId: user.id,
+    content: body.content,
+    createdAt: now
+  });
+
+  await db.update(consultationThreads).set({ updatedAt: now }).where(eq(consultationThreads.id, String(threadId)));
+
+  return c.json({ success: true }, 201);
+});
+
+// Consultation endpoints for Teacher
+app.get("/teacher/consultations", requireRole(["teacher"]), async (c) => {
+  const user = c.get("authUser");
+  const threads = await db.select({
+    id: consultationThreads.id,
+    studentId: consultationThreads.studentUserId,
+    parentId: consultationThreads.parentUserId,
+    topic: consultationThreads.topic,
+    status: consultationThreads.status,
+    updatedAt: consultationThreads.updatedAt,
+    parentName: users.name
+  })
+    .from(consultationThreads)
+    .innerJoin(users, eq(consultationThreads.parentUserId, users.id))
+    .where(eq(consultationThreads.teacherUserId, user.id))
+    .orderBy(desc(consultationThreads.updatedAt));
+
+  return c.json({ threads });
+});
+
+app.get("/teacher/consultations/:id", requireRole(["teacher"]), async (c) => {
+  const user = c.get("authUser");
+  const threadId = c.req.param("id");
+
+  const [thread] = await db.select({
+    id: consultationThreads.id,
+    topic: consultationThreads.topic,
+    status: consultationThreads.status,
+    parentName: users.name
+  }).from(consultationThreads)
+    .innerJoin(users, eq(consultationThreads.parentUserId, users.id))
+    .where(and(eq(consultationThreads.id, String(threadId)), eq(consultationThreads.teacherUserId, user.id))).limit(1);
+  
+  if (!thread) return c.json({ message: "Not found" }, 404);
+
+  const messages = await db.select({
+    id: consultationMessages.id,
+    senderId: consultationMessages.senderUserId,
+    content: consultationMessages.content,
+    createdAt: consultationMessages.createdAt,
+    senderName: users.name
+  })
+    .from(consultationMessages)
+    .innerJoin(users, eq(consultationMessages.senderUserId, users.id))
+    .where(eq(consultationMessages.threadId, String(threadId)))
+    .orderBy(consultationMessages.createdAt);
+
+  return c.json({ thread, messages });
+});
+
+app.post("/teacher/consultations/:id/reply", requireRole(["teacher"]), async (c) => {
+  const user = c.get("authUser");
+  const threadId = c.req.param("id");
+  const body = await c.req.json().catch(() => ({}));
+  if (!body.content) return c.json({ message: "Pesan kosong" }, 400);
+
+  const [thread] = await db.select().from(consultationThreads)
+    .where(and(eq(consultationThreads.id, String(threadId)), eq(consultationThreads.teacherUserId, user.id))).limit(1);
+  if (!thread) return c.json({ message: "Not found" }, 404);
+
+  const now = new Date();
+  await db.insert(consultationMessages).values({
+    id: `msg_${nanoid(12)}`,
+    threadId: String(threadId),
+    senderUserId: user.id,
+    content: body.content,
+    createdAt: now
+  });
+
+  await db.update(consultationThreads).set({ updatedAt: now }).where(eq(consultationThreads.id, String(threadId)));
+
+  return c.json({ success: true }, 201);
+});
+
+app.post("/teacher/consultations/:id/close", requireRole(["teacher"]), async (c) => {
+  const user = c.get("authUser");
+  const threadId = c.req.param("id");
+
+  const [thread] = await db.select().from(consultationThreads)
+    .where(and(eq(consultationThreads.id, String(threadId)), eq(consultationThreads.teacherUserId, user.id))).limit(1);
+  if (!thread) return c.json({ message: "Not found" }, 404);
+
+  await db.update(consultationThreads).set({ status: "closed", updatedAt: new Date() }).where(eq(consultationThreads.id, String(threadId)));
+
+  return c.json({ success: true });
 });
 
 app.get("/permissions/matrix", authRequired, async (c) => {

@@ -20,6 +20,11 @@ export type AuthUser = {
   contactValue: string | null;
   profileCompleted: boolean;
   status: "active" | "pending" | "suspended";
+  hp: number;
+  coins: number;
+  lastCheckInDate: string | null;
+  checkInStreak: number;
+  welcomeBonusClaimed: boolean;
   roles: RoleName[];
   activeRole: RoleName;
   permissions: string[];
@@ -103,6 +108,11 @@ export async function getSessionUser(token?: string): Promise<AuthUser | null> {
     contactValue: user.contactValue,
     profileCompleted: user.profileCompleted,
     status: user.status,
+    hp: user.hp,
+    coins: user.coins,
+    lastCheckInDate: user.lastCheckInDate,
+    checkInStreak: user.checkInStreak,
+    welcomeBonusClaimed: user.welcomeBonusClaimed,
     roles: userRoleNames,
     activeRole,
     permissions: [...new Set(permissionRows.map((row) => row.name))]
@@ -213,10 +223,14 @@ async function resolveGoogleUserRule(email: string): Promise<{ roles: RoleName[]
   }
 
   if (rule.teacherDomains.some((domain) => email.endsWith(domain.toLowerCase()))) {
-    return { roles: ["teacher"] };
+    return { roles: ["teacher"], status: "active" };
   }
 
-  return { roles: [rule.defaultRole] };
+  if (rule.studentDomains && rule.studentDomains.some((domain) => email.endsWith(domain.toLowerCase()))) {
+    return { roles: ["student"], status: "active" };
+  }
+
+  return { roles: [rule.defaultRole], status: "pending" };
 }
 
 async function syncUserRoles(userId: string, roleNames: RoleName[], now: Date) {
@@ -251,6 +265,9 @@ export function requireRole(allowedRoles: RoleName[]) {
     if (!user || !allowedRoles.includes(user.activeRole)) {
       return c.json({ message: "Role tidak memiliki akses ke fitur ini." }, 403);
     }
+    if (user.status === "pending" || user.status === "suspended") {
+      return c.json({ message: "Akun Anda belum aktif atau sedang dinonaktifkan. Silakan hubungi administrator." }, 403);
+    }
 
     await next();
   };
@@ -261,6 +278,9 @@ export function requirePermission(permission: string) {
     const user = c.get("authUser");
     if (!user || !user.permissions.includes(permission)) {
       return c.json({ message: "Permission tidak mencukupi." }, 403);
+    }
+    if (user.status === "pending" || user.status === "suspended") {
+      return c.json({ message: "Akun Anda belum aktif atau sedang dinonaktifkan. Silakan hubungi administrator." }, 403);
     }
 
     await next();

@@ -1,6 +1,10 @@
 .env
 .env.*
 !.env.example
+!.env.backup.example
+scripts/.env.backup
+*.sql.gz
+
 *.pem
 *.key
 *.p12

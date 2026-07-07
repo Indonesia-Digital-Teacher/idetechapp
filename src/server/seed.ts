@@ -20,7 +20,7 @@ import {
   users
 } from "./db/schema";
 import { permissionCatalog, roleCatalog, rolePermissions } from "./lib/catalog";
-import { defaultChatQuotaConfig, defaultGoogleRoleRule } from "./lib/settings";
+import { defaultChatQuotaConfig, defaultGoogleRoleRule, defaultWelcomeQuotesConfig } from "./lib/settings";
 
 await initializeDatabase();
 
@@ -459,6 +459,21 @@ await db
     set: {
       value: JSON.stringify(defaultChatQuotaConfig),
       description: "Konfigurasi limit dan jendela waktu kuota obrolan AI.",
+      updatedAt: now
+    }
+  });
+
+await db
+  .insert(systemSettings)
+  .values({
+    key: "welcome.quotes_config",
+    value: JSON.stringify(defaultWelcomeQuotesConfig),
+    description: "Konfigurasi kutipan motivasi yang tampil di modal selamat datang per role.",
+    updatedAt: now
+  })
+  .onDuplicateKeyUpdate({
+    set: {
+      description: "Konfigurasi kutipan motivasi yang tampil di modal selamat datang per role.",
       updatedAt: now
     }
   });

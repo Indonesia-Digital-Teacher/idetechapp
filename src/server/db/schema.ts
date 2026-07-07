@@ -31,6 +31,11 @@ export const users = mysqlTable(
     contactValue: varchar("contact_value", { length: 100 }),
     profileCompleted: boolean("profile_completed").notNull().default(false),
     status: mysqlEnum("status", ["active", "pending", "suspended"]).notNull().default("pending"),
+    hp: int("hp").notNull().default(100),
+    coins: int("coins").notNull().default(0),
+    lastCheckInDate: varchar("last_check_in_date", { length: 10 }), // Format: YYYY-MM-DD
+    checkInStreak: int("check_in_streak").notNull().default(0),
+    welcomeBonusClaimed: boolean("welcome_bonus_claimed").notNull().default(false),
     createdAt: ts("created_at"),
     updatedAt: ts("updated_at")
   },
@@ -299,6 +304,14 @@ export const chatQuotas = mysqlTable("chat_quotas", {
   updatedAt: ts("updated_at")
 });
 
+export const aiGenerationQuotas = mysqlTable("ai_generation_quotas", {
+  id: pk(),
+  userId: fk("user_id").references(() => users.id, { onDelete: "cascade" }),
+  generationsCount: int("generations_count").notNull().default(0),
+  lastResetAt: ts("last_reset_at"),
+  updatedAt: ts("updated_at")
+});
+
 export const userRelations = relations(users, ({ many }) => ({
   oauthAccounts: many(oauthAccounts),
   userRoles: many(userRoles),
@@ -413,6 +426,34 @@ export const blogs = mysqlTable("blogs", {
   status: mysqlEnum("status", ["draft", "published"]).notNull().default("draft"),
   createdAt: ts("created_at"),
   updatedAt: ts("updated_at")
+});
+
+export const coinTransactions = mysqlTable("coin_transactions", {
+  id: pk(),
+  userId: fk("user_id").references(() => users.id, { onDelete: "cascade" }),
+  amount: int("amount").notNull(),
+  type: mysqlEnum("type", ["check_in", "quest", "material", "shop", "welcome_bonus"]).notNull(),
+  description: text("description"),
+  createdAt: ts("created_at")
+});
+
+export const consultationThreads = mysqlTable("consultation_threads", {
+  id: pk(),
+  studentUserId: fk("student_user_id").references(() => users.id, { onDelete: "cascade" }),
+  parentUserId: fk("parent_user_id").references(() => users.id, { onDelete: "cascade" }),
+  teacherUserId: fk("teacher_user_id").references(() => users.id, { onDelete: "cascade" }),
+  topic: varchar("topic", { length: 255 }).notNull(),
+  status: mysqlEnum("status", ["open", "closed"]).notNull().default("open"),
+  createdAt: ts("created_at"),
+  updatedAt: ts("updated_at")
+});
+
+export const consultationMessages = mysqlTable("consultation_messages", {
+  id: pk(),
+  threadId: fk("thread_id").references(() => consultationThreads.id, { onDelete: "cascade" }),
+  senderUserId: fk("sender_user_id").references(() => users.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  createdAt: ts("created_at")
 });
 
 export type RoleName = "admin" | "teacher" | "student" | "parent";

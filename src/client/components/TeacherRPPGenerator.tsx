@@ -91,16 +91,20 @@ export function TeacherRPPGenerator({ onClose }: { onClose: () => void }) {
 
 Formatlah menggunakan Markdown dengan struktur yang rapi (Informasi Umum, Komponen Inti, Langkah Pembelajaran, Asesmen).`;
 
-      const res = await fetch("https://asisten.ferilee.gurumuda.eu.org/api/integration/chat", {
+      const res = await fetch("/api/teacher/generate-ai", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: prompt,
-          history: []
-        })
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("token") || ""}`
+        },
+        body: JSON.stringify({ prompt })
       });
       
       const data = await res.json();
+      if (!res.ok) {
+        setError(data.message || 'Gagal terhubung ke layanan AI.');
+        return;
+      }
       if (data.reply) {
         setResult(data.reply);
         setFormMinimized(true);

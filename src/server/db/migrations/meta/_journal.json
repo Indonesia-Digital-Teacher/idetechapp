@@ -15,6 +15,20 @@
       "when": 1783306100860,
       "tag": "0001_complex_omega_flight",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1783307000000,
+      "tag": "0002_add_coins_checkin",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1783307500000,
+      "tag": "0003_coin_transactions",
+      "breakpoints": true
     }
   ]
 }

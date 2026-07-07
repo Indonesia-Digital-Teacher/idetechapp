@@ -10,7 +10,15 @@ import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 import { ParentFriendlyDashboard } from "./ParentFriendlyDashboard";
 import { TeacherRPPGenerator } from "./components/TeacherRPPGenerator";
+import { TeacherConsultationModal } from "./components/TeacherConsultationModal";
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: Error | null}> {
+  constructor(props: {children: React.ReactNode}) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error: Error) { return { hasError: true, error }; }
+  render() { if (this.state.hasError) return <div style={{background:'red', color:'white', padding:'20px', zIndex: 9999, position: 'relative'}}><h1>Error Boundary Caught:</h1><pre>{this.state.error?.message}</pre><pre>{this.state.error?.stack}</pre></div>; return this.props.children; }
+}
+
 import {
+
   BadgeCheck,
   Bell,
   BookOpen,
@@ -32,6 +40,7 @@ import {
   MoreHorizontal,
   Pencil,
   Puzzle,
+  MessageSquare,
   Rocket,
   ScrollText,
   Search,
@@ -71,9 +80,11 @@ import {
   Calendar,
   Timer,
   Send,
-  Menu,
   ShoppingCart,
   Wand2,
+  Gift,
+  Ticket,
+  Menu,
 } from "lucide-react";
 import { Button, Card, SecondaryButton, Select, StatusPill } from "./components/ui";
 import "./styles.css";
@@ -91,6 +102,8 @@ type AuthUser = {
   contactValue: string | null;
   profileCompleted: boolean;
   status: "active" | "pending" | "suspended";
+  hp: number;
+  welcomeBonusClaimed: boolean;
   roles: RoleName[];
   activeRole: RoleName;
   permissions: string[];
@@ -221,6 +234,14 @@ type StudentAchievement = {
 
 type StudentClass = TeacherClass;
 
+type WelcomeQuote = {
+  id: string;
+  text: string;
+  author?: string;
+  roles: ("teacher" | "student" | "parent")[];
+  isActive: boolean;
+};
+
 const roleLabels: Record<RoleName, string> = {
   admin: "Admin",
   teacher: "Guru",
@@ -336,6 +357,13 @@ type StudentIndicatorResponse = {
     levelButton: string;
     progressPercent: number;
     summary: string;
+    stats?: {
+      totalPoints: number;
+      completedQuests: number;
+      completedMaterials: number;
+      earnedBadges: number;
+      classesJoined: number;
+    };
   };
 };
 
@@ -586,6 +614,9 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeMobileMenu, setActiveMobileMenu] = useState<MobileNavId>("map");
+  const [adminContact, setAdminContact] = useState("6281234567890");
+  const [welcomeQuotes, setWelcomeQuotes] = useState<WelcomeQuote[]>([]);
+  const [showWelcomeGreeting, setShowWelcomeGreeting] = useState(false);
 
   async function loadSession() {
     setLoading(true);
@@ -593,11 +624,14 @@ function App() {
     const startTime = Date.now();
 
     try {
-      const me = await api<{ user: AuthUser | null }>("/api/auth/me");
+      const me = await api<{ user: AuthUser | null; settings?: { adminContactWa: string } }>("/api/auth/me");
       if (!me.user) {
         setUser(null);
         setDashboard(null);
         return;
+      }
+      if (me.settings?.adminContactWa) {
+        setAdminContact(me.settings.adminContactWa);
       }
       await loadDashboard();
     } finally {
@@ -615,6 +649,22 @@ function App() {
     setUser(payload.user);
     setDashboard(payload.dashboard);
     setAnnouncements(payload.announcements || []);
+
+    // Cek apakah perlu tampil welcome greeting hari ini (skip untuk admin)
+    if (payload.user.activeRole !== "admin") {
+      const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
+      const greetingKey = `idetech_greeting_${payload.user.id}_${today}`;
+      if (!localStorage.getItem(greetingKey)) {
+        // Fetch quotes dan jadwalkan modal tampil
+        try {
+          const qRes = await api<{ quotes: WelcomeQuote[] }>("/api/welcome-quotes");
+          setWelcomeQuotes(qRes.quotes || []);
+        } catch {
+          setWelcomeQuotes([]);
+        }
+        setShowWelcomeGreeting(true);
+      }
+    }
 
     if (payload.user.activeRole === "admin") {
       const [usersResponse, accessResponse, classResponse] = await Promise.all([
@@ -804,9 +854,51 @@ function App() {
     return <ProfileSetupScreen user={user} busy={busy} error={error} onSave={saveProfile} onLogout={logout} />;
   }
 
+  if (user.status === "pending" || user.status === "suspended") {
+    return (
+      <main className="landing-shell min-h-screen flex items-center justify-center p-4">
+        <div className="landing-bg" aria-hidden="true" />
+        <Card className="max-w-md w-full bg-white/90 backdrop-blur p-8 rounded-3xl shadow-2xl text-center z-10 border border-slate-200">
+           <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 ${user.status === 'pending' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'}`}>
+             <ShieldCheck className="w-8 h-8" />
+           </div>
+           <h1 className="text-2xl font-black text-slate-800 mb-2">
+             {user.status === "pending" ? "Akun Menunggu Verifikasi" : "Akun Dinonaktifkan"}
+           </h1>
+           <p className="text-slate-600 mb-8 leading-relaxed">
+             {user.status === "pending" 
+               ? "Akun Anda telah berhasil didaftarkan namun saat ini sedang menunggu proses verifikasi oleh Administrator. Harap tunggu atau hubungi pihak sekolah." 
+               : "Akun Anda saat ini dinonaktifkan oleh Administrator. Silakan hubungi pihak sekolah untuk informasi lebih lanjut."}
+           </p>
+           <div className="flex flex-col gap-3">
+             <a href={`https://wa.me/${adminContact}`} target="_blank" rel="noreferrer" className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-6 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm">
+               <MessageCircle className="w-4 h-4" />
+               Hubungi Admin (WhatsApp)
+             </a>
+             <button onClick={logout} disabled={busy} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-3 px-6 rounded-xl transition-colors flex items-center justify-center gap-2">
+               <LogOut className="w-4 h-4" />
+               Keluar
+             </button>
+           </div>
+        </Card>
+      </main>
+    );
+  }
+
   return (
     <>
       <GlobalAnnouncementsBanner announcements={announcements} />
+      {showWelcomeGreeting && user && (
+        <WelcomeGreetingModal
+          user={user}
+          quotes={welcomeQuotes}
+          onClose={() => {
+            const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
+            localStorage.setItem(`idetech_greeting_${user.id}_${today}`, "1");
+            setShowWelcomeGreeting(false);
+          }}
+        />
+      )}
       {user.activeRole === "student" ? (
         <StudentCompactDashboard
           user={user}
@@ -989,6 +1081,235 @@ function ProfileSetupScreen({
   );
 }
 
+function StudentWelcomeModal({ onClaim, busy }: { onClaim: () => void; busy: boolean }) {
+  return (
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" />
+      <div className="relative bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-500 overflow-hidden text-center">
+        <div className="absolute -top-20 -left-20 w-40 h-40 bg-blue-100 rounded-full blur-3xl opacity-50"></div>
+        <div className="absolute -bottom-20 -right-20 w-40 h-40 bg-yellow-100 rounded-full blur-3xl opacity-50"></div>
+        
+        <div className="relative z-10">
+          <div className="w-24 h-24 mx-auto mb-6 relative">
+            <div className="absolute inset-0 bg-yellow-400 rounded-full animate-ping opacity-20"></div>
+            <img src="/karaktergame3d.webp" alt="Karakter" className="w-full h-full object-contain drop-shadow-xl animate-bounce" style={{ animationDuration: '2s' }} />
+          </div>
+          
+          <h2 className="text-3xl font-extrabold text-slate-800 mb-2 font-display">Selamat Bergabung!</h2>
+          <p className="text-slate-600 mb-6 leading-relaxed">
+            Mulai petualanganmu di IdeTech. Kami telah menyiapkan <strong>100 Koin</strong> sebagai modal awal untukmu!
+          </p>
+          
+          <div className="bg-yellow-50 border-2 border-yellow-200 rounded-2xl p-4 mb-8 transform transition-transform hover:scale-105">
+            <div className="flex items-center justify-center gap-3">
+              <CircleDollarSign className="w-10 h-10 text-yellow-500" strokeWidth={2.5} />
+              <div className="text-4xl font-black text-yellow-600 tracking-tighter">+100</div>
+            </div>
+            <div className="text-sm font-bold text-yellow-800 mt-1 uppercase tracking-widest opacity-80">Koin Bonus</div>
+          </div>
+          
+          <button 
+            onClick={onClaim}
+            disabled={busy}
+            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-blue-500/30 transform hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed text-lg"
+          >
+            {busy ? "Mengklaim..." : "Mulai Petualangan!"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StudentCheckInModal({
+  user,
+  onClose,
+  onCheckInSuccess,
+  onOpenMissions
+}: {
+  user: AuthUser;
+  onClose: () => void;
+  onCheckInSuccess: (coins: number, streak: number, lastDate: string) => void;
+  onOpenMissions: () => void;
+}) {
+  const [checkingIn, setCheckingIn] = useState(false);
+  const [error, setError] = useState("");
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  const fetchHistory = async () => {
+    setShowHistory(true);
+    setLoadingHistory(true);
+    try {
+      const res = await fetch("/api/student/coins/history");
+      if (res.ok) {
+        const data = await res.json();
+        setHistory(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+  const hasCheckedInToday = user.lastCheckInDate === today;
+  
+  const days = [
+    { day: 1, reward: 10 },
+    { day: 2, reward: 40 },
+    { day: 3, reward: 100 },
+    { day: 4, reward: 10 },
+    { day: 5, reward: 40 },
+    { day: 6, reward: 100 },
+    { day: 7, reward: 500, isMax: true }
+  ];
+
+  const handleCheckIn = async () => {
+    setCheckingIn(true);
+    setError("");
+    try {
+      const response = await fetch("/api/student/check-in", { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Gagal klaim koin");
+      onCheckInSuccess(data.coins, data.streak, data.checkInDate);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setCheckingIn(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-md bg-[#8d4715] sm:rounded-3xl rounded-t-3xl overflow-hidden shadow-2xl transform transition-transform animate-in slide-in-from-bottom-12 duration-300">
+        <header className="px-5 py-4 flex items-center justify-between text-white border-b border-white/10">
+          <div className="flex items-center gap-2">
+            <button onClick={onClose} className="p-1 hover:bg-white/10 rounded-full transition-colors"><ChevronLeft className="h-6 w-6" /></button>
+            <h2 className="text-xl font-bold">Koin Saya</h2>
+          </div>
+          <Ticket className="h-6 w-6 opacity-80" />
+        </header>
+        
+        <div className="px-6 py-4">
+          <div className="flex items-center gap-3 text-white">
+            <div className="w-9 h-9 rounded-full bg-amber-400 flex items-center justify-center border-2 border-yellow-200 shadow-md">
+              <span className="text-amber-700 font-black text-xl">S</span>
+            </div>
+            <span className="text-5xl font-black drop-shadow-md tracking-tight">{user.coins}</span>
+          </div>
+          <div className="flex justify-between items-center mt-3">
+            <span className="text-amber-100/90 text-[13px] font-medium">Koin ini tidak akan pernah kadaluwarsa</span>
+            <button 
+              type="button"
+              className="text-sm font-bold text-white flex items-center gap-0.5 opacity-80 hover:opacity-100 transition-opacity"
+              onClick={fetchHistory}
+            >
+              Riwayat <ChevronRight className="h-4 w-4"/>
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-6 bg-[#262626] rounded-t-[32px] p-6 pb-8 relative shadow-[0_-10px_20px_rgba(0,0,0,0.3)] min-h-[300px]">
+          {showHistory ? (
+            <div className="pt-1 flex flex-col h-[280px]">
+              <div className="flex justify-between items-center mb-4 text-white">
+                <h3 className="font-bold">Riwayat Transaksi</h3>
+                <button onClick={() => setShowHistory(false)} className="text-[11px] font-bold bg-white/10 hover:bg-white/20 transition-colors px-3 py-1.5 rounded-full">Tutup</button>
+              </div>
+              <div className="overflow-y-auto pr-2 flex-1 space-y-2.5 custom-scrollbar">
+                {loadingHistory ? (
+                   <p className="text-white/50 text-sm text-center mt-6 animate-pulse">Memuat riwayat...</p>
+                ) : history.length === 0 ? (
+                   <p className="text-white/50 text-sm text-center mt-6">Belum ada riwayat koin.</p>
+                ) : (
+                   history.map((tx, idx) => (
+                     <div key={tx.id || idx} className="flex justify-between items-center bg-[#333] hover:bg-[#3a3a3a] transition-colors p-3.5 rounded-[14px] border border-white/5">
+                        <div>
+                          <p className="text-[13px] text-white font-bold leading-tight">{tx.description || (tx.type === 'check_in' ? 'Cek-in Harian' : tx.type)}</p>
+                          <p className="text-[10px] text-white/50 mt-1 font-medium">{new Date(tx.createdAt).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute:'2-digit'})}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 bg-[#444] px-2.5 py-1 rounded-full">
+                          <span className="text-[#f1a823] font-black text-sm">+{tx.amount}</span>
+                          <div className="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-[#ffd54f] to-[#f57f17] flex items-center justify-center shadow-inner">
+                            <span className="text-[8px] font-black text-amber-900">S</span>
+                          </div>
+                        </div>
+                     </div>
+                   ))
+                )}
+              </div>
+            </div>
+          ) : (
+            <>
+              <button 
+            type="button"
+            onClick={onOpenMissions}
+            className="absolute -top-7 left-6 right-6 bg-gradient-to-r from-[#fff9db] to-[#ffefad] rounded-2xl p-3 px-4 flex justify-between items-center shadow-lg border-2 border-amber-200/50 hover:scale-[1.02] hover:shadow-xl transition-all cursor-pointer text-left w-[calc(100%-3rem)]"
+          >
+            <div>
+              <strong className="text-[#d85827] text-[17px] font-black block drop-shadow-sm leading-tight">Dapatkan Ekstra Koin!</strong>
+              <span className="text-[10px] font-bold bg-[#6a3511] text-white px-2.5 py-0.5 rounded-full mt-1.5 inline-block shadow-inner">Selesaikan Misi Harian</span>
+            </div>
+            <div className="relative">
+              <div className="w-12 h-12 bg-gradient-to-br from-red-400 to-red-600 rounded-xl transform rotate-12 shadow-lg flex items-center justify-center border-2 border-red-300">
+                <Gift className="h-7 w-7 text-white drop-shadow-sm" />
+              </div>
+            </div>
+          </button>
+
+          <div className="pt-12 flex gap-3 overflow-x-auto pb-4 snap-x snap-mandatory" style={{ scrollbarWidth: 'none' }}>
+            {days.map((d) => {
+              const checkInMod = (user.checkInStreak % 7);
+              const currentTarget = hasCheckedInToday ? (checkInMod === 0 ? 7 : checkInMod) : (checkInMod + 1);
+              
+              const isPast = d.day < currentTarget;
+              const isToday = d.day === currentTarget;
+
+              return (
+                <div key={d.day} className={`flex-none snap-center flex flex-col items-center w-[64px] ${d.isMax ? 'w-[76px]' : ''}`}>
+                  <div className={`w-full h-[88px] rounded-xl flex flex-col items-center justify-center border-[3px] relative shadow-sm transition-all
+                    ${isToday ? 'bg-[#402e1a] border-[#f1a823] shadow-[#f1a823]/20 shadow-lg transform -translate-y-1' : 
+                      isPast ? 'bg-[#333] border-[#444] opacity-50' : 'bg-white border-[#e5e7eb]'}`}
+                  >
+                    {d.isMax && (
+                      <div className="absolute -top-3.5 bg-gradient-to-r from-red-500 to-red-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded shadow-sm border border-red-700/50">
+                        Max +{d.reward}
+                      </div>
+                    )}
+                    {!d.isMax && (
+                      <span className={`text-[12px] font-black ${isToday ? 'text-[#f1a823]' : isPast ? 'text-slate-400' : 'text-slate-500'}`}>+{d.reward}</span>
+                    )}
+                    <div className={`w-7 h-7 rounded-full mt-1.5 flex items-center justify-center shadow-inner ${isToday ? 'bg-gradient-to-br from-[#ffd54f] to-[#f57f17]' : isPast ? 'bg-slate-500' : 'bg-gradient-to-br from-[#ffd54f] to-[#fbc02d]'}`}>
+                      <span className={`text-[12px] font-black ${isPast ? 'text-slate-300' : 'text-amber-900'}`}>S</span>
+                    </div>
+                  </div>
+                  <span className={`text-[11px] mt-2 font-black ${isToday ? 'text-red-500' : isPast ? 'text-slate-500' : 'text-slate-400'}`}>
+                    Hari {d.day === 1 ? 'ini' : d.day}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          <button 
+            onClick={handleCheckIn}
+            disabled={hasCheckedInToday || checkingIn}
+            className="w-full bg-gradient-to-b from-[#ff6b4a] to-[#e64a2e] hover:from-[#ff795b] hover:to-[#f05033] text-white font-black py-4 rounded-[20px] text-[17px] shadow-[0_5px_0_#b5331c] disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:transform-none transform active:translate-y-1 active:shadow-none transition-all mt-4"
+          >
+            {hasCheckedInToday ? 'Kembali Besok' : checkingIn ? 'Memproses...' : 'Cek-in dan Klaim Koin'}
+          </button>
+                {error && <p className="text-red-400 text-sm font-medium text-center mt-4">{error}</p>}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StudentCompactDashboard({
   user,
   dashboard,
@@ -1004,6 +1325,7 @@ function StudentCompactDashboard({
   onChangeMenu: (id: MobileNavId) => void;
   onLogout: () => void;
 }) {
+  const [localUser, setLocalUser] = useState(user);
   const [openPanel, setOpenPanel] = useState<MobileNavId | null>(null);
   const content = roleMenuContent.student[openPanel && openPanel !== "profile" ? openPanel : activeMenu];
   const [indicators, setIndicators] = useState<StudentIndicatorResponse | null>(null);
@@ -1017,6 +1339,11 @@ function StudentCompactDashboard({
   const [studentPanelError, setStudentPanelError] = useState("");
   const [showDailyMissions, setShowDailyMissions] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  
+  const todayDateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+  const [showWelcomeModal, setShowWelcomeModal] = useState(user.welcomeBonusClaimed === false);
+  const [showCheckInModal, setShowCheckInModal] = useState(user.welcomeBonusClaimed !== false && user.lastCheckInDate !== todayDateStr);
+  const [claimingWelcome, setClaimingWelcome] = useState(false);
 
   const loadIndicators = async () => {
     const classQuery = selectedClassId ? `?classId=${selectedClassId}` : "";
@@ -1200,12 +1527,15 @@ function StudentCompactDashboard({
           />
           <div className="game-hud-pill">
             <Heart className="h-5 w-5 text-red-500" />
-            <span>{indicators?.meta?.chapterProgress ?? "0/0"}</span>
+            <span>{user.hp}</span>
           </div>
-          <div className="game-hud-pill">
-            <CircleDollarSign className="h-5 w-5 text-yellow-500" />
-            <span>{indicators?.right?.find(i => i.id === 'coins')?.badge ?? "0"}</span>
-          </div>
+          <button type="button" className="game-hud-pill hover:scale-105 transition-transform cursor-pointer relative" onClick={() => setShowCheckInModal(true)} aria-label="Cek-in Harian">
+            {localUser.lastCheckInDate !== todayDateStr && (
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-[#542d13] animate-pulse shadow-sm"></span>
+            )}
+            <Ticket className="h-5 w-5 text-yellow-500" />
+            <span>{localUser.coins ?? 0}</span>
+          </button>
           <button className="game-settings-button" disabled={busy} type="button" onClick={() => setShowDailyMissions(true)} aria-label="Misi Harian">
             <Target className="h-5 w-5" />
           </button>
@@ -1269,6 +1599,7 @@ function StudentCompactDashboard({
       {openPanel === "profile" ? <StudentProfileModal user={user} indicators={indicators} onClose={() => setOpenPanel(null)} /> : null}
       {openPanel && openPanel !== "profile" ? (
         <StudentContentModal
+          user={user}
           active={openPanel}
           classes={studentClasses}
           materials={studentMaterials}
@@ -1289,49 +1620,62 @@ function StudentCompactDashboard({
       <MobileGameNav id="student-tour-4" active={openPanel ?? activeMenu} role="student" notifications={indicators?.nav} onChange={handleChangeMenu} />
       
       {activeOrb && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setActiveOrb(null)} />
-          <div className="relative bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200">
-            <button onClick={() => setActiveOrb(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full p-1.5 transition-colors">
-              <X className="w-5 h-5" />
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="absolute inset-0" onClick={() => setActiveOrb(null)} />
+          
+          <section className="relative w-full max-w-[400px] bg-[#2b2b2b] rounded-[32px] p-2 shadow-[0_12px_0_#1a1a1a,0_25px_30px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-300">
+            <button onClick={() => setActiveOrb(null)} className="absolute -top-4 -right-2 bg-red-500 hover:bg-red-400 text-white rounded-full p-2 border-4 border-[#2b2b2b] shadow-[0_4px_0_#991b1b] transition-transform hover:scale-110 active:scale-95 z-20">
+              <X className="w-6 h-6" strokeWidth={4} />
             </button>
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shadow-inner">
-                {(() => {
-                  const OrbIcon = studentMapIcon(activeOrb.id);
-                  return <OrbIcon className="w-6 h-6" strokeWidth={2.5} />;
-                })()}
-              </div>
-              <div>
-                <h3 className="font-bold text-lg text-slate-800">{activeOrb.title}</h3>
-                {activeOrb.targetDate ? (
-                  <div className="mt-1">
-                    <AgendaCountdown targetDate={new Date(activeOrb.targetDate)} />
+            
+            <div className="bg-[#3a3a3a] rounded-[24px] p-5">
+              <div className="bg-gradient-to-b from-[#6b8cff] to-[#4568dc] rounded-[20px] p-1 shadow-[0_6px_0_#2b48a3,0_10px_15px_rgba(0,0,0,0.3)] mb-6">
+                <div className="bg-gradient-to-b from-[#87a3ff] to-[#5a7bed] rounded-[16px] p-4 flex items-center gap-4 border border-white/20">
+                  <div className="relative">
+                    <div className="w-[64px] h-[64px] rounded-full bg-white p-1.5 shadow-[0_4px_0_#3855b5] flex items-center justify-center">
+                      <div className="w-full h-full rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                        {(() => {
+                          const OrbIcon = studentMapIcon(activeOrb.id);
+                          return <OrbIcon className="w-7 h-7" strokeWidth={2.5} />;
+                        })()}
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  <p className="text-sm font-semibold text-blue-600">{activeOrb.subtitle}</p>
-                )}
+                  
+                  <div className="flex-1 text-white">
+                    <h3 className="font-black text-[20px] leading-tight drop-shadow-[0_2px_0_#2b48a3]">{activeOrb.title}</h3>
+                    {activeOrb.targetDate ? (
+                      <div className="mt-1.5 bg-[#2b48a3]/60 px-3 py-1 rounded-full inline-block border border-white/20 shadow-inner">
+                        <AgendaCountdown targetDate={new Date(activeOrb.targetDate)} />
+                      </div>
+                    ) : (
+                      <p className="font-medium text-blue-100 text-[11px] mt-0.5 opacity-90 tracking-wide uppercase">{activeOrb.subtitle}</p>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-            
-            <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm text-slate-600 leading-relaxed">
-              {activeOrb.id === "map" && "Jalur utama petualangan IdeQuest. Terus selesaikan materi dan kuis untuk membuka peta wilayah baru!"}
-              {activeOrb.id === "quest" && "Daftar misi khusus berbatas waktu. Kerjakan secepatnya sebelum waktunya habis untuk mendapat koin ekstra."}
-              {activeOrb.id === "rank" && "Peringkat dan pencapaianmu. Kumpulkan piala untuk menaikkan reputasimu di kelas!"}
-              {activeOrb.id === "tasks" && "Materi atau tugas aktif dari guru yang menunggumu. Jangan ditunda-tunda ya!"}
-              {activeOrb.id === "coins" && "Poin/koin yang sudah kamu kumpulkan dari penyelesaian misi. Bisa ditukarkan dengan hadiah menarik."}
-              {activeOrb.id === "radar" && "Radar Pintar yang memantau performa belajarmu. Jika menyala merah, berarti ada peringatan penting dari guru!"}
-            </div>
-            
-            {activeOrb.badge && (
-              <div className="mt-4 flex items-center justify-center gap-2 bg-yellow-50 text-yellow-800 py-2 px-3 rounded-lg text-sm font-bold border border-yellow-200">
-                <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                Badge aktif: {activeOrb.badge}
+              
+              <div className="bg-[#222] border border-white/5 shadow-inner rounded-[20px] p-5 text-[13px] text-[#ddd] leading-relaxed font-medium">
+                {activeOrb.id === "map" && "Jalur utama petualangan IdeQuest. Terus selesaikan materi dan kuis untuk membuka peta wilayah baru!"}
+                {activeOrb.id === "quest" && "Daftar misi khusus berbatas waktu. Kerjakan secepatnya sebelum waktunya habis untuk mendapat koin ekstra."}
+                {activeOrb.id === "rank" && "Peringkat dan pencapaianmu. Kumpulkan piala untuk menaikkan reputasimu di kelas!"}
+                {activeOrb.id === "tasks" && "Materi atau tugas aktif dari guru yang menunggumu. Jangan ditunda-tunda ya!"}
+                {activeOrb.id === "coins" && "Poin/koin yang sudah kamu kumpulkan dari penyelesaian misi. Bisa ditukarkan dengan hadiah menarik."}
+                {activeOrb.id === "radar" && "Radar Pintar yang memantau performa belajarmu. Jika menyala merah, berarti ada peringatan penting dari guru!"}
               </div>
-            )}
-            
-            <button onClick={() => setActiveOrb(null)} className="mt-5 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-colors shadow-md shadow-blue-500/25">Tutup Info</button>
-          </div>
+              
+              {activeOrb.badge && (
+                <div className="mt-4 flex items-center justify-center gap-2 bg-gradient-to-r from-yellow-400 to-amber-500 text-yellow-900 py-3 px-4 rounded-xl text-sm font-black border-2 border-yellow-200 shadow-[0_4px_0_#b45309]">
+                  <Star className="w-5 h-5 text-white fill-current drop-shadow-md" />
+                  <span className="drop-shadow-sm">Badge aktif: {activeOrb.badge}</span>
+                </div>
+              )}
+              
+              <button onClick={() => setActiveOrb(null)} className="mt-6 w-full bg-gradient-to-b from-[#ff7043] to-[#e64a19] text-white font-black text-lg py-3.5 rounded-xl transition-transform hover:scale-[1.02] active:scale-95 shadow-[0_5px_0_#bf360c] border-2 border-[#ffab91]">
+                Tutup Info
+              </button>
+            </div>
+          </section>
         </div>
       )}
 
@@ -1342,18 +1686,56 @@ function StudentCompactDashboard({
             <button onClick={() => setShowDailyMissions(false)} className="absolute top-3 right-3 text-white hover:text-slate-200 bg-black/20 hover:bg-black/40 rounded-full p-1.5 transition-colors z-20">
               <X className="w-5 h-5" />
             </button>
-            <StudentDailyMissionPanel />
+            <StudentDailyMissionPanel onStart={() => setShowDailyMissions(false)} />
           </div>
         </div>
+      )}
+
+      {showCheckInModal && (
+        <StudentCheckInModal 
+          user={localUser} 
+          onClose={() => setShowCheckInModal(false)}
+          onCheckInSuccess={(coins, streak, lastDate) => {
+            setLocalUser(prev => ({ ...prev, coins, checkInStreak: streak, lastCheckInDate: lastDate }));
+          }}
+          onOpenMissions={() => {
+            setShowCheckInModal(false);
+            setShowDailyMissions(true);
+          }}
+        />
+      )}
+
+      {showWelcomeModal && (
+        <StudentWelcomeModal 
+          busy={claimingWelcome} 
+          onClaim={async () => {
+            setClaimingWelcome(true);
+            try {
+              const res = await fetch("/api/student/claim-welcome", { method: "POST" });
+              if (res.ok) {
+                const data = await res.json();
+                setLocalUser(prev => ({ ...prev, welcomeBonusClaimed: true, coins: prev.coins + data.bonus }));
+                user.welcomeBonusClaimed = true;
+                user.coins = user.coins + data.bonus;
+                refreshIndicators();
+                setTimeout(() => setShowWelcomeModal(false), 500);
+              }
+            } catch (e) {
+              console.error(e);
+            } finally {
+              setClaimingWelcome(false);
+            }
+          }} 
+        />
       )}
     </main>
   );
 }
 
-function StudentDailyMissionPanel() {
+function StudentDailyMissionPanel({ onStart }: { onStart?: () => void }) {
   const missions = [
     { label: "Kerjakan 1 kuis", progress: "0/1", reward: "+20" },
-    { label: "Selesaikan quest", progress: "1/2", reward: "+35" },
+    { label: "Selesaikan quest", progress: "0/2", reward: "+35" },
     { label: "Klaim badge baru", progress: "0/1", reward: "+50" }
   ];
 
@@ -1370,9 +1752,9 @@ function StudentDailyMissionPanel() {
       </div>
 
       <div className="student-daily-panel__progress">
-        <span>2/4</span>
+        <span>0/4</span>
         <div>
-          <i />
+          <i style={{ width: '0%' }} />
         </div>
       </div>
 
@@ -1388,7 +1770,7 @@ function StudentDailyMissionPanel() {
         ))}
       </div>
 
-      <button className="student-daily-panel__button" type="button">
+      <button className="student-daily-panel__button hover:scale-105 active:scale-95 transition-transform" type="button" onClick={onStart}>
         Mulai
       </button>
     </aside>
@@ -1472,75 +1854,170 @@ function StudentProfileModal({
   onClose: () => void;
 }) {
   const level = indicators?.meta.levelButton.replace(/[^0-9]/g, "") || "101";
-  const progressValue = indicators?.meta.chapterProgress.split("/")[0] || "29";
-  const chapterValue = indicators?.meta.chapter.replace(/[^0-9]/g, "") || "4";
-  const collections = user.permissions.filter((permission) => permission.includes("quest") || permission.includes("report")).length;
+  const totalPoints = indicators?.meta.stats?.totalPoints ?? 0;
+  const completedQuests = indicators?.meta.stats?.completedQuests ?? 0;
+  const completedMaterials = indicators?.meta.stats?.completedMaterials ?? 0;
+  const earnedBadges = indicators?.meta.stats?.earnedBadges ?? 0;
+  const classesJoined = indicators?.meta.stats?.classesJoined ?? 0;
+
   const stats = [
-    { label: "First Try Wins", value: progressValue, icon: Target },
-    { label: "Helps Made", value: "0", icon: Heart },
-    { label: "Helps Received", value: "1", icon: ScrollText },
-    { label: "Areas Completed", value: chapterValue, icon: Star },
-    { label: "Collections Completed", value: String(collections), icon: BadgeCheck },
-    { label: "Sets Completed", value: String(user.roles.length), icon: Trophy }
+    { label: "Total Poin", value: String(totalPoints), icon: Target },
+    { label: "Nyawa (HP)", value: String(user.hp ?? 100), icon: Heart },
+    { label: "Kelas Diikuti", value: String(classesJoined), icon: ScrollText },
+    { label: "Quest Selesai", value: String(completedQuests), icon: Star },
+    { label: "Materi Selesai", value: String(completedMaterials), icon: BadgeCheck },
+    { label: "Badge Diraih", value: String(earnedBadges), icon: Trophy }
   ];
 
   return (
-    <div className="student-profile-modal" role="dialog" aria-modal="true" aria-labelledby="student-profile-title">
-      <div className="student-profile-modal__backdrop" onClick={onClose} />
-      <section className="student-profile-modal__panel">
-        <header className="student-profile-modal__titlebar">
-          <h2 id="student-profile-title">Profile</h2>
-          <button type="button" className="student-profile-modal__close" onClick={onClose} aria-label="Tutup profil">
-            <X className="h-8 w-8" strokeWidth={4} />
-          </button>
-        </header>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200" role="dialog" aria-modal="true" aria-labelledby="student-profile-title">
+      <div className="absolute inset-0" onClick={onClose} />
+      <section className="relative w-full max-w-[480px] bg-[#2b2b2b] rounded-[32px] p-2 shadow-[0_12px_0_#1a1a1a,0_25px_30px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-300">
+        
+        {/* Header/Close Button */}
+        <button type="button" className="absolute -top-4 -right-2 bg-red-500 hover:bg-red-400 text-white rounded-full p-2 border-4 border-[#2b2b2b] shadow-[0_4px_0_#991b1b] transition-transform hover:scale-110 active:scale-95 z-20" onClick={onClose} aria-label="Tutup profil">
+          <X className="h-6 w-6" strokeWidth={4} />
+        </button>
 
-        <div className="student-profile-card">
-          <div className="student-profile-card__photo-wrap">
-            <img
-              className="student-profile-card__photo"
-              src={user.avatarUrl ?? `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(user.name)}`}
-              alt={user.name}
-            />
-            <span className="student-profile-card__edit">
-              <Settings className="h-4 w-4" strokeWidth={3} />
-            </span>
-          </div>
-
-          <div className="student-profile-card__identity">
-            <strong>{user.name}</strong>
-            <span>{user.email}</span>
-            <small>{new Date().toLocaleDateString("id-ID", { month: "2-digit", year: "numeric" })}</small>
-          </div>
-
-          <div className="student-profile-card__level">
-            <span>Level</span>
-            <strong>{level}</strong>
-          </div>
-        </div>
-
-        <section className="student-profile-stats">
-          <div className="student-profile-stats__ribbon">General Stats</div>
-          <div className="student-profile-stats__grid">
-            {stats.map((stat) => {
-              const Icon = stat.icon;
-
-              return (
-                <div key={stat.label} className="student-profile-stat">
-                  <Icon className="student-profile-stat__icon" strokeWidth={2.8} />
-                  <strong>{stat.label}</strong>
-                  <span>{stat.value}</span>
+        <div className="bg-[#3a3a3a] rounded-[24px] p-5">
+          {/* 3D Profile Card */}
+          <div className="bg-gradient-to-b from-[#6b8cff] to-[#4568dc] rounded-[24px] p-1 shadow-[0_6px_0_#2b48a3,0_10px_15px_rgba(0,0,0,0.3)] mb-8 relative">
+            <div className="bg-gradient-to-b from-[#87a3ff] to-[#5a7bed] rounded-[20px] p-5 flex items-center gap-4 border border-white/20">
+              
+              {/* 3D Avatar */}
+              <div className="relative">
+                <div className="w-[84px] h-[84px] rounded-full bg-white p-1.5 shadow-[0_5px_0_#3855b5]">
+                  <img
+                    className="w-full h-full rounded-full object-cover bg-blue-100"
+                    src={user.avatarUrl ?? `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(user.name)}`}
+                    alt={user.name}
+                  />
                 </div>
-              );
-            })}
+                <button className="absolute -bottom-1 -right-1 bg-yellow-400 p-2.5 rounded-full shadow-[0_3px_0_#c29400] text-yellow-900 hover:scale-105 active:scale-95 transition-transform border-2 border-yellow-200">
+                  <Settings className="h-4 w-4" strokeWidth={3} />
+                </button>
+              </div>
+
+              {/* Identity */}
+              <div className="flex-1 text-white">
+                <h3 className="font-black text-[22px] leading-tight drop-shadow-[0_2px_0_#2b48a3]">{user.name}</h3>
+                <p className="font-medium text-blue-100 text-xs mt-0.5 opacity-90 truncate max-w-[150px] sm:max-w-none">{user.email}</p>
+                <div className="inline-block mt-2 bg-[#2b48a3]/60 px-3 py-1 rounded-full text-[10px] font-black tracking-wider uppercase border border-white/20 shadow-inner">
+                  Siswa IdeTech
+                </div>
+              </div>
+
+              {/* 3D Level Badge */}
+              <div className="relative flex flex-col items-center justify-start pt-2 pb-5 px-2 w-[72px] shrink-0 transform rotate-3" 
+                   style={{ 
+                     background: '#ffd500', 
+                     clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% 85%, 0 100%)',
+                   }}>
+                <div className="absolute inset-x-1.5 top-0 bottom-2 bg-[#1e88e5] flex flex-col items-center pt-2"
+                     style={{ clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% 88%, 0 100%)' }}>
+                   <span className="text-white font-black text-[10px] uppercase tracking-wider" style={{ textShadow: '0 2px 0 #0d47a1' }}>Level</span>
+                   <strong className="text-white font-black text-3xl mt-[-2px]" style={{ textShadow: '0 3px 0 #0d47a1' }}>{level}</strong>
+                </div>
+              </div>
+
+            </div>
           </div>
-        </section>
+
+          {/* 3D General Stats */}
+          <section className="relative">
+            <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-b from-[#ff7043] to-[#e64a19] text-white px-5 py-1.5 rounded-full text-[11px] font-black tracking-widest shadow-[0_4px_0_#bf360c] border-2 border-[#ffab91] z-10 uppercase">
+              General Stats
+            </div>
+            
+            <div className="bg-[#222] rounded-3xl p-5 pt-7 shadow-inner border border-white/5">
+              <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
+                {stats.map((stat, idx) => {
+                  const Icon = stat.icon;
+                  const colors = [
+                    "from-amber-300 to-orange-500 shadow-[0_3px_0_#c2410c] border-orange-200", // Total Poin
+                    "from-rose-400 to-red-500 shadow-[0_3px_0_#be123c] border-red-200", // HP
+                    "from-emerald-400 to-green-500 shadow-[0_3px_0_#15803d] border-green-200", // Kelas
+                    "from-cyan-400 to-blue-500 shadow-[0_3px_0_#1d4ed8] border-blue-200", // Quest
+                    "from-purple-400 to-fuchsia-500 shadow-[0_3px_0_#a21caf] border-fuchsia-200", // Materi
+                    "from-yellow-300 to-amber-400 shadow-[0_3px_0_#b45309] border-yellow-100" // Badge
+                  ];
+                  const colorClass = colors[idx % colors.length];
+
+                  return (
+                    <div key={stat.label} className="bg-[#333] rounded-2xl p-3 flex flex-col items-center justify-center border-b-[4px] border-[#1a1a1a] transition-transform hover:-translate-y-1">
+                      <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${colorClass} flex items-center justify-center mb-2 border-2`}>
+                        <Icon className="text-white w-5 h-5 drop-shadow-md" strokeWidth={3} />
+                      </div>
+                      <strong className="text-white font-black text-lg sm:text-xl drop-shadow-md">{stat.value}</strong>
+                      <span className="text-[#999] text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-center mt-1 leading-tight">{stat.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        </div>
       </section>
     </div>
   );
 }
 
+function LeagueLeaderboard({ user, points }: { user: AuthUser, points: number }) {
+  const userName = user.name;
+  const userAvatar = user.avatarUrl ?? `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(user.name)}`;
+
+  const mockOthers = [
+    { name: "Budi S.", avatar: "https://api.dicebear.com/9.x/initials/svg?seed=Budi", points: points + 150 },
+    { name: "Aisyah N.", avatar: "https://api.dicebear.com/9.x/initials/svg?seed=Aisyah", points: points + 50 },
+    { name: userName, avatar: userAvatar, points: points, isMe: true },
+    { name: "Siti M.", avatar: "https://api.dicebear.com/9.x/initials/svg?seed=Siti", points: Math.max(0, points - 80) },
+    { name: "Reza P.", avatar: "https://api.dicebear.com/9.x/initials/svg?seed=Reza", points: Math.max(0, points - 120) }
+  ];
+  const sorted = [...mockOthers].sort((a, b) => b.points - a.points);
+  const myRank = sorted.findIndex(u => u.isMe) + 1;
+
+  return (
+    <div className="bg-slate-900 rounded-3xl p-6 text-white mb-8 relative overflow-hidden shadow-2xl shadow-indigo-500/20">
+      <div className="absolute -top-24 -right-24 w-64 h-64 bg-indigo-500 rounded-full blur-3xl opacity-20"></div>
+      
+      <div className="flex items-center justify-between mb-6 relative z-10">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-700 to-amber-900 flex items-center justify-center shadow-lg border-2 border-amber-600/50">
+            <Trophy className="w-8 h-8 text-amber-400" />
+          </div>
+          <div>
+            <h3 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-amber-500">Liga Perunggu</h3>
+            <p className="text-slate-400 text-sm font-medium">Musim 1 • Berakhir dalam 3 hari</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-sm text-slate-400 font-medium">Peringkatmu</p>
+          <p className="text-3xl font-black text-white">#{myRank}</p>
+        </div>
+      </div>
+
+      <div className="bg-slate-800/50 rounded-2xl p-2 border border-slate-700/50 relative z-10 backdrop-blur-sm">
+        <div className="px-4 py-2 text-xs font-bold text-amber-400 uppercase tracking-wider mb-2 border-b border-slate-700/50">Top 3 Promosi ke Liga Perak</div>
+        
+        {sorted.map((u, i) => (
+          <div key={u.name} className={`flex items-center gap-4 p-3 rounded-xl transition-all ${u.isMe ? 'bg-indigo-600 shadow-lg shadow-indigo-600/30 ring-1 ring-indigo-400' : 'hover:bg-slate-700/30'}`}>
+            <div className={`w-8 text-center font-black ${i < 3 ? 'text-amber-400' : 'text-slate-500'}`}>
+              {i + 1}
+            </div>
+            <img src={u.avatar} alt={u.name} className="w-10 h-10 rounded-full bg-slate-800 border-2 border-slate-700" />
+            <div className="flex-1">
+              <p className={`font-bold ${u.isMe ? 'text-white' : 'text-slate-200'}`}>{u.name} {u.isMe && <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full ml-2">Kamu</span>}</p>
+            </div>
+            <div className="font-black text-indigo-200">{u.points} <span className="text-xs font-medium opacity-60">XP</span></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function StudentContentModal({
+  user,
   active,
   classes,
   materials,
@@ -1556,6 +2033,7 @@ function StudentContentModal({
   selectedClassId,
   onSelectClass
 }: {
+  user: AuthUser;
   active: Exclude<MobileNavId, "profile">;
   classes: StudentClass[];
   materials: StudentMaterial[];
@@ -1594,6 +2072,7 @@ function StudentContentModal({
   const [questAnswerText, setQuestAnswerText] = useState("");
   const [questAnswerFile, setQuestAnswerFile] = useState<File | null>(null);
   const [questSubmitMode, setQuestSubmitMode] = useState<"text" | "file">("text");
+  const [rankTab, setRankTab] = useState<"league" | "badges">("league");
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -1633,75 +2112,88 @@ function StudentContentModal({
   }
 
   return (
-    <div className={`student-profile-modal student-content-modal ${active === "studio" ? "is-centered" : ""}`} role="dialog" aria-modal="true" aria-labelledby="student-content-title">
-      <div className="student-profile-modal__backdrop" onClick={onClose} />
-      <section className={active === "studio" ? "student-profile-modal__panel student-content-modal__panel is-task-panel" : "student-profile-modal__panel student-content-modal__panel"}>
-        {active !== "studio" ? (
-          <header className="student-profile-modal__titlebar student-content-modal__titlebar">
-            <div>
-              <h2 id="student-content-title">{title}</h2>
-              <p>{summary}</p>
-            </div>
-            <button type="button" className="student-profile-modal__close" onClick={onClose} aria-label={`Tutup ${title}`}>
-              <X className="h-8 w-8" strokeWidth={4} />
-            </button>
-          </header>
-        ) : null}
+    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200" role="dialog" aria-modal="true" aria-labelledby="student-content-title">
+      <div className="absolute inset-0" onClick={onClose} />
+      
+      <section className={`relative w-full ${active === "studio" ? 'max-w-4xl' : 'max-w-[480px]'} bg-[#2b2b2b] rounded-[32px] p-2 shadow-[0_12px_0_#1a1a1a,0_25px_30px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]`}>
+        
+        <button type="button" className="absolute -top-4 -right-2 bg-red-500 hover:bg-red-400 text-white rounded-full p-2 border-4 border-[#2b2b2b] shadow-[0_4px_0_#991b1b] transition-transform hover:scale-110 active:scale-95 z-20 cursor-pointer" onClick={onClose} aria-label={`Tutup ${title}`}>
+          <X className="h-6 w-6" strokeWidth={4} />
+        </button>
 
-        {error ? <div className="student-content-error">{error}</div> : null}
+        <div className="bg-[#3a3a3a] rounded-[24px] flex flex-col overflow-hidden h-full">
+          {/* Banner Header */}
+          <header className="bg-gradient-to-b from-[#6b8cff] to-[#4568dc] rounded-[20px] mx-5 mt-5 p-5 pb-6 shadow-[0_6px_0_#2b48a3] shrink-0 z-10 border border-white/20">
+            <h2 id="student-content-title" className="text-white font-black text-3xl drop-shadow-[0_2px_0_#2b48a3] leading-none">{active === "studio" ? "Tugas" : title}</h2>
+            <p className="text-blue-100 font-medium mt-2 text-sm">{summary}</p>
+          </header>
+
+          {/* Body Wrapper */}
+          <div className="p-5 flex-1 flex flex-col overflow-hidden">
+            {error ? <div className="bg-red-500 text-white p-3 font-bold text-center text-sm mb-3 rounded-lg shadow-inner">{error}</div> : null}
+            
+            {/* Inner Dark Board */}
+            <div className="bg-[#222] border border-white/5 rounded-[20px] p-5 shadow-inner flex-1 overflow-y-auto custom-scrollbar flex flex-col">
 
         {active === "studio" ? (
-          <section className="student-task-set">
-            <div className="student-task-set__banner">
-              <strong id="student-content-title">Tugas</strong>
-              <button type="button" className="student-task-set__close" onClick={onClose} aria-label="Tutup Tugas">
-                <X className="h-8 w-8" strokeWidth={4} />
-              </button>
-            </div>
+          <section className="flex-1 flex flex-col">
 
-            <div className="student-task-set__meter">
-              <span className="student-task-set__deck">
-                <BookOpen className="h-8 w-8" strokeWidth={2.8} />
-              </span>
-              <div className="student-task-set__track">
-                <i style={{ width: `${(completedTasks / 9) * 100}%` }} />
-                <strong>
-                  {completedTasks}/9
-                </strong>
+            <div className="flex items-center gap-3 sm:gap-4 bg-[#333] border-2 border-[#1a1a1a] rounded-full p-2 pr-4 sm:pr-6 mb-6 shadow-inner w-full max-w-md mx-auto">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center border-2 border-blue-200 shadow-md shrink-0">
+                <BookOpen className="h-5 w-5 sm:h-6 sm:w-6 text-white" strokeWidth={2.5} />
               </div>
-              <span className="student-task-set__coin">{materials.reduce((total, item) => total + (item.progress >= 100 ? 50 : 0), 0)}</span>
+              <div className="flex-1 relative h-5 sm:h-6 bg-[#1a1a1a] rounded-full shadow-inner overflow-hidden border border-black/50">
+                <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-green-400 to-green-600 transition-all duration-500 ease-out" style={{ width: `${(completedTasks / 9) * 100}%` }} />
+                <div className="absolute inset-0 flex items-center justify-center text-white text-[10px] sm:text-[11px] font-black tracking-wider drop-shadow-md">
+                  {completedTasks} / 9
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0 bg-[#444] px-2.5 py-1 rounded-full border border-[#555]">
+                <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-gradient-to-br from-yellow-300 to-amber-500 flex items-center justify-center shadow-sm">
+                  <span className="text-yellow-900 font-bold text-[9px] sm:text-[10px]">C</span>
+                </div>
+                <span className="text-white font-black text-xs sm:text-sm">{materials.reduce((total, item) => total + (item.progress >= 100 ? 50 : 0), 0)}</span>
+              </div>
             </div>
 
-            <div className="student-task-card-grid">
+            <div className="grid grid-cols-3 gap-3">
               {taskSlots.map((material, index) => {
                 const isUnavailable = !material;
                 const isDone = Boolean(material && material.progress >= 100);
                 const Icon = material?.type === "quiz" ? Puzzle : material?.type === "video" ? Rocket : material?.type === "document" ? ScrollText : BookOpen;
+                const isSelected = material && selectedTaskId === material.id;
 
                 return (
                   <button
                     key={material?.id ?? `empty-task-${index}`}
                     type="button"
-                    className={[
-                      "student-task-card",
-                      isDone ? "is-done" : "",
-                      isUnavailable ? "is-unavailable" : "",
-                      material && selectedTaskId === material.id ? "is-selected" : ""
-                    ].filter(Boolean).join(" ")}
+                    className={`bg-[#333] rounded-2xl p-3 flex flex-col items-center justify-start border-b-[4px] transition-transform hover:-translate-y-1 relative aspect-[3/4] focus:outline-none ${isSelected ? 'border-yellow-400 ring-2 ring-yellow-400 ring-offset-2 ring-offset-[#222]' : 'border-[#1a1a1a]'} ${isUnavailable ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}
                     disabled={isUnavailable}
                     onClick={() => {
                       if (material) setSelectedTaskId(material.id);
                     }}
                   >
-                    <span className="student-task-card__star">
-                      <Star className="h-6 w-6" fill="currentColor" strokeWidth={2.4} />
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 flex items-center justify-center">
+                      <Star className={`w-6 h-6 drop-shadow-md fill-current ${isDone ? 'text-yellow-400' : 'text-slate-500'}`} />
+                    </div>
+                    
+                    {material && (
+                      <div className="absolute top-2 left-0 bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-r-md border border-red-700 shadow-sm z-10">
+                        +{isDone ? 1 : 0}
+                      </div>
+                    )}
+                    
+                    <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center mt-3 mb-2 border-2 border-white/20 shadow-inner shrink-0 ${isDone ? 'bg-gradient-to-br from-green-400 to-green-600' : isUnavailable ? 'bg-slate-600' : 'bg-gradient-to-br from-blue-400 to-blue-600'}`}>
+                      <Icon className="text-white w-6 h-6 sm:w-7 sm:h-7 drop-shadow-md" strokeWidth={2.5} />
+                    </div>
+                    
+                    <strong className="text-white font-black text-[10px] sm:text-[11px] leading-tight text-center drop-shadow-md line-clamp-2 mt-auto w-full">
+                      {material?.title ?? "Belum Tersedia"}
+                    </strong>
+                    
+                    <span className="text-[#bbb] text-[9px] font-bold uppercase tracking-wider text-center mt-1.5 bg-black/40 px-2 py-0.5 rounded-full border border-white/10 w-full truncate">
+                      {material ? (isDone ? "Selesai" : `${material.progress}%`) : "Terkunci"}
                     </span>
-                    <span className="student-task-card__bonus">+{isDone ? 1 : 0}</span>
-                    <span className="student-task-card__art">
-                      <Icon className="h-14 w-14" strokeWidth={2.8} />
-                    </span>
-                    <span className="student-task-card__label">{material?.title ?? "Belum Tersedia"}</span>
-                    <span className="student-task-card__status">{material ? (isDone ? "Done" : `${material.progress}%`) : "Locked"}</span>
                   </button>
                 );
               })}
@@ -1735,36 +2227,42 @@ function StudentContentModal({
         ) : null}
 
         {active === "quest" ? (
-          <div className="student-task-card-grid">
-            {activeQuests.length ? null : <p className="student-content-empty text-slate-100 col-span-3 text-center">Belum ada IdeQuest aktif.</p>}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mt-2">
+            {activeQuests.length ? null : <p className="text-slate-400 col-span-2 sm:col-span-3 text-center font-medium my-10">Belum ada IdeQuest aktif.</p>}
             {activeQuests.map((quest) => {
               const relatedMaterial = materials.find((material) => material.id === quest.materialId);
               const materialDone = !quest.materialId || (relatedMaterial?.progress ?? 0) >= 100;
               const isDone = quest.progress >= 100;
               const isUnavailable = !materialDone;
+              const isSelected = selectedTaskId === quest.id;
 
               return (
                 <button
                   key={quest.id}
                   type="button"
-                  className={[
-                    "student-task-card is-quest-card",
-                    isDone ? "is-done" : "",
-                    isUnavailable ? "is-unavailable" : "",
-                    selectedTaskId === quest.id ? "is-selected" : ""
-                  ].filter(Boolean).join(" ")}
+                  className={`bg-[#333] rounded-2xl p-3 flex flex-col items-center justify-start border-b-[4px] transition-transform hover:-translate-y-1 relative aspect-[3/4] focus:outline-none ${isSelected ? 'border-amber-400 ring-2 ring-amber-400 ring-offset-2 ring-offset-[#222]' : 'border-[#1a1a1a]'} ${isUnavailable ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}
                   disabled={isUnavailable}
                   onClick={() => setSelectedTaskId(quest.id)}
                 >
-                  <span className="student-task-card__star">
-                    <Star className="h-6 w-6" fill="currentColor" strokeWidth={2.4} />
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 flex items-center justify-center">
+                    <Star className={`w-6 h-6 drop-shadow-md fill-current ${isDone ? 'text-amber-400' : 'text-slate-500'}`} />
+                  </div>
+                  
+                  <div className="absolute top-2 left-0 bg-gradient-to-b from-red-500 to-red-600 text-white text-[10px] sm:text-xs font-black px-2.5 py-0.5 rounded-r-md border border-red-700 shadow-sm z-10">
+                    +{quest.points}
+                  </div>
+                  
+                  <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mt-4 mb-3 border-2 border-white/20 shadow-inner shrink-0 ${isDone ? 'bg-gradient-to-br from-green-400 to-green-600' : isUnavailable ? 'bg-slate-600' : 'bg-gradient-to-br from-amber-400 to-orange-500'}`}>
+                    <Puzzle className="text-white w-7 h-7 sm:w-8 sm:h-8 drop-shadow-md" strokeWidth={2.5} />
+                  </div>
+                  
+                  <strong className="text-white font-black text-[11px] sm:text-[13px] leading-tight text-center drop-shadow-md line-clamp-2 mt-auto w-full">
+                    {quest.title}
+                  </strong>
+                  
+                  <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-center mt-2 px-2 py-0.5 rounded-full border w-full truncate ${isDone ? 'bg-green-500/20 text-green-400 border-green-500/30' : isUnavailable ? 'bg-black/40 text-slate-400 border-white/10' : 'bg-amber-500/20 text-amber-400 border-amber-500/30'}`}>
+                    {isDone ? "Selesai" : isUnavailable ? "Terkunci" : "Terbuka"}
                   </span>
-                  <span className="student-task-card__bonus">+{quest.points}</span>
-                  <span className="student-task-card__art">
-                    <Puzzle className="h-14 w-14" strokeWidth={2.8} />
-                  </span>
-                  <span className="student-task-card__label">{quest.title}</span>
-                  <span className="student-task-card__status">{isDone ? "Selesai" : isUnavailable ? "Terkunci" : "Terbuka"}</span>
                 </button>
               );
             })}
@@ -1772,62 +2270,97 @@ function StudentContentModal({
         ) : null}
 
         {active === "rank" ? (
-          <div className="student-achievement-wrap">
-            <div className="student-achievement-summary">
-              <strong>{meta?.totalPoints ?? 0}</strong>
-              <span>Total Poin</span>
-              <strong>{meta?.completedQuests ?? 0}</strong>
-              <span>Quest Selesai</span>
-              <strong>{meta?.completedMaterials ?? 0}</strong>
-              <span>Materi Selesai</span>
+          <div className="student-achievement-wrap" style={{ marginTop: '24px' }}>
+            <div className="flex bg-slate-800/80 p-1.5 rounded-full mb-2 border border-slate-700/50 shadow-inner">
+              <button 
+                type="button"
+                onClick={() => setRankTab("league")}
+                className={`flex-1 py-2.5 px-4 rounded-full text-sm font-bold transition-all ${rankTab === 'league' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
+              >
+                Liga & Peringkat
+              </button>
+              <button 
+                type="button"
+                onClick={() => setRankTab("badges")}
+                className={`flex-1 py-2.5 px-4 rounded-full text-sm font-bold transition-all ${rankTab === 'badges' ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
+              >
+                Koleksi Badge
+              </button>
             </div>
-            <div className="student-badges-grid">
-              {achievements.length ? null : <p className="student-content-empty">Belum ada pencapaian yang bisa diraih.</p>}
-              {achievements.map((achievement, idx) => {
-                const colors = ['is-gold', 'is-purple', 'is-green', 'is-blue'];
-                const colorClass = colors[idx % 4];
-                return (
-                  <article key={achievement.id} className="student-badge-item">
-                    <div className="student-badge-shield-wrap">
-                      <div className={`student-badge-shield ${colorClass} ${achievement.unlocked ? 'is-unlocked' : 'is-locked'}`} title={achievement.description}>
-                        <div className="student-badge-shield__inner">
-                          <Star className="h-6 w-6" strokeWidth={3} fill="currentColor" />
-                        </div>
+
+            {rankTab === "league" ? (
+              <>
+                <LeagueLeaderboard user={user} points={meta?.totalPoints ?? 0} />
+                <div className="grid grid-cols-3 gap-2 mt-4 mb-2">
+                  <div className="bg-[#333] border-b-[4px] border-[#1a1a1a] rounded-xl p-3 flex flex-col items-center justify-center shadow-inner">
+                    <strong className="text-white text-2xl font-black drop-shadow-md">{meta?.totalPoints ?? 0}</strong>
+                    <span className="text-[#999] text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-center mt-1">Total Poin</span>
+                  </div>
+                  <div className="bg-[#333] border-b-[4px] border-[#1a1a1a] rounded-xl p-3 flex flex-col items-center justify-center shadow-inner">
+                    <strong className="text-white text-2xl font-black drop-shadow-md">{meta?.completedQuests ?? 0}</strong>
+                    <span className="text-[#999] text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-center mt-1">Quest Selesai</span>
+                  </div>
+                  <div className="bg-[#333] border-b-[4px] border-[#1a1a1a] rounded-xl p-3 flex flex-col items-center justify-center shadow-inner">
+                    <strong className="text-white text-2xl font-black drop-shadow-md">{meta?.completedMaterials ?? 0}</strong>
+                    <span className="text-[#999] text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-center mt-1">Materi Selesai</span>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                {achievements.length ? null : <p className="text-slate-400 col-span-2 sm:col-span-4 text-center font-medium my-10">Belum ada pencapaian yang bisa diraih.</p>}
+                {achievements.map((achievement, idx) => {
+                  const colors = [
+                    'from-yellow-400 to-amber-600 border-amber-300 text-yellow-100', // gold
+                    'from-purple-400 to-purple-600 border-purple-300 text-purple-100', // purple
+                    'from-green-400 to-green-600 border-green-300 text-green-100', // green
+                    'from-blue-400 to-blue-600 border-blue-300 text-blue-100' // blue
+                  ];
+                  const colorClass = colors[idx % 4];
+                  return (
+                    <article key={achievement.id} className={`bg-[#333] rounded-2xl p-3 flex flex-col items-center justify-start border-b-[4px] border-[#1a1a1a] shadow-inner text-center ${!achievement.unlocked ? 'opacity-50 grayscale' : ''}`}>
+                      <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br ${colorClass} flex items-center justify-center mb-3 border-2 shadow-md relative mt-1`}>
+                         <div className="absolute inset-1 rounded-full border border-white/30" />
+                         <Star className="h-8 w-8 sm:h-10 sm:w-10 drop-shadow-md" strokeWidth={2.5} fill="currentColor" />
                       </div>
-                    </div>
-                    <strong>{achievement.title}</strong>
-                    <span>{achievement.description}</span>
-                  </article>
-                );
-              })}
-            </div>
+                      <strong className="text-white font-black text-xs sm:text-sm leading-tight drop-shadow-md line-clamp-2 w-full">{achievement.title}</strong>
+                      <span className="text-[#bbb] text-[9px] sm:text-[10px] font-bold leading-tight mt-1 w-full">{achievement.description}</span>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ) : null}
 
         {active === "map" ? (
-          <div className="student-class-join-wrap">
-            <form className="student-class-join" onSubmit={submitClassCode}>
+          <div className="w-full h-full flex flex-col">
+            <form className="bg-[#333] border-b-[4px] border-[#1a1a1a] rounded-[20px] p-4 mb-5 flex flex-col gap-3 shadow-inner" onSubmit={submitClassCode}>
               <div className="flex justify-between items-start w-full">
                 <div>
-                  <strong>Masuk kelas</strong>
-                  <span>Masukkan ClassID dari guru untuk membuka materi dan IdeQuest kelas.</span>
+                  <strong className="text-white text-base font-black drop-shadow-md block mb-1">Masuk Kelas</strong>
+                  <span className="text-slate-400 text-xs font-medium">Masukkan ClassID dari guru untuk membuka materi dan IdeQuest.</span>
                 </div>
                 <button 
                   type="button" 
                   onClick={() => setShowClasses(!showClasses)}
-                  className="text-[11px] bg-[#ffd320] hover:bg-[#ffdf55] text-[#7d2f0f] px-3 py-1.5 rounded-full font-black ml-2 shrink-0 border-b-[3px] border-[#d69818] transition-colors"
-                  style={{ textShadow: "none", boxShadow: "0 2px 4px rgba(125, 47, 15, 0.15)" }}
+                  className="text-[11px] bg-gradient-to-b from-blue-500 to-blue-700 hover:from-blue-400 hover:to-blue-600 text-white px-3 py-1.5 rounded-full font-black ml-2 shrink-0 border-b-[3px] border-[#1e3a8a] shadow-md transition-transform hover:-translate-y-0.5 active:translate-y-0"
                 >
                   {showClasses ? "Sembunyikan" : `Kelas (${classes.length})`}
                 </button>
               </div>
-              <div className="student-class-join__control">
+              <div className="flex gap-2 w-full mt-2">
                 <input
+                  className="flex-1 bg-[#222] border-2 border-[#111] rounded-xl px-4 py-2.5 text-white font-bold placeholder:text-slate-600 focus:outline-none focus:border-blue-500 transition-colors shadow-inner uppercase"
                   value={classCode}
                   placeholder="IDT-ABC123"
                   onChange={(event) => setClassCode(event.target.value.toUpperCase())}
                 />
-                <button type="submit" disabled={busy || !classCode.trim()}>
+                <button 
+                  type="submit" 
+                  disabled={busy || !classCode.trim()}
+                  className="bg-gradient-to-b from-green-500 to-green-700 text-white font-black px-5 py-2.5 rounded-xl border-b-[4px] border-[#166534] shadow-md transition-all hover:brightness-110 active:border-b-0 active:translate-y-[4px] disabled:opacity-50 disabled:grayscale shrink-0"
+                >
                   Gabung
                 </button>
               </div>
@@ -1858,7 +2391,10 @@ function StudentContentModal({
             <div className="student-map-path-saga">
               {[...activeMaterials, ...activeQuests].length ? null : <p className="student-content-empty">Materi dan IdeQuest akan muncul setelah kamu masuk kelas.</p>}
               
-              <div className="saga-path-container">
+              <div className="flex flex-col items-center py-6 relative">
+                {/* Connecting Line */}
+                <div className="absolute top-0 bottom-0 w-2 bg-[#333] border-x border-[#111] left-1/2 -translate-x-1/2 rounded-full" />
+                
                 {(() => {
                   const pathNodes: { type: 'material'|'quest', data: any, id: string, title: string, progress: number }[] = [];
                   activeMaterials.forEach(m => {
@@ -1875,29 +2411,29 @@ function StudentContentModal({
                     const isCompleted = node.progress >= 100;
                     const prevCompleted = i === 0 || pathNodes[i-1].progress >= 100;
                     const isLocked = !isCompleted && !prevCompleted;
-                    const statusClass = isCompleted ? 'is-completed' : isLocked ? 'is-locked' : 'is-active';
                     
-                    const positions = ['pos-center', 'pos-right', 'pos-center', 'pos-left'];
+                    const positions = ['translate-x-0', 'translate-x-12', 'translate-x-0', '-translate-x-12'];
                     const alignClass = positions[i % 4];
 
                     return (
-                      <div key={node.id} className={`saga-node-wrapper ${alignClass}`}>
+                      <div key={node.id} className={`relative flex items-center justify-center my-4 ${alignClass} w-full max-w-[200px]`}>
                         <button 
-                          className={`saga-node-btn ${statusClass}`}
+                          className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center border-4 shadow-[0_6px_0_rgba(0,0,0,0.4)] transition-transform hover:-translate-y-1 active:translate-y-0 relative z-10 ${isCompleted ? 'bg-gradient-to-br from-green-400 to-green-600 border-green-200' : isLocked ? 'bg-[#444] border-[#222] grayscale opacity-70 cursor-not-allowed' : 'bg-gradient-to-br from-blue-400 to-blue-600 border-blue-200 ring-4 ring-yellow-400 ring-offset-2 ring-offset-[#222]'}`}
                           onClick={() => {
                             if (!isLocked && node.type === 'material') {
                                 setSelectedTaskId(node.id);
                             }
                           }}
                           aria-label={node.title}
+                          disabled={isLocked}
                         >
-                           <div className="saga-node-btn__inner">
-                             {isLocked ? <Lock className="w-6 h-6" /> : (node.type === 'quest' ? <Puzzle className="w-6 h-6" /> : <BookOpen className="w-6 h-6" />)}
-                           </div>
+                           <div className="absolute inset-1 rounded-full border-2 border-white/20 pointer-events-none" />
+                           {isLocked ? <Lock className="w-6 h-6 sm:w-8 sm:h-8 text-slate-400 drop-shadow-md" /> : (node.type === 'quest' ? <Puzzle className="w-6 h-6 sm:w-8 sm:h-8 text-white drop-shadow-md" /> : <BookOpen className="w-6 h-6 sm:w-8 sm:h-8 text-white drop-shadow-md" />)}
                         </button>
-                        <div className="saga-node-label">
-                          <small>{node.type === 'material' ? 'Materi' : 'Quest'}</small>
-                          <span>{node.title}</span>
+                        
+                        <div className={`absolute top-1/2 -translate-y-1/2 ${i % 4 === 1 ? 'right-full mr-4 text-right' : i % 4 === 3 ? 'left-full ml-4 text-left' : (i % 2 === 0 ? (i % 4 === 0 ? 'left-full ml-6' : 'right-full mr-6 text-right') : '')} w-[140px] drop-shadow-md pointer-events-none`}>
+                          <small className="block text-yellow-400 font-bold text-[10px] uppercase tracking-wider">{node.type === 'material' ? 'Materi' : 'Quest'}</small>
+                          <span className="block text-white font-black text-[12px] sm:text-sm leading-tight">{node.title}</span>
                         </div>
                       </div>
                     )
@@ -1907,6 +2443,10 @@ function StudentContentModal({
             </div>
           </div>
         ) : null}
+
+          </div>
+        </div>
+        </div>
 
         {busy ? <div className="student-content-loading">Memproses...</div> : null}
       </section>
@@ -2135,7 +2675,7 @@ function StudentContentModal({
               </div>
             )}
 
-            <div className="student-content-progress">
+            <div className="student-content-progress" style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
               <span>{((selectedTask as any).type === 'lesson' || (selectedTask as any).type === 'video' || (selectedTask as any).type === 'document' || (selectedTask as any).type === 'quiz') && selectedTask.progress < 100 ? readingProgress : selectedTask.progress}%</span>
               <i style={{ width: `${((selectedTask as any).type === 'lesson' || (selectedTask as any).type === 'video' || (selectedTask as any).type === 'document' || (selectedTask as any).type === 'quiz') && selectedTask.progress < 100 ? readingProgress : selectedTask.progress}%` }} />
             </div>
@@ -2264,16 +2804,18 @@ function ProfessionalDashboard({
 
   if (isTeacher) {
     return (
-      <TeacherSpaceDashboard
-        user={user}
-        dashboard={dashboard}
-        activeMenu={activeMenu}
-        busy={busy}
-        error={error}
-        onChangeMenu={onChangeMenu}
-        onLogout={onLogout}
-        onSwitchRole={onSwitchRole}
-      />
+      <ErrorBoundary>
+        <TeacherSpaceDashboard
+          user={user}
+          dashboard={dashboard}
+          activeMenu={activeMenu}
+          busy={busy}
+          error={error}
+          onChangeMenu={onChangeMenu}
+          onLogout={onLogout}
+          onSwitchRole={onSwitchRole}
+        />
+      </ErrorBoundary>
     );
   }
 
@@ -2312,17 +2854,36 @@ function ProfessionalDashboard({
 
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 pb-24 md:pb-6 sm:px-6 lg:px-8">
         {error ? <ErrorBanner message={error} /> : null}
-        <section className={heroClass}>
-          <div>
-            <p className="professional-eyebrow">{roleLabels[user.activeRole]}</p>
-            <h1 className="professional-hero__title">{dashboard.title}</h1>
-            <p className="professional-hero__copy">{dashboard.description}</p>
+        {user.activeRole === "admin" ? (
+          <div className="bg-gradient-to-b from-[#6b8cff] to-[#4568dc] rounded-[24px] p-1 shadow-[0_6px_0_#2b48a3,0_10px_15px_rgba(0,0,0,0.3)] relative">
+            <div className="bg-gradient-to-b from-[#87a3ff] to-[#5a7bed] rounded-[20px] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border border-white/20">
+              <div className="flex-1 text-white">
+                <div className="inline-block mb-3 bg-[#2b48a3]/60 px-3 py-1 rounded-full text-[10px] font-black tracking-wider uppercase border border-white/20 shadow-inner">
+                  {roleLabels[user.activeRole]}
+                </div>
+                <h1 className="font-black text-2xl md:text-3xl leading-tight drop-shadow-[0_2px_0_#2b48a3] mb-2">{dashboard.title}</h1>
+                <p className="font-medium text-blue-50 text-sm opacity-95 max-w-2xl leading-relaxed">{dashboard.description}</p>
+              </div>
+              <div className="shrink-0 self-start md:self-center mt-2 md:mt-0">
+                <div className="bg-white/20 backdrop-blur-sm border border-white/30 text-white font-black text-xs px-4 py-2.5 rounded-xl shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),0_4px_8px_rgba(0,0,0,0.2)] uppercase tracking-widest text-center">
+                  {user.status}
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="professional-hero__stack">
-            <div className="professional-role-chip">{user.status}</div>
-            {isTeacher ? <div className="professional-active-chip">{activeLabel}</div> : null}
-          </div>
-        </section>
+        ) : (
+          <section className={heroClass}>
+            <div>
+              <p className="professional-eyebrow">{roleLabels[user.activeRole]}</p>
+              <h1 className="professional-hero__title">{dashboard.title}</h1>
+              <p className="professional-hero__copy">{dashboard.description}</p>
+            </div>
+            <div className="professional-hero__stack">
+              <div className="professional-role-chip">{user.status}</div>
+              {isTeacher ? <div className="professional-active-chip">{activeLabel}</div> : null}
+            </div>
+          </section>
+        )}
 
         <section
           className={metricsClass}
@@ -2450,36 +3011,89 @@ function AdminBottomNav({
   onViewChange: (view: AdminView) => void;
   actions: { label: string; view: AdminView; description: string; icon: any }[];
 }) {
+  const [showMore, setShowMore] = useState(false);
+  
   const shortNames: Record<string, string> = {
     users: "User",
     classes: "Kelas",
-    system: "Sistem"
+    quick_action: "Persetujuan",
+    system: "Sistem",
+    blog: "Kelola",
+    parent_students: "Manajemen",
+    advanced_features: "Pengaturan"
+  };
+
+  const mainViews = ["users", "classes", "quick_action"];
+  const mainActions = actions.filter(a => mainViews.includes(a.view));
+  const moreActions = actions.filter(a => !mainViews.includes(a.view));
+
+  const handleNav = (view: AdminView) => {
+    onViewChange(view);
+    setShowMore(false);
   };
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-slate-200 bg-white/95 backdrop-blur-md pb-2 pt-2 shadow-[0_-4px_24px_rgba(15,23,42,0.04)]">
-      <button 
-        className={`flex flex-col items-center gap-1 p-2 flex-1 ${activeView === "home" ? "text-blue-600" : "text-slate-500"}`}
-        onClick={() => onViewChange("home")}
-      >
-        <House className="h-5 w-5" />
-        <span className="text-[10px] font-bold">Beranda</span>
-      </button>
-      {actions.map((action) => {
-        const Icon = action.icon;
-        const isActive = activeView === action.view;
-        return (
-          <button
-            key={action.view}
-            className={`flex flex-col items-center gap-1 p-2 flex-1 ${isActive ? "text-blue-600" : "text-slate-500"}`}
-            onClick={() => onViewChange(action.view)}
+    <>
+      {showMore && (
+        <div 
+          className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setShowMore(false)}
+        />
+      )}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex flex-col bg-[#18181b] border-t border-white/10 shadow-[0_-4px_24px_rgba(0,0,0,0.5)]">
+        {showMore && (
+          <div className="flex flex-wrap justify-center items-center bg-[#27272a] border-b border-white/5 py-4 px-2 gap-y-4 animate-in slide-in-from-bottom-4 duration-300">
+            {moreActions.map((action) => {
+              const Icon = action.icon;
+              const isActive = activeView === action.view;
+              return (
+                <button
+                  key={action.view}
+                  className={`flex flex-col items-center gap-1.5 p-2 w-1/4 transition-colors ${isActive ? "text-blue-400" : "text-slate-400 hover:text-slate-200"}`}
+                  onClick={() => handleNav(action.view)}
+                >
+                  <Icon className="h-5 w-5" />
+                  <span className="text-[10px] font-bold">{shortNames[action.view] || action.label.split(" ")[0]}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        
+        <div className="flex items-center justify-around pb-2 pt-2">
+          <button 
+            className={`flex flex-col items-center gap-1 p-2 flex-1 transition-colors ${activeView === "home" ? "text-blue-400" : "text-slate-400 hover:text-slate-200"}`}
+            onClick={() => handleNav("home")}
           >
-            <Icon className="h-5 w-5" />
-            <span className="text-[10px] font-bold">{shortNames[action.view] || action.label.split(" ")[0]}</span>
+            <House className="h-5 w-5" />
+            <span className="text-[10px] font-bold">Beranda</span>
           </button>
-        );
-      })}
-    </nav>
+          
+          {mainActions.map((action) => {
+            const Icon = action.icon;
+            const isActive = activeView === action.view;
+            return (
+              <button
+                key={action.view}
+                className={`flex flex-col items-center gap-1 p-2 flex-1 transition-colors ${isActive ? "text-blue-400" : "text-slate-400 hover:text-slate-200"}`}
+                onClick={() => handleNav(action.view)}
+              >
+                <Icon className="h-5 w-5" />
+                <span className="text-[10px] font-bold">{shortNames[action.view] || action.label.split(" ")[0]}</span>
+              </button>
+            );
+          })}
+          
+          <button 
+            className={`flex flex-col items-center gap-1 p-2 flex-1 transition-colors ${showMore ? "text-blue-400" : "text-slate-400 hover:text-slate-200"}`}
+            onClick={() => setShowMore(!showMore)}
+          >
+            <MoreHorizontal className="h-5 w-5" />
+            <span className="text-[10px] font-bold">More</span>
+          </button>
+        </div>
+      </nav>
+    </>
   );
 }
 
@@ -2643,21 +3257,21 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
           <h2 className="text-xl font-bold text-white tracking-tight">Agenda Terdekat</h2>
           <p className="text-white/70 text-sm">Kalender kegiatan sekolah. Klik tanggal yang ditandai untuk melihat detail.</p>
         </div>
-        <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-4 md:p-6 overflow-hidden relative">
+        <div className="teacher-profile-card border-0 shadow-sm p-4 md:p-6 overflow-hidden relative">
           <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
             <div>
-              <p className="text-orange-500 text-[10px] md:text-xs font-bold tracking-wider mb-1 uppercase">Kalender Agenda</p>
+              <p className="text-[rgba(226,245,255,0.76)] text-[10px] md:text-xs font-bold tracking-wider mb-1 uppercase">Kalender Agenda</p>
               <div className="flex items-center gap-1 group relative">
                 <select 
                   value={selectedMonth} 
                   onChange={e => { setSelectedMonth(Number(e.target.value)); setWeekStartIndex(0); }}
-                  className="text-xl md:text-2xl font-extrabold text-slate-800 tracking-tight bg-transparent border-none focus:ring-0 cursor-pointer p-0 appearance-none outline-none hover:text-blue-600 transition-colors z-10"
+                  className="text-xl md:text-2xl font-extrabold text-white tracking-tight bg-transparent border-none focus:ring-0 cursor-pointer p-0 appearance-none outline-none hover:text-[rgba(226,245,255,0.8)] transition-colors z-10"
                 >
                   {months.map((m, i) => (
                     <option key={i} value={i}>{m} {selectedYear}</option>
                   ))}
                 </select>
-                <ChevronDown className="h-5 w-5 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                <ChevronDown className="h-5 w-5 text-[rgba(226,245,255,0.76)] group-hover:text-white transition-colors" />
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -2665,21 +3279,21 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
                 <button 
                   type="button"
                   onClick={prevWeek}
-                  className="h-9 w-9 md:h-10 md:w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200 transition-colors"
+                  className="h-9 w-9 md:h-10 md:w-10 rounded-full bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] flex items-center justify-center text-[rgba(226,245,255,0.76)] hover:bg-[rgba(5,29,83,0.6)] hover:text-white transition-colors"
                 >
                   <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
                 </button>
                 <button 
                   type="button"
                   onClick={goToCurrentMonth}
-                  className="h-9 md:h-10 px-3 md:px-4 rounded-xl border border-slate-200 text-slate-600 text-xs md:text-sm font-bold hover:bg-slate-50 transition-colors"
+                  className="h-9 md:h-10 px-3 md:px-4 rounded-xl border border-[rgba(125,211,252,0.22)] bg-[rgba(5,29,83,0.42)] text-[rgba(226,245,255,0.76)] text-xs md:text-sm font-bold hover:bg-[rgba(5,29,83,0.6)] hover:text-white transition-colors"
                 >
                   Bulan Ini
                 </button>
                 <button 
                   type="button"
                   onClick={nextWeek}
-                  className="h-9 w-9 md:h-10 md:w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200 transition-colors"
+                  className="h-9 w-9 md:h-10 md:w-10 rounded-full bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] flex items-center justify-center text-[rgba(226,245,255,0.76)] hover:bg-[rgba(5,29,83,0.6)] hover:text-white transition-colors"
                 >
                   <ChevronRight className="h-4 w-4 md:h-5 md:w-5" />
                 </button>
@@ -2690,7 +3304,7 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
                   setSelectedDateForModal(null);
                   setIsModalOpen(true);
                 }}
-                className="h-9 md:h-10 px-3 md:px-4 rounded-xl border border-blue-200 text-blue-700 text-xs md:text-sm font-bold hover:bg-blue-50 transition-colors ml-1"
+                className="h-9 md:h-10 px-3 md:px-4 rounded-xl border border-blue-400/50 bg-blue-500/20 text-blue-200 text-xs md:text-sm font-bold hover:bg-blue-500/30 transition-colors ml-1"
               >
                 Lihat Semua Agenda
               </button>
@@ -2699,7 +3313,7 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
           
           <div className="grid grid-cols-7 gap-2 md:gap-4 mb-2">
             {days.map(d => (
-              <div key={d} className="text-center text-[10px] md:text-xs font-bold text-slate-400 tracking-wider">
+              <div key={d} className="text-center text-[10px] md:text-xs font-bold text-[rgba(226,245,255,0.76)] tracking-wider">
                 {d}
               </div>
             ))}
@@ -2723,15 +3337,15 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
                   className={`
                     relative h-14 md:h-20 rounded-xl md:rounded-2xl border p-2 flex flex-col justify-start transition-all ${hasEvent ? 'cursor-pointer' : 'cursor-default'}
                     ${isSelected 
-                        ? (hasEvent ? "bg-orange-50/50 border-blue-500 shadow-[0_0_0_2px_rgba(59,130,246,0.4)] hover:bg-orange-100" : "bg-blue-50/50 border-blue-500 shadow-[0_0_0_2px_rgba(59,130,246,0.4)] hover:bg-blue-50") 
-                        : (hasEvent ? "bg-orange-50/50 border-orange-200 hover:bg-orange-50" : "bg-slate-50/30 border-slate-100 hover:bg-slate-50")}
+                        ? (hasEvent ? "bg-amber-400/20 border-amber-400 shadow-[0_0_0_2px_rgba(251,191,36,0.4)] hover:bg-amber-400/30" : "bg-white/10 border-white/40 shadow-[0_0_0_2px_rgba(255,255,255,0.2)] hover:bg-white/20") 
+                        : (hasEvent ? "bg-amber-400/10 border-amber-400/30 hover:bg-amber-400/20" : "bg-[rgba(5,29,83,0.42)] border-[rgba(125,211,252,0.1)] hover:bg-[rgba(5,29,83,0.6)]")}
                   `}
                 >
-                  <div className={`text-xs md:text-sm font-bold flex items-center justify-center rounded-full ${isSelected ? "w-6 h-6 md:w-7 md:h-7 bg-blue-600 text-white shadow-md ring-2 ring-blue-200" : hasEvent ? "w-6 h-6 md:w-7 md:h-7 bg-orange-500 text-white" : "text-slate-600 w-6 h-6 md:w-7 md:h-7"}`}>
+                  <div className={`text-xs md:text-sm font-bold flex items-center justify-center rounded-full ${isSelected ? "w-6 h-6 md:w-7 md:h-7 bg-white text-[#06165e] shadow-md ring-2 ring-white/50" : hasEvent ? "w-6 h-6 md:w-7 md:h-7 bg-amber-400/20 text-amber-400" : "text-[rgba(226,245,255,0.76)] w-6 h-6 md:w-7 md:h-7"}`}>
                     {date}
                   </div>
                   {hasEvent && (
-                    <div className="absolute bottom-1.5 right-1.5 md:bottom-2 md:right-2 w-4 h-4 md:w-5 md:h-5 bg-blue-700/90 text-white text-[9px] md:text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
+                    <div className="absolute bottom-1.5 right-1.5 md:bottom-2 md:right-2 w-4 h-4 md:w-5 md:h-5 bg-amber-400 text-[#06165e] text-[9px] md:text-[10px] font-bold rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(251,191,36,0.5)]">
                       {eventsMap[date]}
                     </div>
                   )}
@@ -2744,10 +3358,10 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
 
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl max-w-3xl w-full p-4 md:p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+          <div className="teacher-profile-card border-0 rounded-2xl max-w-3xl w-full p-4 md:p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <button 
               type="button"
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 bg-slate-100 rounded-full p-1 transition-colors z-20" 
+              className="absolute top-4 right-4 text-[rgba(226,245,255,0.76)] hover:text-white bg-[rgba(5,29,83,0.42)] rounded-full p-1 transition-colors z-20" 
               onClick={() => setIsModalOpen(false)}
             >
               <X className="h-5 w-5 md:h-6 md:w-6" />
@@ -2755,35 +3369,35 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
             
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 pr-10">
               <div>
-                <p className="text-orange-500 text-xs font-bold tracking-wider mb-1 uppercase">Kalender Agenda</p>
+                <p className="text-[rgba(226,245,255,0.76)] text-xs font-bold tracking-wider mb-1 uppercase">Kalender Agenda</p>
                 <div className="flex items-center gap-1 group relative">
                   <select 
                     value={selectedMonth} 
                     onChange={e => { setSelectedMonth(Number(e.target.value)); setWeekStartIndex(0); setSelectedDateForModal(null); }}
-                    className="text-2xl md:text-3xl font-extrabold text-slate-800 tracking-tight bg-transparent border-none focus:ring-0 cursor-pointer p-0 appearance-none outline-none hover:text-blue-600 transition-colors z-10"
+                    className="text-2xl md:text-3xl font-extrabold text-white tracking-tight bg-transparent border-none focus:ring-0 cursor-pointer p-0 appearance-none outline-none hover:text-[rgba(226,245,255,0.8)] transition-colors z-10"
                   >
                     {months.map((m, i) => (
                       <option key={i} value={i}>{m} {selectedYear}</option>
                     ))}
                   </select>
-                  <ChevronDown className="h-6 w-6 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                  <ChevronDown className="h-6 w-6 text-[rgba(226,245,255,0.76)] group-hover:text-white transition-colors" />
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => { prevMonth(); setSelectedDateForModal(null); }} className="h-9 w-9 md:h-10 md:w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200 transition-colors">
+                <button onClick={() => { prevMonth(); setSelectedDateForModal(null); }} className="h-9 w-9 md:h-10 md:w-10 rounded-full bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] flex items-center justify-center text-[rgba(226,245,255,0.76)] hover:bg-[rgba(5,29,83,0.6)] hover:text-white transition-colors">
                   <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
                 </button>
-                <button onClick={() => { goToCurrentMonth(); setSelectedDateForModal(null); }} className="h-9 md:h-10 px-3 md:px-4 rounded-full bg-blue-50 text-blue-700 text-xs md:text-sm font-bold hover:bg-blue-100 transition-colors">
+                <button onClick={() => { goToCurrentMonth(); setSelectedDateForModal(null); }} className="h-9 md:h-10 px-3 md:px-4 rounded-full bg-blue-500/20 border border-blue-400/50 text-blue-200 text-xs md:text-sm font-bold hover:bg-blue-500/30 transition-colors">
                   Bulan Ini
                 </button>
-                <button onClick={() => { nextMonth(); setSelectedDateForModal(null); }} className="h-9 w-9 md:h-10 md:w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200 transition-colors">
+                <button onClick={() => { nextMonth(); setSelectedDateForModal(null); }} className="h-9 w-9 md:h-10 md:w-10 rounded-full bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] flex items-center justify-center text-[rgba(226,245,255,0.76)] hover:bg-[rgba(5,29,83,0.6)] hover:text-white transition-colors">
                   <ChevronRight className="h-4 w-4 md:h-5 md:w-5" />
                 </button>
               </div>
             </div>
             
             <div className="mt-2">
-              <h4 className="text-lg font-bold text-slate-800 mb-4">
+              <h4 className="text-lg font-bold text-white mb-4">
                 {selectedDateForModal 
                   ? `Agenda: ${selectedDateForModal} ${months[selectedMonth]} ${selectedYear}` 
                   : `Daftar Agenda (${months[selectedMonth]} ${selectedYear})`}
@@ -2792,26 +3406,26 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
               {(() => {
                 const filteredAgendas = currentMonthAgendas.filter(a => selectedDateForModal === null || a.date.getDate() === selectedDateForModal);
                 if (filteredAgendas.length === 0) {
-                  return <div className="text-center py-8 text-slate-500">Belum ada agenda untuk {selectedDateForModal ? 'tanggal' : 'bulan'} ini.</div>;
+                  return <div className="text-center py-8 text-[rgba(226,245,255,0.76)]">Belum ada agenda untuk {selectedDateForModal ? 'tanggal' : 'bulan'} ini.</div>;
                 }
                 return (
                   <div className="space-y-3">
                     {filteredAgendas.map((agenda, i) => (
-                      <div key={i} className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100 transition-colors">
+                      <div key={i} className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] rounded-xl hover:bg-[rgba(5,29,83,0.6)] transition-colors">
                         <div className="flex items-start gap-3">
-                          <div className={`mt-1 flex items-center justify-center min-w-8 w-8 h-8 rounded-full ${agenda.type === 'materi' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'}`}>
+                          <div className={`mt-1 flex items-center justify-center min-w-8 w-8 h-8 rounded-full ${agenda.type === 'materi' ? 'bg-blue-500/20 text-blue-300' : 'bg-purple-500/20 text-purple-300'}`}>
                             {agenda.type === 'materi' ? <BookOpen className="w-4 h-4" /> : <Target className="w-4 h-4" />}
                           </div>
                           <div>
-                            <p className="font-bold text-slate-800 leading-tight">{agenda.title}</p>
-                            <p className="text-xs font-medium text-slate-500 mt-1">Kelas: {classes.find(c => c.id === agenda.classId)?.name || agenda.classId}</p>
+                            <p className="font-bold text-white leading-tight">{agenda.title}</p>
+                            <p className="text-xs font-medium text-[rgba(226,245,255,0.76)] mt-1">Kelas: {classes.find(c => c.id === agenda.classId)?.name || agenda.classId}</p>
                           </div>
                         </div>
                         <div className="mt-3 md:mt-0 md:text-right shrink-0">
-                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 md:hidden">Tenggat Waktu</div>
+                          <div className="text-[10px] font-bold text-[rgba(226,245,255,0.6)] uppercase tracking-wider mb-1 md:hidden">Tenggat Waktu</div>
                           <span className="inline-flex flex-col md:items-end gap-1">
                             <AgendaCountdown targetDate={agenda.date} />
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider hidden md:block">Tenggat Waktu</span>
+                            <span className="text-[10px] font-bold text-[rgba(226,245,255,0.6)] uppercase tracking-wider hidden md:block">Tenggat Waktu</span>
                           </span>
                         </div>
                       </div>
@@ -2990,6 +3604,7 @@ function TeacherSpaceDashboard({
   const [guideModal, setGuideModal] = useState<MobileNavId | null>(null);
   const [showDevModal, setShowDevModal] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [showConsultationModal, setShowConsultationModal] = useState(false);
   const [hasUnpublishedJournalDraft, setHasUnpublishedJournalDraft] = useState(false);
 
   useEffect(() => {
@@ -3008,6 +3623,11 @@ function TeacherSpaceDashboard({
   const [classSummary, setClassSummary] = useState<TeacherClassSummary | null>(null);
   const [activeClassFilter, setActiveClassFilter] = useState<string>("all");
   const [activeFeature, setActiveFeature] = useState<string | null>(null);
+
+  useEffect(() => {
+    setActiveFeature(null);
+  }, [activeMenu]);
+
   const [showRppGenerator, setShowRppGenerator] = useState(false);
   const [classForm, setClassForm] = useState({
     name: "",
@@ -3278,7 +3898,9 @@ function TeacherSpaceDashboard({
 
         <article className="teacher-space-phone is-primary">
           <header className="teacher-space-phone__top">
-            <div className="w-9 h-9" aria-hidden="true" />
+            <button className="teacher-space-menu-button relative" type="button" aria-label="Konsultasi Orang Tua" onClick={() => setShowConsultationModal(true)}>
+              <MessageSquare className="h-5 w-5 text-slate-700" />
+            </button>
             <h1 className="teacher-space-logo-title">
               <IdeTechLogo className="teacher-space-logo" />
               IdeTech
@@ -3564,16 +4186,16 @@ function TeacherSpaceDashboard({
 
       {guideModal ? (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl relative">
-            <button className="absolute top-4 right-4 text-slate-400 hover:text-slate-600" onClick={() => setGuideModal(null)}>
-              <X className="h-6 w-6" />
+          <div className="teacher-profile-card border-0 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative">
+            <button className="absolute top-4 right-4 text-[rgba(226,245,255,0.76)] hover:text-white transition-colors bg-[rgba(5,29,83,0.42)] p-1 rounded-full hover:bg-[rgba(5,29,83,0.6)]" onClick={() => setGuideModal(null)}>
+              <X className="h-5 w-5" />
             </button>
-            <h3 className="text-xl font-bold mb-4 text-slate-800">
+            <h3 className="text-xl font-bold mb-4 text-white border-b border-white/10 pb-4">
               {guideModal === "quest" ? "Panduan Kelas Saya" :
                guideModal === "studio" ? "Panduan IdeStudio Guru" :
                "Panduan Radar Pintar"}
             </h3>
-            <div className="prose prose-sm text-slate-600 overflow-y-auto max-h-[60vh] pr-2">
+            <div className="prose prose-sm prose-invert prose-p:text-[rgba(226,245,255,0.76)] prose-li:text-[rgba(226,245,255,0.76)] prose-strong:text-amber-400 overflow-y-auto max-h-[60vh] pr-2">
               {guideModal === "quest" && (
                 <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex, rehypeRaw]}>
                   {`
@@ -3638,6 +4260,11 @@ Fitur ini menganalisis semua aktivitas siswa di kelas Anda:
       {/* RPP Generator Modal */}
       {showRppGenerator && (
         <TeacherRPPGenerator onClose={() => setShowRppGenerator(false)} />
+      )}
+
+      {/* Consultation Modal */}
+      {showConsultationModal && (
+        <TeacherConsultationModal onClose={() => setShowConsultationModal(false)} />
       )}
     </main>
   );
@@ -3839,21 +4466,12 @@ Contoh persis:
 Gunakan format Markdown (Heading, tebal, miring, list). Sisipkan emoji agar menarik bagi siswa.
 Buat struktur: 1. Pendahuluan, 2. Isi Materi, 3. Kesimpulan.`;
 
-      const res = await fetch("https://asisten.ferilee.gurumuda.eu.org/api/integration/chat", {
+      const data = await api<any>("/api/teacher/generate-ai", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: prompt, history: [] })
+        body: JSON.stringify({ prompt })
       });
       
-      const resText = await res.text();
-      let data;
-      try {
-        data = JSON.parse(resText);
-      } catch (e) {
-        showToast("Respons API tidak valid (Bukan JSON).");
-        return;
-      }
-      if (data.reply) {
+      if (data && data.reply) {
         let content = data.reply;
         if (isQuiz) {
           const startIdx = content.indexOf('[');
@@ -3896,22 +4514,12 @@ Format harus teks biasa dengan pola berikut:
 Judul: [Tulis judul di sini]
 Misi: [Tulis deskripsi misi di sini]`;
 
-      const res = await fetch("https://asisten.ferilee.gurumuda.eu.org/api/integration/chat", {
+      const data = await api<any>("/api/teacher/generate-ai", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: prompt, history: [] })
+        body: JSON.stringify({ prompt })
       });
       
-      const resText = await res.text();
-      let data;
-      try {
-        data = JSON.parse(resText);
-      } catch (e) {
-        showToast("Respons API tidak valid (Bukan JSON).");
-        return;
-      }
-      
-      if (data.reply) {
+      if (data && data.reply) {
         let content = data.reply;
         const titleMatch = content.match(/Judul:\s*([^\n]+)/i);
         const missionMatch = content.match(/Misi:\s*([\s\S]+)/i);
@@ -4409,13 +5017,13 @@ Misi: [Tulis deskripsi misi di sini]`;
           </div>
           <div className="flex flex-col gap-2 max-h-[340px] overflow-y-auto pr-1">
             {materials.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 px-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 text-center">
-                <div className="w-12 h-12 bg-blue-100 text-blue-500 rounded-full flex items-center justify-center mb-3">
+              <div className="flex flex-col items-center justify-center py-8 px-4 bg-[rgba(5,29,83,0.42)] rounded-xl border border-dashed border-[rgba(226,245,255,0.4)] text-center">
+                <div className="w-12 h-12 bg-blue-500/20 text-blue-300 border border-blue-400/30 rounded-full flex items-center justify-center mb-3">
                   <BookOpen className="w-6 h-6" />
                 </div>
-                <h4 className="text-slate-700 font-semibold mb-1">Belum Ada Materi</h4>
-                <p className="text-xs text-slate-500 max-w-[200px] mb-3">Bagikan modul atau referensi bacaan untuk kelas Anda.</p>
-                <button type="button" onClick={() => setActiveTab("material")} className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-full transition-colors">Buat Sekarang</button>
+                <h4 className="text-white font-semibold mb-1">Belum Ada Materi</h4>
+                <p className="text-xs text-[rgba(226,245,255,0.76)] max-w-[200px] mb-3">Bagikan modul atau referensi bacaan untuk kelas Anda.</p>
+                <button type="button" onClick={() => setActiveTab("material")} className="text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded-full transition-colors border-0">Buat Sekarang</button>
               </div>
             ) : materials.map((item) => (
               <article key={item.id} className="flex flex-col shrink-0 min-h-[96px] group relative p-3 bg-white rounded-lg border border-slate-100 shadow-sm hover:border-blue-200 transition-all">
@@ -4462,13 +5070,13 @@ Misi: [Tulis deskripsi misi di sini]`;
           </div>
           <div className="flex flex-col gap-2 max-h-[340px] overflow-y-auto pr-1">
             {quests.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 px-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 text-center">
-                <div className="w-12 h-12 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mb-3">
+              <div className="flex flex-col items-center justify-center py-8 px-4 bg-[rgba(5,29,83,0.42)] rounded-xl border border-dashed border-[rgba(226,245,255,0.4)] text-center">
+                <div className="w-12 h-12 bg-orange-500/20 text-orange-300 border border-orange-400/30 rounded-full flex items-center justify-center mb-3">
                   <Target className="w-6 h-6" />
                 </div>
-                <h4 className="text-slate-700 font-semibold mb-1">Belum Ada IdeQuest</h4>
-                <p className="text-xs text-slate-500 max-w-[200px] mb-3">Buat misi seru berhadiah poin untuk memotivasi murid.</p>
-                <button type="button" onClick={() => setActiveTab("quest")} className="text-xs font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-full transition-colors">Buat Sekarang</button>
+                <h4 className="text-white font-semibold mb-1">Belum Ada IdeQuest</h4>
+                <p className="text-xs text-[rgba(226,245,255,0.76)] max-w-[200px] mb-3">Buat misi seru berhadiah poin untuk memotivasi murid.</p>
+                <button type="button" onClick={() => setActiveTab("quest")} className="text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 px-3 py-1.5 rounded-full transition-colors border-0">Buat Sekarang</button>
               </div>
             ) : quests.map((item) => (
               <article key={item.id} className="flex flex-col shrink-0 min-h-[96px] group relative p-3 bg-white rounded-lg border border-slate-100 shadow-sm hover:border-blue-200 transition-all">
@@ -4509,71 +5117,71 @@ Misi: [Tulis deskripsi misi di sini]`;
       </div>
       {isSearchModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 m-0">
-                <Search className="h-5 w-5 text-blue-500" />
+          <div className="teacher-profile-card border-0 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-white/10 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2 m-0">
+                <Search className="h-5 w-5 text-amber-400" />
                 Cari Materi & IdeQuest
               </h3>
-              <button type="button" className="text-slate-400 hover:text-slate-600 bg-white hover:bg-slate-100 rounded-full p-1.5 transition-colors shadow-sm" onClick={() => { setIsSearchModalOpen(false); setSearchQuery(""); }}>
+              <button type="button" className="text-[rgba(226,245,255,0.76)] hover:text-white bg-[rgba(5,29,83,0.42)] hover:bg-[rgba(5,29,83,0.6)] rounded-full p-1.5 transition-colors shadow-sm" onClick={() => { setIsSearchModalOpen(false); setSearchQuery(""); }}>
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="p-4 border-b border-slate-100">
+            <div className="p-4 border-b border-white/10">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[rgba(226,245,255,0.76)]" />
                 <input
                   type="text"
                   placeholder="Ketik kata kunci pencarian..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-700"
+                  className="w-full pl-10 pr-4 py-3 bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400 transition-all text-white placeholder-[rgba(226,245,255,0.5)]"
                   autoFocus
                 />
               </div>
               <div className="flex gap-2 mt-3">
-                <button type="button" onClick={() => setSearchFilter("all")} className={`px-3 py-1.5 text-xs font-bold rounded-full transition-colors ${searchFilter === "all" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>Semua</button>
-                <button type="button" onClick={() => setSearchFilter("material")} className={`px-3 py-1.5 text-xs font-bold rounded-full transition-colors ${searchFilter === "material" ? "bg-blue-600 text-white" : "bg-blue-50 text-blue-600 hover:bg-blue-100"}`}>Materi</button>
-                <button type="button" onClick={() => setSearchFilter("quest")} className={`px-3 py-1.5 text-xs font-bold rounded-full transition-colors ${searchFilter === "quest" ? "bg-orange-500 text-white" : "bg-orange-50 text-orange-600 hover:bg-orange-100"}`}>IdeQuest</button>
+                <button type="button" onClick={() => setSearchFilter("all")} className={`px-3 py-1.5 text-xs font-bold rounded-full transition-colors border ${searchFilter === "all" ? "bg-amber-400/20 text-amber-300 border-amber-400/30" : "bg-[rgba(5,29,83,0.42)] text-[rgba(226,245,255,0.76)] border-[rgba(125,211,252,0.22)] hover:bg-[rgba(5,29,83,0.6)]"}`}>Semua</button>
+                <button type="button" onClick={() => setSearchFilter("material")} className={`px-3 py-1.5 text-xs font-bold rounded-full transition-colors border ${searchFilter === "material" ? "bg-amber-400/20 text-amber-300 border-amber-400/30" : "bg-[rgba(5,29,83,0.42)] text-[rgba(226,245,255,0.76)] border-[rgba(125,211,252,0.22)] hover:bg-[rgba(5,29,83,0.6)]"}`}>Materi</button>
+                <button type="button" onClick={() => setSearchFilter("quest")} className={`px-3 py-1.5 text-xs font-bold rounded-full transition-colors border ${searchFilter === "quest" ? "bg-amber-400/20 text-amber-300 border-amber-400/30" : "bg-[rgba(5,29,83,0.42)] text-[rgba(226,245,255,0.76)] border-[rgba(125,211,252,0.22)] hover:bg-[rgba(5,29,83,0.6)]"}`}>IdeQuest</button>
               </div>
             </div>
-            <div className="p-4 overflow-y-auto flex-1 bg-slate-50/50 max-h-[400px]">
+            <div className="p-4 overflow-y-auto flex-1 max-h-[400px]">
               {searchQuery.trim() === "" ? (
-                <div className="text-center py-10 text-slate-400">
+                <div className="text-center py-10 text-[rgba(226,245,255,0.6)]">
                   <Search className="h-10 w-10 mx-auto mb-3 opacity-20" />
                   <p>Ketik sesuatu untuk mulai mencari</p>
                 </div>
               ) : (
                 <div className="flex flex-col gap-3 teacher-studio-board-search">
                   {(searchFilter === "all" || searchFilter === "material") && materials.filter(m => m.title.toLowerCase().includes(searchQuery.toLowerCase()) || m.type.toLowerCase().includes(searchQuery.toLowerCase())).map(item => (
-                    <article key={`search-m-${item.id}`} className="flex flex-col shrink-0 min-h-[96px] group relative p-3 bg-white rounded-lg border border-slate-100 shadow-sm hover:border-blue-200 transition-all">
+                    <article key={`search-m-${item.id}`} className="flex flex-col shrink-0 min-h-[96px] group relative p-3 bg-[rgba(5,29,83,0.42)] rounded-lg border border-[rgba(125,211,252,0.22)] shadow-sm hover:border-amber-400/50 transition-all">
                       <div className="flex flex-col my-auto">
-                        <strong className="leading-tight text-slate-800">{item.title}</strong>
-                        <span className="text-[11px] text-slate-500 mt-0.5">{item.type} - {classes.find((kelas) => kelas.id === item.classId)?.name ?? "Kelas"}</span>
+                        <strong className="leading-tight text-white">{item.title}</strong>
+                        <span className="text-[11px] text-[rgba(226,245,255,0.76)] mt-0.5">{item.type} - {classes.find((kelas) => kelas.id === item.classId)?.name ?? "Kelas"}</span>
                       </div>
                       <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-all duration-300 ease-in-out">
                         <div className="overflow-hidden min-h-0">
-                          <div className="flex items-center justify-end gap-1 pt-2 mt-2 border-t border-slate-100 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
-                            <button type="button" onClick={async () => { try { await api("/api/teacher/bank-submit", { method: "POST", body: JSON.stringify({ type: "material", id: item.id }) }); showToast("Materi ini akan ditinjau oleh tim IdeTech."); } catch (err) { showToast(err instanceof Error ? err.message : "Gagal mengirim ke bank."); } }} className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors" title="Kirim ke Bank Materi"><Upload className="h-4 w-4" /></button>
-                            {onEditMaterial && <button type="button" onClick={() => { setIsSearchModalOpen(false); onEditMaterial(item); }} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="Edit Materi"><Pencil className="h-4 w-4" /></button>}
-                            {onDeleteMaterial && <button type="button" onClick={() => onDeleteMaterial(item.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Hapus Materi"><Trash2 className="h-4 w-4" /></button>}
+                          <div className="flex items-center justify-end gap-1 pt-2 mt-2 border-t border-[rgba(125,211,252,0.22)] opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
+                            <button type="button" onClick={async () => { try { await api("/api/teacher/bank-submit", { method: "POST", body: JSON.stringify({ type: "material", id: item.id }) }); showToast("Materi ini akan ditinjau oleh tim IdeTech."); } catch (err) { showToast(err instanceof Error ? err.message : "Gagal mengirim ke bank."); } }} className="p-1.5 text-[rgba(226,245,255,0.76)] hover:text-emerald-400 hover:bg-emerald-500/20 rounded-md transition-colors" title="Kirim ke Bank Materi"><Upload className="h-4 w-4" /></button>
+                            {onEditMaterial && <button type="button" onClick={() => { setIsSearchModalOpen(false); onEditMaterial(item); }} className="p-1.5 text-[rgba(226,245,255,0.76)] hover:text-blue-400 hover:bg-blue-500/20 rounded-md transition-colors" title="Edit Materi"><Pencil className="h-4 w-4" /></button>}
+                            {onDeleteMaterial && <button type="button" onClick={() => onDeleteMaterial(item.id)} className="p-1.5 text-[rgba(226,245,255,0.76)] hover:text-rose-400 hover:bg-rose-500/20 rounded-md transition-colors" title="Hapus Materi"><Trash2 className="h-4 w-4" /></button>}
                           </div>
                         </div>
                       </div>
                     </article>
                   ))}
                   {(searchFilter === "all" || searchFilter === "quest") && quests.filter(q => q.title.toLowerCase().includes(searchQuery.toLowerCase())).map(item => (
-                    <article key={`search-q-${item.id}`} className="flex flex-col shrink-0 min-h-[96px] group relative p-3 bg-white rounded-lg border border-slate-100 shadow-sm hover:border-blue-200 transition-all">
+                    <article key={`search-q-${item.id}`} className="flex flex-col shrink-0 min-h-[96px] group relative p-3 bg-[rgba(5,29,83,0.42)] rounded-lg border border-[rgba(125,211,252,0.22)] shadow-sm hover:border-amber-400/50 transition-all">
                       <div className="flex flex-col my-auto">
-                        <strong className="leading-tight text-slate-800">{item.title}</strong>
-                        <span className="text-[11px] text-slate-500 mt-0.5">{item.points} poin - {item.dueDate}</span>
+                        <strong className="leading-tight text-white">{item.title}</strong>
+                        <span className="text-[11px] text-[rgba(226,245,255,0.76)] mt-0.5">{item.points} poin - {item.dueDate}</span>
                       </div>
                       <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-all duration-300 ease-in-out">
                         <div className="overflow-hidden min-h-0">
-                          <div className="flex items-center justify-end gap-1 pt-2 mt-2 border-t border-slate-100 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
-                            <button type="button" onClick={async () => { try { await api("/api/teacher/bank-submit", { method: "POST", body: JSON.stringify({ type: "quest", id: item.id }) }); showToast("IdeQuest ini akan ditinjau oleh tim IdeTech."); } catch (err) { showToast(err instanceof Error ? err.message : "Gagal mengirim ke bank."); } }} className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors" title="Kirim ke Bank IdeQuest"><Upload className="h-4 w-4" /></button>
-                            {onEditQuest && <button type="button" onClick={() => { setIsSearchModalOpen(false); onEditQuest(item); }} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="Edit IdeQuest"><Pencil className="h-4 w-4" /></button>}
-                            {onDeleteQuest && <button type="button" onClick={() => onDeleteQuest(item.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Hapus IdeQuest"><Trash2 className="h-4 w-4" /></button>}
+                          <div className="flex items-center justify-end gap-1 pt-2 mt-2 border-t border-[rgba(125,211,252,0.22)] opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
+                            <button type="button" onClick={async () => { try { await api("/api/teacher/bank-submit", { method: "POST", body: JSON.stringify({ type: "quest", id: item.id }) }); showToast("IdeQuest ini akan ditinjau oleh tim IdeTech."); } catch (err) { showToast(err instanceof Error ? err.message : "Gagal mengirim ke bank."); } }} className="p-1.5 text-[rgba(226,245,255,0.76)] hover:text-emerald-400 hover:bg-emerald-500/20 rounded-md transition-colors" title="Kirim ke Bank IdeQuest"><Upload className="h-4 w-4" /></button>
+                            {onEditQuest && <button type="button" onClick={() => { setIsSearchModalOpen(false); onEditQuest(item); }} className="p-1.5 text-[rgba(226,245,255,0.76)] hover:text-blue-400 hover:bg-blue-500/20 rounded-md transition-colors" title="Edit IdeQuest"><Pencil className="h-4 w-4" /></button>}
+                            {onDeleteQuest && <button type="button" onClick={() => onDeleteQuest(item.id)} className="p-1.5 text-[rgba(226,245,255,0.76)] hover:text-rose-400 hover:bg-rose-500/20 rounded-md transition-colors" title="Hapus IdeQuest"><Trash2 className="h-4 w-4" /></button>}
                           </div>
                         </div>
                       </div>
@@ -4582,7 +5190,7 @@ Misi: [Tulis deskripsi misi di sini]`;
                   {((searchFilter === "all" && materials.filter(m => m.title.toLowerCase().includes(searchQuery.toLowerCase()) || m.type.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && quests.filter(q => q.title.toLowerCase().includes(searchQuery.toLowerCase())).length === 0) ||
                     (searchFilter === "material" && materials.filter(m => m.title.toLowerCase().includes(searchQuery.toLowerCase()) || m.type.toLowerCase().includes(searchQuery.toLowerCase())).length === 0) ||
                     (searchFilter === "quest" && quests.filter(q => q.title.toLowerCase().includes(searchQuery.toLowerCase())).length === 0)) && (
-                     <div className="text-center py-8 text-slate-500">
+                     <div className="text-center py-8 text-[rgba(226,245,255,0.6)]">
                        <p>Tidak ada hasil yang cocok dengan pencarian Anda.</p>
                      </div>
                    )}
@@ -4638,110 +5246,110 @@ Misi: [Tulis deskripsi misi di sini]`;
       
       {showBankModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                <BookOpen className="h-5 w-5 text-blue-500" />
+          <div className="teacher-profile-card border-0 shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-white/10 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-amber-400" />
                 Bank IdeTech
               </h3>
-              <button type="button" onClick={() => setShowBankModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-md hover:bg-slate-100">
+              <button type="button" onClick={() => setShowBankModal(false)} className="text-[rgba(226,245,255,0.76)] hover:text-white transition-colors p-1 rounded-md hover:bg-white/10">
                 <X className="h-5 w-5" />
               </button>
             </div>
             
-            <div className="flex border-b border-slate-100 bg-white">
+            <div className="flex border-b border-white/10">
               <button
                 type="button"
-                className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${bankTab === 'material' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+                className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${bankTab === 'material' ? 'border-amber-400 text-amber-400' : 'border-transparent text-[rgba(226,245,255,0.76)] hover:text-white hover:bg-white/5'}`}
                 onClick={() => setBankTab('material')}
               >
                 Bank Materi
               </button>
               <button
                 type="button"
-                className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${bankTab === 'quest' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+                className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${bankTab === 'quest' ? 'border-amber-400 text-amber-400' : 'border-transparent text-[rgba(226,245,255,0.76)] hover:text-white hover:bg-white/5'}`}
                 onClick={() => setBankTab('quest')}
               >
                 Bank IdeQuest
               </button>
               <button
                 type="button"
-                className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${bankTab === 'rpp' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+                className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${bankTab === 'rpp' ? 'border-amber-400 text-amber-400' : 'border-transparent text-[rgba(226,245,255,0.76)] hover:text-white hover:bg-white/5'}`}
                 onClick={() => setBankTab('rpp')}
               >
                 Bank RPP (AI)
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto flex-1 bg-slate-50 space-y-4">
+            <div className="p-6 overflow-y-auto flex-1 space-y-4">
               {bankTab === 'material' ? (
                 bankItems.materials.length === 0 ? (
-                  <div className="text-center p-8 text-slate-500 bg-white rounded-xl border border-slate-100 shadow-sm">Belum ada materi di bank.</div>
+                  <div className="text-center p-8 text-[rgba(226,245,255,0.76)] bg-[rgba(5,29,83,0.42)] rounded-xl border border-[rgba(125,211,252,0.22)] shadow-sm">Belum ada materi di bank.</div>
                 ) : (
                   bankItems.materials.map(item => (
-                    <div key={item.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                    <div key={item.id} className="bg-[rgba(5,29,83,0.42)] p-4 rounded-xl border border-[rgba(125,211,252,0.22)] shadow-sm flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center hover:bg-[rgba(5,29,83,0.6)] transition-colors">
                       <div>
-                        <h4 className="font-bold text-slate-800">{item.title}</h4>
-                        <p className="text-xs text-slate-500 mt-1">Oleh: {item.teacherName} • Tipe: {item.type}</p>
-                        <p className="text-sm text-slate-600 mt-2 line-clamp-2">{item.description}</p>
+                        <h4 className="font-bold text-white">{item.title}</h4>
+                        <p className="text-xs text-[rgba(226,245,255,0.76)] mt-1">Oleh: {item.teacherName} • Tipe: {item.type}</p>
+                        <p className="text-sm text-[rgba(226,245,255,0.86)] mt-2 line-clamp-2">{item.description}</p>
                       </div>
                       <div className="flex flex-col gap-2 min-w-[160px]">
                         <select 
-                          className="text-xs font-medium text-slate-700 border border-slate-300 rounded p-1.5 w-full bg-white shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                          className="text-xs font-medium text-white border border-[rgba(125,211,252,0.22)] rounded p-1.5 w-full bg-[#0a1f5c] shadow-sm focus:border-amber-400 focus:ring-1 focus:ring-amber-400 focus:outline-none"
                           value={requestTargetClass[item.id] || ""}
                           onChange={(e) => setRequestTargetClass(prev => ({...prev, [item.id]: e.target.value}))}
                         >
                           <option value="">-- Pilih Kelas Tujuan --</option>
                           {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
-                        <Button type="button" onClick={() => sendBankRequest("material", item.id)} className="w-full text-xs py-1.5">Minta Izin Penggunaan</Button>
+                        <button type="button" onClick={() => sendBankRequest("material", item.id)} className="w-full text-xs py-1.5 px-3 rounded border border-amber-400/50 bg-amber-400/20 text-amber-300 font-bold hover:bg-amber-400/30 transition-colors shadow-sm">Minta Izin Penggunaan</button>
                       </div>
                     </div>
                   ))
                 )
               ) : bankTab === 'quest' ? (
                 bankItems.quests.length === 0 ? (
-                  <div className="text-center p-8 text-slate-500 bg-white rounded-xl border border-slate-100 shadow-sm">Belum ada IdeQuest di bank.</div>
+                  <div className="text-center p-8 text-[rgba(226,245,255,0.76)] bg-[rgba(5,29,83,0.42)] rounded-xl border border-[rgba(125,211,252,0.22)] shadow-sm">Belum ada IdeQuest di bank.</div>
                 ) : (
                   bankItems.quests.map(item => (
-                    <div key={item.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                    <div key={item.id} className="bg-[rgba(5,29,83,0.42)] p-4 rounded-xl border border-[rgba(125,211,252,0.22)] shadow-sm flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center hover:bg-[rgba(5,29,83,0.6)] transition-colors">
                       <div>
-                        <h4 className="font-bold text-slate-800">{item.title}</h4>
-                        <p className="text-xs text-slate-500 mt-1">Oleh: {item.teacherName} • Poin: {item.points}</p>
-                        <p className="text-sm text-slate-600 mt-2 line-clamp-2">{item.mission}</p>
+                        <h4 className="font-bold text-white">{item.title}</h4>
+                        <p className="text-xs text-[rgba(226,245,255,0.76)] mt-1">Oleh: {item.teacherName} • Poin: {item.points}</p>
+                        <p className="text-sm text-[rgba(226,245,255,0.86)] mt-2 line-clamp-2">{item.mission}</p>
                       </div>
                       <div className="flex flex-col gap-2 min-w-[160px]">
                         <select 
-                          className="text-xs font-medium text-slate-700 border border-slate-300 rounded p-1.5 w-full bg-white shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                          className="text-xs font-medium text-white border border-[rgba(125,211,252,0.22)] rounded p-1.5 w-full bg-[#0a1f5c] shadow-sm focus:border-amber-400 focus:ring-1 focus:ring-amber-400 focus:outline-none"
                           value={requestTargetClass[item.id] || ""}
                           onChange={(e) => setRequestTargetClass(prev => ({...prev, [item.id]: e.target.value}))}
                         >
                           <option value="">-- Pilih Kelas Tujuan --</option>
                           {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
-                        <Button type="button" onClick={() => sendBankRequest("quest", item.id)} className="w-full text-xs py-1.5">Minta Izin Penggunaan</Button>
+                        <button type="button" onClick={() => sendBankRequest("quest", item.id)} className="w-full text-xs py-1.5 px-3 rounded border border-amber-400/50 bg-amber-400/20 text-amber-300 font-bold hover:bg-amber-400/30 transition-colors shadow-sm">Minta Izin Penggunaan</button>
                       </div>
                     </div>
                   ))
                 )
               ) : (
                 bankItems.lessonPlans?.length === 0 ? (
-                  <div className="text-center p-8 text-slate-500 bg-white rounded-xl border border-slate-100 shadow-sm">Belum ada RPP di bank.</div>
+                  <div className="text-center p-8 text-[rgba(226,245,255,0.76)] bg-[rgba(5,29,83,0.42)] rounded-xl border border-[rgba(125,211,252,0.22)] shadow-sm">Belum ada RPP di bank.</div>
                 ) : (
                   bankItems.lessonPlans?.map(item => (
-                    <div key={item.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                    <div key={item.id} className="bg-[rgba(5,29,83,0.42)] p-4 rounded-xl border border-[rgba(125,211,252,0.22)] shadow-sm flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center hover:bg-[rgba(5,29,83,0.6)] transition-colors">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <h4 className="font-bold text-slate-800">{item.topic}</h4>
-                          <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-[10px] font-bold">Kelas {item.grade}</span>
+                          <h4 className="font-bold text-white">{item.topic}</h4>
+                          <span className="bg-amber-400/20 text-amber-300 px-2 py-0.5 rounded-full text-[10px] font-bold border border-amber-400/30">Kelas {item.grade}</span>
                         </div>
-                        <p className="text-xs text-slate-500 mt-1">Oleh: {item.teacherName} • {item.duration} • {item.model}</p>
+                        <p className="text-xs text-[rgba(226,245,255,0.76)] mt-1">Oleh: {item.teacherName} • {item.duration} • {item.model}</p>
                       </div>
                       <div className="flex flex-col gap-2 min-w-[160px]">
-                        <Button type="button" onClick={() => {
+                        <button type="button" onClick={() => {
                           navigator.clipboard.writeText(item.content);
                           alert('Isi RPP disalin ke clipboard!');
-                        }} className="w-full text-xs py-1.5 bg-white text-blue-600 border border-blue-200 hover:bg-blue-50">Salin Isi RPP</Button>
+                        }} className="w-full text-xs py-1.5 px-3 rounded border border-blue-400/50 bg-blue-500/20 text-blue-300 font-bold hover:bg-blue-500/30 transition-colors shadow-sm">Salin Isi RPP</button>
                       </div>
                     </div>
                   ))
@@ -4749,8 +5357,8 @@ Misi: [Tulis deskripsi misi di sini]`;
               )}
             </div>
             
-            <div className="p-4 border-t border-slate-100 bg-white flex justify-end">
-              <button type="button" onClick={() => setShowBankModal(false)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-sm transition-colors">
+            <div className="p-4 border-t border-white/10 flex justify-end">
+              <button type="button" onClick={() => setShowBankModal(false)} className="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold rounded-lg text-sm transition-colors border border-white/10">
                 Tutup Bank
               </button>
             </div>
@@ -4760,42 +5368,42 @@ Misi: [Tulis deskripsi misi di sini]`;
 
       {showRequestsModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                <Bell className="h-5 w-5 text-blue-500" />
+          <div className="teacher-profile-card border-0 shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-white/10 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Bell className="h-5 w-5 text-amber-400" />
                 Permintaan Bank IdeTech
               </h3>
-              <button type="button" onClick={() => setShowRequestsModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-md hover:bg-slate-100">
+              <button type="button" onClick={() => setShowRequestsModal(false)} className="text-[rgba(226,245,255,0.76)] hover:text-white transition-colors p-1 rounded-md hover:bg-white/10">
                 <X className="h-5 w-5" />
               </button>
             </div>
             
-            <div className="p-6 overflow-y-auto flex-1 bg-slate-50 space-y-6">
+            <div className="p-6 overflow-y-auto flex-1 space-y-6">
               <div>
-                <h4 className="font-bold text-slate-700 mb-3 border-b border-slate-200 pb-2 flex items-center justify-between">
+                <h4 className="font-bold text-white mb-3 border-b border-white/10 pb-2 flex items-center justify-between">
                   Permintaan Masuk
-                  <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">{bankRequests.incoming.length}</span>
+                  <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full">{bankRequests.incoming.length}</span>
                 </h4>
                 {bankRequests.incoming.length === 0 ? (
-                  <p className="text-sm text-slate-500 italic">Belum ada permintaan masuk dari guru lain.</p>
+                  <p className="text-sm text-[rgba(226,245,255,0.76)] italic">Belum ada permintaan masuk dari guru lain.</p>
                 ) : (
                   <div className="space-y-3">
                     {bankRequests.incoming.map(req => (
-                      <div key={req.id} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm text-sm">
+                      <div key={req.id} className="bg-[rgba(5,29,83,0.42)] p-3 rounded-lg border border-[rgba(125,211,252,0.22)] shadow-sm text-sm hover:bg-[rgba(5,29,83,0.6)] transition-colors">
                         <div className="flex justify-between items-start mb-2">
                           <div>
-                            <span className="font-semibold text-slate-800">{req.requesterName}</span> meminta izin untuk menggunakan <span className="font-semibold text-blue-600">{req.itemTitle}</span> ({req.itemType})
+                            <span className="font-semibold text-white">{req.requesterName}</span> meminta izin untuk menggunakan <span className="font-semibold text-amber-400">{req.itemTitle}</span> ({req.itemType})
                           </div>
-                          <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${req.status === 'pending' ? 'bg-amber-100 text-amber-700' : req.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-rose-100 text-rose-700'}`}>
+                          <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${req.status === 'pending' ? 'bg-amber-400/20 text-amber-400 border border-amber-400/30' : req.status === 'approved' ? 'bg-emerald-400/20 text-emerald-400 border border-emerald-400/30' : 'bg-rose-400/20 text-rose-400 border border-rose-400/30'}`}>
                             {req.status}
                           </span>
                         </div>
-                        <div className="text-xs text-slate-500 mb-3">Tujuan: Kelas ID {req.targetClassId} • Dikirim: {new Date(req.createdAt).toLocaleDateString()}</div>
+                        <div className="text-xs text-[rgba(226,245,255,0.76)] mb-3">Tujuan: Kelas ID {req.targetClassId} • Dikirim: {new Date(req.createdAt).toLocaleDateString()}</div>
                         {req.status === 'pending' && (
-                          <div className="flex gap-2 justify-end mt-2 pt-2 border-t border-slate-100">
-                            <Button type="button" onClick={() => processBankRequest(req.id, "approved")} className="px-3 py-1.5 text-xs bg-green-50 text-green-700 hover:bg-green-100 border-none shadow-none"><CheckCircle2 className="w-3.5 h-3.5 mr-1 inline"/> Izinkan</Button>
-                            <Button type="button" onClick={() => processBankRequest(req.id, "rejected")} className="px-3 py-1.5 text-xs bg-rose-50 text-rose-700 hover:bg-rose-100 border-none shadow-none"><X className="w-3.5 h-3.5 mr-1 inline"/> Tolak</Button>
+                          <div className="flex gap-2 justify-end mt-2 pt-2 border-t border-[rgba(125,211,252,0.22)]">
+                            <button type="button" onClick={() => processBankRequest(req.id, "approved")} className="px-3 py-1.5 text-xs bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/50 rounded shadow-sm transition-colors"><CheckCircle2 className="w-3.5 h-3.5 mr-1 inline"/> Izinkan</button>
+                            <button type="button" onClick={() => processBankRequest(req.id, "rejected")} className="px-3 py-1.5 text-xs bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 border border-rose-500/50 rounded shadow-sm transition-colors"><X className="w-3.5 h-3.5 mr-1 inline"/> Tolak</button>
                           </div>
                         )}
                       </div>
@@ -4805,25 +5413,25 @@ Misi: [Tulis deskripsi misi di sini]`;
               </div>
 
               <div>
-                <h4 className="font-bold text-slate-700 mb-3 border-b border-slate-200 pb-2 flex items-center justify-between">
+                <h4 className="font-bold text-white mb-3 border-b border-white/10 pb-2 flex items-center justify-between">
                   Permintaan Keluar
-                  <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">{bankRequests.outgoing.length}</span>
+                  <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full">{bankRequests.outgoing.length}</span>
                 </h4>
                 {bankRequests.outgoing.length === 0 ? (
-                  <p className="text-sm text-slate-500 italic">Anda belum pernah meminta izin materi guru lain.</p>
+                  <p className="text-sm text-[rgba(226,245,255,0.76)] italic">Anda belum pernah meminta izin materi guru lain.</p>
                 ) : (
                   <div className="space-y-3">
                     {bankRequests.outgoing.map(req => (
-                      <div key={req.id} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm text-sm">
+                      <div key={req.id} className="bg-[rgba(5,29,83,0.42)] p-3 rounded-lg border border-[rgba(125,211,252,0.22)] shadow-sm text-sm hover:bg-[rgba(5,29,83,0.6)] transition-colors">
                         <div className="flex justify-between items-start">
                           <div>
-                            Anda meminta izin kepada <span className="font-semibold text-slate-800">{req.ownerName}</span> untuk menggunakan <span className="font-semibold text-blue-600">{req.itemTitle}</span> ({req.itemType})
+                            Anda meminta izin kepada <span className="font-semibold text-white">{req.ownerName}</span> untuk menggunakan <span className="font-semibold text-amber-400">{req.itemTitle}</span> ({req.itemType})
                           </div>
-                          <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${req.status === 'pending' ? 'bg-amber-100 text-amber-700' : req.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-rose-100 text-rose-700'}`}>
+                          <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${req.status === 'pending' ? 'bg-amber-400/20 text-amber-400 border border-amber-400/30' : req.status === 'approved' ? 'bg-emerald-400/20 text-emerald-400 border border-emerald-400/30' : 'bg-rose-400/20 text-rose-400 border border-rose-400/30'}`}>
                             {req.status}
                           </span>
                         </div>
-                        <div className="text-xs text-slate-500 mt-1">Tujuan: Kelas ID {req.targetClassId} • Dikirim: {new Date(req.createdAt).toLocaleDateString()}</div>
+                        <div className="text-xs text-[rgba(226,245,255,0.76)] mt-1">Tujuan: Kelas ID {req.targetClassId} • Dikirim: {new Date(req.createdAt).toLocaleDateString()}</div>
                       </div>
                     ))}
                   </div>
@@ -4831,8 +5439,8 @@ Misi: [Tulis deskripsi misi di sini]`;
               </div>
             </div>
             
-            <div className="p-4 border-t border-slate-100 bg-white flex justify-end">
-              <button type="button" onClick={() => setShowRequestsModal(false)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-sm transition-colors">
+            <div className="p-4 border-t border-white/10 flex justify-end">
+              <button type="button" onClick={() => setShowRequestsModal(false)} className="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold rounded-lg text-sm transition-colors border border-white/10">
                 Tutup
               </button>
             </div>
@@ -5708,7 +6316,7 @@ function TopBar({
           <div className="flex gap-2">
             <div className="game-hud-pill">
               <Heart className="h-5 w-5 text-red-500" />
-              <span>0/0</span>
+              <span>{user.hp ?? 0}</span>
             </div>
             <div className="game-hud-pill">
               <CircleDollarSign className="h-5 w-5 text-yellow-500" />
@@ -6278,7 +6886,7 @@ function AdminUserVerificationGrid({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col md:flex-row gap-4 bg-white/60 backdrop-blur p-4 rounded-xl border border-slate-200">
+      <div className="flex flex-col md:flex-row gap-4 bg-black/20 backdrop-blur p-4 rounded-xl border border-white/10">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input 
@@ -6286,17 +6894,17 @@ function AdminUserVerificationGrid({
             placeholder="Cari nama atau email..." 
             value={searchQuery} 
             onChange={(e) => setSearchQuery(e.target.value)} 
-            className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" 
+            className="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500" 
           />
         </div>
         <div className="flex gap-4">
-          <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-full md:w-40 bg-white">
+          <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-full md:w-40 professional-select">
             <option value="all">Semua Status</option>
             <option value="active">Aktif</option>
             <option value="pending">Pending</option>
             <option value="suspended">Suspend</option>
           </Select>
-          <Select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="w-full md:w-40 bg-white">
+          <Select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="w-full md:w-40 professional-select">
             <option value="all">Semua Role</option>
             {roles.map((r) => (
               <option key={r.name} value={r.name}>{r.label}</option>
@@ -6312,20 +6920,20 @@ function AdminUserVerificationGrid({
             <Card key={item.id} className="professional-card p-4 flex flex-col gap-4">
             <div className="flex flex-col gap-1.5 flex-1">
               <div className="flex justify-between items-start">
-                <span className="font-semibold text-lg">{item.name}</span>
+                <span className="font-semibold text-lg text-slate-100">{item.name}</span>
                 {onDeleteUser && (
-                  <button type="button" onClick={() => onDeleteUser(item.id)} disabled={busy} className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded-md transition-colors" title="Hapus User">
+                  <button type="button" onClick={() => onDeleteUser(item.id)} disabled={busy} className="bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 p-2 rounded-lg transition-colors" title="Hapus User">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 )}
               </div>
-              <span className="text-sm opacity-70 font-mono">{item.email}</span>
+              <span className="text-sm text-slate-400 font-mono">{item.email}</span>
             </div>
             
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium opacity-70">Status</label>
+              <label className="text-sm font-medium text-slate-300">Status</label>
               <Select
-                className="w-full"
+                className="w-full professional-select"
                 value={item.status}
                 disabled={busy}
                 aria-label={`Status ${item.name}`}
@@ -6338,7 +6946,7 @@ function AdminUserVerificationGrid({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium opacity-70">Role</label>
+              <label className="text-sm font-medium text-slate-300">Role</label>
               <div className="admin-role-icon-checks">
                 {roles.map((role) => {
                   const checked = selectedRoles.includes(role.name);
@@ -6356,7 +6964,7 @@ function AdminUserVerificationGrid({
           </Card>
         );
         }) : (
-          <div className="col-span-full py-12 text-center text-slate-500 bg-white/30 rounded-2xl border border-dashed border-slate-300">
+          <div className="col-span-full py-12 text-center text-slate-400 bg-black/20 rounded-2xl border border-dashed border-white/20">
             Tidak ada user yang sesuai dengan pencarian atau filter.
           </div>
         )}
@@ -6488,12 +7096,12 @@ function AdminClassManager({
               placeholder="Cari nama guru..." 
               value={searchGuru}
               onChange={(e) => setSearchGuru(e.target.value)}
-              className="border border-slate-200 rounded-md px-3 py-1.5 text-sm w-full sm:w-48 bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+              className="border border-white/10 rounded-xl px-3 py-1.5 text-sm w-full sm:w-48 bg-[#27272a] text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <Select 
               value={searchJenjang} 
               onChange={(e) => setSearchJenjang(e.target.value)}
-              className="w-full sm:w-40 border-slate-200 text-sm"
+              className="w-full sm:w-40 professional-select"
               style={{ minHeight: "34px", padding: "4px 8px" }}
             >
               <option value="">Semua Jenjang</option>
@@ -6553,17 +7161,17 @@ function AdminClassCard({
 
   return (
     <Card className="professional-card p-4 flex flex-col gap-4">
-      <div className="flex flex-col gap-1 border-b border-slate-100 pb-3 mb-1">
+      <div className="flex flex-col gap-1 border-b border-white/10 pb-3 mb-1">
         <input 
-          className="w-full text-xl font-extrabold text-slate-800 bg-transparent border-transparent hover:bg-slate-50 focus:bg-white rounded-md px-2 py-1 transition-all outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 placeholder-slate-300" 
+          className="w-full text-xl font-extrabold text-white bg-transparent border-transparent hover:bg-white/5 focus:bg-white/10 rounded-md px-2 py-1 transition-all outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 placeholder-slate-500" 
           value={draft.name} 
           placeholder="Nama Kelas (Misal: IPA 7A)" 
           onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} 
         />
         <div className="flex items-center gap-1.5 px-2">
-          <BookOpen className="h-4 w-4 text-blue-500 opacity-80" />
+          <BookOpen className="h-4 w-4 text-blue-400 opacity-80" />
           <input 
-            className="w-full text-sm font-semibold text-blue-600 bg-transparent border-transparent hover:bg-slate-50 focus:bg-white rounded-md px-1 py-0.5 transition-all outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 placeholder-blue-300/50" 
+            className="w-full text-sm font-semibold text-blue-400 bg-transparent border-transparent hover:bg-white/5 focus:bg-white/10 rounded-md px-1 py-0.5 transition-all outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 placeholder-blue-300/30" 
             value={draft.subject} 
             placeholder="Mata Pelajaran" 
             aria-label={`Mapel ${kelas.name}`} 
@@ -6573,8 +7181,8 @@ function AdminClassCard({
       </div>
       
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium opacity-70">Guru</label>
-        <Select value={draft.teacherUserId} onChange={(event) => setDraft((current) => ({ ...current, teacherUserId: event.target.value }))}>
+        <label className="text-sm font-medium text-slate-300">Guru</label>
+        <Select className="professional-select w-full" value={draft.teacherUserId} onChange={(event) => setDraft((current) => ({ ...current, teacherUserId: event.target.value }))}>
           {teachers.map((teacher) => (
             <option key={teacher.id} value={teacher.id}>
               {teacher.name}
@@ -6585,8 +7193,8 @@ function AdminClassCard({
 
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium opacity-70">Jenjang</label>
-          <Select value={draft.grade} onChange={(event) => setDraft((current) => ({ ...current, grade: event.target.value }))}>
+          <label className="text-sm font-medium text-slate-300">Jenjang</label>
+          <Select className="professional-select w-full" value={draft.grade} onChange={(event) => setDraft((current) => ({ ...current, grade: event.target.value }))}>
             {Array.from({ length: 12 }, (_, index) => String(index + 1)).map((grade) => (
               <option key={grade} value={grade}>
                 Kelas {grade}
@@ -6595,23 +7203,23 @@ function AdminClassCard({
           </Select>
         </div>
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium opacity-70">Siswa</label>
-          <input className="w-full" min="0" type="number" value={draft.students} onChange={(event) => setDraft((current) => ({ ...current, students: event.target.value }))} />
+          <label className="text-sm font-medium text-slate-300">Siswa</label>
+          <input className="w-full px-3 py-2 bg-[#27272a] border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500" min="0" type="number" value={draft.students} onChange={(event) => setDraft((current) => ({ ...current, students: event.target.value }))} />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium opacity-70">Status</label>
-          <Select value={draft.status} onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value as TeacherClass["status"] }))}>
+          <label className="text-sm font-medium text-slate-300">Status</label>
+          <Select className="professional-select w-full" value={draft.status} onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value as TeacherClass["status"] }))}>
             <option value="active">Aktif</option>
             <option value="draft">Draft</option>
             <option value="archived">Arsip</option>
           </Select>
         </div>
         <div className="flex flex-col gap-1.5">
-           <label className="text-sm font-medium opacity-70">ClassID</label>
-           <code className="p-2 bg-black/5 dark:bg-white/10 rounded-md text-center text-sm font-mono mt-0.5">{kelas.classCode ?? kelas.nextSession}</code>
+           <label className="text-sm font-medium text-slate-300">ClassID</label>
+           <code className="p-2 bg-[#27272a] border border-white/10 rounded-xl text-center text-sm font-mono mt-0.5 text-slate-300">{kelas.classCode ?? kelas.nextSession}</code>
         </div>
       </div>
 
@@ -6635,7 +7243,7 @@ function AdminClassCard({
           Simpan
         </Button>
         <button
-          className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 font-semibold py-2 rounded-xl transition-colors border border-red-200/50 shadow-sm"
+          className="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold py-2 rounded-xl transition-colors border border-red-500/20 shadow-sm"
           type="button"
           disabled={busy}
           onClick={() => {
@@ -6665,8 +7273,12 @@ function AdminSystemConfig({
   
   const [adminEmails, setAdminEmails] = useState("");
   const [teacherDomains, setTeacherDomains] = useState("");
+  const [studentDomains, setStudentDomains] = useState("");
+  const [adminContactWa, setAdminContactWa] = useState("");
   const [chatLimit, setChatLimit] = useState("5");
   const [chatWindowHours, setChatWindowHours] = useState("72");
+  const [aiDefaultLimit, setAiDefaultLimit] = useState("1");
+  const [aiOverridesText, setAiOverridesText] = useState("");
 
   const system = access?.system;
   const items = system
@@ -6689,12 +7301,21 @@ function AdminSystemConfig({
       const payload = await api<{ settings: any[] }>("/api/admin/settings");
       setSettings(payload.settings);
       
-      const authRules = payload.settings.find(s => s.key === "google_auth_rules");
+      const authRules = payload.settings.find(s => s.key === "google.role_rule");
       if (authRules && authRules.value) {
         try {
           const parsed = JSON.parse(authRules.value);
           if (parsed.adminEmails) setAdminEmails(parsed.adminEmails.join("\n"));
           if (parsed.teacherDomains) setTeacherDomains(parsed.teacherDomains.join("\n"));
+          if (parsed.studentDomains) setStudentDomains(parsed.studentDomains.join("\n"));
+        } catch (e) {}
+      }
+
+      const generalSettings = payload.settings.find(s => s.key === "general_settings");
+      if (generalSettings && generalSettings.value) {
+        try {
+          const parsed = JSON.parse(generalSettings.value);
+          if (parsed.adminContactWa) setAdminContactWa(parsed.adminContactWa);
         } catch (e) {}
       }
 
@@ -6704,6 +7325,17 @@ function AdminSystemConfig({
           const parsed = JSON.parse(chatQuota.value);
           if (parsed.limit !== undefined) setChatLimit(String(parsed.limit));
           if (parsed.windowMs !== undefined) setChatWindowHours(String(Math.round(parsed.windowMs / (1000 * 60 * 60))));
+        } catch (e) {}
+      }
+
+      const aiQuotaConfig = payload.settings.find(s => s.key === "ai.generation_quota_config");
+      if (aiQuotaConfig && aiQuotaConfig.value) {
+        try {
+          const parsed = JSON.parse(aiQuotaConfig.value);
+          if (parsed.defaultLimit !== undefined) setAiDefaultLimit(String(parsed.defaultLimit));
+          if (parsed.overrides) {
+            setAiOverridesText(Object.entries(parsed.overrides).map(([email, limit]) => `${email}=${limit}`).join("\n"));
+          }
         } catch (e) {}
       }
     } catch (e) {}
@@ -6717,13 +7349,35 @@ function AdminSystemConfig({
     try {
       const payload = {
         adminEmails: adminEmails.split("\n").map(s => s.trim()).filter(Boolean),
-        teacherDomains: teacherDomains.split("\n").map(s => s.trim()).filter(Boolean)
+        teacherDomains: teacherDomains.split("\n").map(s => s.trim()).filter(Boolean),
+        studentDomains: studentDomains.split("\n").map(s => s.trim()).filter(Boolean),
+        defaultRole: "student"
       };
       await api("/api/admin/settings", {
         method: "PATCH",
-        body: JSON.stringify({ key: "google_auth_rules", value: JSON.stringify(payload) })
+        body: JSON.stringify({ key: "google.role_rule", value: JSON.stringify(payload) })
       });
       setSuccess("Pengaturan Google Auth berhasil disimpan.");
+      await loadSettings();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menyimpan");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveGeneralSettings(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const payload = { adminContactWa };
+      await api("/api/admin/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ key: "general_settings", value: JSON.stringify(payload) })
+      });
+      setSuccess("Pengaturan Umum berhasil disimpan.");
       await loadSettings();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan");
@@ -6747,6 +7401,41 @@ function AdminSystemConfig({
         body: JSON.stringify({ key: "chat.quota_config", value: JSON.stringify(payload) })
       });
       setSuccess("Pengaturan Kuota Chat berhasil disimpan.");
+      await loadSettings();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menyimpan");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveAiQuota(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const overrides: Record<string, number> = {};
+      const lines = aiOverridesText.split("\n").map(s => s.trim()).filter(Boolean);
+      for (const line of lines) {
+        const parts = line.split("=");
+        if (parts.length === 2) {
+          const email = parts[0].trim();
+          const limit = parseInt(parts[1].trim(), 10);
+          if (!isNaN(limit)) {
+            overrides[email] = limit;
+          }
+        }
+      }
+      const payload = {
+        defaultLimit: Number(aiDefaultLimit),
+        overrides
+      };
+      await api("/api/admin/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ key: "ai.generation_quota_config", value: JSON.stringify(payload) })
+      });
+      setSuccess("Pengaturan Kuota Generate AI berhasil disimpan.");
       await loadSettings();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan");
@@ -6782,30 +7471,39 @@ function AdminSystemConfig({
           <h2 className="professional-card__title">Google Auth Role Mapping</h2>
           <ShieldCheck className="h-5 w-5 text-slate-400" />
         </div>
-        <p className="text-sm text-slate-600 mb-4">
+        <p className="text-sm text-slate-400 mb-4">
           Atur email admin dan domain email guru yang akan secara otomatis mendapatkan rolenya saat pertama kali mendaftar. Pisahkan setiap entri dengan baris baru (Enter).
         </p>
 
         {error ? <ErrorBanner message={error} /> : null}
-        {success ? <div className="mb-4 rounded-md bg-green-50 p-4 text-sm text-green-700 border border-green-200">{success}</div> : null}
+        {success ? <div className="mb-4 rounded-md bg-green-950/30 p-4 text-sm text-green-300 border border-green-500/30">{success}</div> : null}
 
         <form onSubmit={saveAuthRules} className="flex flex-col gap-4">
           <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-semibold text-slate-700">Email Admin (Superuser)</span>
+            <span className="text-sm font-semibold text-slate-300">Email Admin (Superuser)</span>
             <textarea 
               value={adminEmails}
               onChange={e => setAdminEmails(e.target.value)}
-              className="idetech-input min-h-[100px] font-mono text-sm leading-relaxed"
+              className="idetech-input min-h-[100px] font-mono text-sm leading-relaxed bg-white/5 border-white/10 text-white placeholder-slate-500"
               placeholder="admin@sekolah.id"
             />
           </label>
           <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-semibold text-slate-700">Domain Email Guru</span>
+            <span className="text-sm font-semibold text-slate-300">Domain Email Guru</span>
             <textarea 
               value={teacherDomains}
               onChange={e => setTeacherDomains(e.target.value)}
-              className="idetech-input min-h-[100px] font-mono text-sm leading-relaxed"
+              className="idetech-input min-h-[100px] font-mono text-sm leading-relaxed bg-white/5 border-white/10 text-white placeholder-slate-500"
               placeholder="@guru.smp.belajar.id"
+            />
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm font-semibold text-slate-300">Domain Email Siswa</span>
+            <textarea 
+              value={studentDomains}
+              onChange={e => setStudentDomains(e.target.value)}
+              className="idetech-input min-h-[100px] font-mono text-sm leading-relaxed bg-white/5 border-white/10 text-white placeholder-slate-500"
+              placeholder="@siswa.smp.belajar.id"
             />
           </label>
           <button type="submit" disabled={busy} className="mt-2 self-start rounded-lg bg-blue-600 px-6 py-2.5 font-bold text-white shadow-sm hover:bg-blue-700 active:scale-95 disabled:opacity-50 transition-all">
@@ -6816,38 +7514,103 @@ function AdminSystemConfig({
 
       <Card className="professional-card p-5">
         <div className="professional-card__header">
+          <h2 className="professional-card__title">Pengaturan Umum</h2>
+          <Settings className="h-5 w-5 text-slate-400" />
+        </div>
+        <p className="text-sm text-slate-400 mb-4">
+          Atur nomor kontak Admin untuk ditampilkan di sistem.
+        </p>
+
+        <form onSubmit={saveGeneralSettings} className="flex flex-col gap-4">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm font-semibold text-slate-300">Nomor WhatsApp Admin</span>
+            <input 
+              type="text"
+              value={adminContactWa}
+              onChange={e => setAdminContactWa(e.target.value)}
+              className="idetech-input font-mono text-sm bg-white/5 border-white/10 text-white placeholder-slate-500"
+              placeholder="6281234567890"
+            />
+            <span className="text-xs text-slate-400">Gunakan format internasional tanpa tanda plus (+), misal: 628...</span>
+          </label>
+          <button type="submit" disabled={busy} className="mt-2 self-start rounded-lg bg-blue-600 px-6 py-2.5 font-bold text-white shadow-sm hover:bg-blue-700 active:scale-95 disabled:opacity-50 transition-all">
+            {busy ? "Menyimpan..." : "Simpan Pengaturan"}
+          </button>
+        </form>
+      </Card>
+
+      <Card className="professional-card p-5">
+        <div className="professional-card__header">
           <h2 className="professional-card__title">Chat Quota AI (CybraFeriBot)</h2>
           <Sparkles className="h-5 w-5 text-slate-400" />
         </div>
-        <p className="text-sm text-slate-600 mb-4">
+        <p className="text-sm text-slate-400 mb-4">
           Atur batas maksimum penggunaan AI Chatbot per guru.
         </p>
 
         <form onSubmit={saveChatQuota} className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-4">
             <label className="flex flex-col gap-1.5">
-              <span className="text-sm font-semibold text-slate-700">Batas Pesan (Pesan)</span>
+              <span className="text-sm font-semibold text-slate-300">Batas Pesan (Pesan)</span>
               <input 
                 type="number"
                 min="0"
                 value={chatLimit}
                 onChange={e => setChatLimit(e.target.value)}
-                className="idetech-input"
+                className="idetech-input bg-white/5 border-white/10 text-white"
               />
             </label>
             <label className="flex flex-col gap-1.5">
-              <span className="text-sm font-semibold text-slate-700">Waktu Reset (Jam)</span>
+              <span className="text-sm font-semibold text-slate-300">Waktu Reset (Jam)</span>
               <input 
                 type="number"
                 min="1"
                 value={chatWindowHours}
                 onChange={e => setChatWindowHours(e.target.value)}
-                className="idetech-input"
+                className="idetech-input bg-white/5 border-white/10 text-white"
               />
             </label>
           </div>
           <button type="submit" disabled={busy} className="mt-2 self-start rounded-lg bg-blue-600 px-6 py-2.5 font-bold text-white shadow-sm hover:bg-blue-700 active:scale-95 disabled:opacity-50 transition-all">
             {busy ? "Menyimpan..." : "Simpan Kuota"}
+          </button>
+        </form>
+      </Card>
+
+      <Card className="professional-card p-5">
+        <div className="professional-card__header">
+          <h2 className="professional-card__title">Generate AI Quota (RPP/Materi/Quest)</h2>
+          <Sparkles className="h-5 w-5 text-slate-400" />
+        </div>
+        <p className="text-sm text-slate-400 mb-4">
+          Atur batas penggunaan fitur Generate AI per guru (direset otomatis setiap pukul 06:00).
+        </p>
+
+        <form onSubmit={saveAiQuota} className="flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <label className="flex flex-col gap-1.5 w-full md:w-1/2">
+              <span className="text-sm font-semibold text-slate-300">Batas Penggunaan Default per Hari</span>
+              <input 
+                type="number"
+                min="0"
+                value={aiDefaultLimit}
+                onChange={e => setAiDefaultLimit(e.target.value)}
+                className="idetech-input bg-white/5 border-white/10 text-white"
+              />
+            </label>
+          </div>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm font-semibold text-slate-300">Pengecualian Guru (Overrides)</span>
+            <textarea 
+              value={aiOverridesText}
+              onChange={e => setAiOverridesText(e.target.value)}
+              className="idetech-input min-h-[100px] font-mono text-sm leading-relaxed bg-white/5 border-white/10 text-white placeholder-slate-500"
+              placeholder={`email.guru@belajar.id=5\nguru.lain@belajar.id=10`}
+            />
+            <span className="text-xs text-slate-400">Gunakan format "email=batas", setiap baris satu guru. Contoh: the.real.ferilee@gmail.com=5</span>
+          </label>
+          <button type="submit" disabled={busy} className="mt-2 self-start rounded-lg bg-blue-600 px-6 py-2.5 font-bold text-white shadow-sm hover:bg-blue-700 active:scale-95 disabled:opacity-50 transition-all">
+            {busy ? "Menyimpan..." : "Simpan Kuota AI"}
           </button>
         </form>
       </Card>
@@ -6888,8 +7651,8 @@ function AdminPermissionPanel({
         {access.roles.map((role) => (
           <div key={role.name} className="admin-permission-role">
             <div>
-              <p className="font-black text-slate-900">{role.label}</p>
-              <p className="text-xs font-semibold text-slate-500">{role.description}</p>
+              <p className="font-black text-slate-200">{role.label}</p>
+              <p className="text-xs font-semibold text-slate-400">{role.description}</p>
             </div>
             <div className="admin-permission-list">
               {access.permissions.map((permission) => {
@@ -7045,42 +7808,48 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 function TeacherProfileView({ user }: { user: AuthUser }) {
   return (
     <div className="flex flex-col gap-4 mt-4 md:mt-6">
-      <Card className="professional-card p-5 shadow-sm">
-        <div className="flex items-center gap-4 border-b border-slate-100 pb-4 mb-4">
-          <div className="h-16 w-16 overflow-hidden rounded-full bg-slate-100 shadow-inner">
+      <Card className="teacher-profile-card relative overflow-hidden p-6 border-0">
+        <div className="relative flex items-center gap-5 border-b border-white/10 pb-5 mb-5">
+          <div className="h-20 w-20 overflow-hidden rounded-full ring-4 ring-white/10 shadow-2xl">
             {user.avatarUrl ? (
               <img src={user.avatarUrl} alt={user.name} className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-600 text-xl font-bold text-white">
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-400 to-indigo-500 text-2xl font-black text-white">
                 {user.name.slice(0, 2).toUpperCase()}
               </div>
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="truncate text-xl font-bold text-slate-800">{user.fullName || user.name}</h3>
-            <p className="truncate text-sm font-medium text-slate-500">{user.email}</p>
-            <div className="mt-1.5 inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-700 ring-1 ring-inset ring-blue-700/10">
+            <h3 className="truncate text-2xl font-extrabold text-white tracking-tight drop-shadow-sm">{user.fullName || user.name}</h3>
+            <p className="truncate text-sm font-medium text-[rgba(226,245,255,0.74)] mt-0.5">{user.email}</p>
+            <div className="mt-2.5 inline-flex items-center rounded-full bg-[rgba(225,247,255,0.94)] px-3 py-1 text-xs font-bold text-[#10265c] shadow-sm">
               {roleLabels[user.activeRole]}
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col gap-4">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Instansi Sekolah</p>
-            <p className="font-semibold text-slate-800">{user.schoolName || "-"}</p>
+        <div className="relative flex flex-col gap-4">
+          <div className="teacher-class-auto-id p-4 border border-[rgba(125,211,252,0.22)] bg-[rgba(5,29,83,0.42)] rounded-[18px]">
+            <p className="text-[12px] font-bold text-[rgba(226,245,255,0.76)] mb-1.5 flex items-center gap-1.5">
+              <Map className="w-3.5 h-3.5" /> Instansi Sekolah
+            </p>
+            <p className="font-black text-lg text-white">{user.schoolName || "-"}</p>
           </div>
           
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Kontak ({user.contactChannel || "-"})</p>
-              <p className="font-semibold text-slate-800">{user.contactValue || "-"}</p>
+            <div className="teacher-class-auto-id p-4 border border-[rgba(125,211,252,0.22)] bg-[rgba(5,29,83,0.42)] rounded-[18px]">
+              <p className="text-[12px] font-bold text-[rgba(226,245,255,0.76)] mb-1.5 flex items-center gap-1.5">
+                <MessageCircle className="w-3.5 h-3.5" /> Kontak ({user.contactChannel || "-"})
+              </p>
+              <p className="font-black text-white">{user.contactValue || "-"}</p>
             </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Status Akun</p>
-              <div className="inline-flex items-center gap-1.5">
-                <span className={`h-2 w-2 rounded-full ${user.status === "active" ? "bg-emerald-500" : "bg-amber-500"}`} />
-                <p className="font-semibold capitalize text-slate-800">{user.status}</p>
+            <div className="teacher-class-auto-id p-4 border border-[rgba(125,211,252,0.22)] bg-[rgba(5,29,83,0.42)] rounded-[18px]">
+              <p className="text-[12px] font-bold text-[rgba(226,245,255,0.76)] mb-1.5 flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5" /> Status Akun
+              </p>
+              <div className="inline-flex items-center gap-2">
+                <span className={`h-2.5 w-2.5 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.5)] ${user.status === "active" ? "bg-emerald-400 shadow-emerald-400/50" : "bg-amber-400 shadow-amber-400/50"}`} />
+                <p className="font-black capitalize text-white">{user.status}</p>
               </div>
             </div>
           </div>
@@ -7977,67 +8746,67 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
   };
 
   return (
-    <div className="bg-white rounded-t-3xl min-h-[60vh] p-4 md:p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] relative mt-4 animate-in slide-in-from-bottom-10">
-      <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-slate-200 rounded-full" />
+    <div className="teacher-profile-card border-0 rounded-t-3xl min-h-[60vh] p-4 md:p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] relative mt-4 animate-in slide-in-from-bottom-10">
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-[rgba(226,245,255,0.3)] rounded-full" />
       
       <div className="flex justify-between items-center mt-4 mb-2">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">{currentMode === "report" ? "Laporan Hasil Belajar" : "Radar Pintar (Progres Siswa)"}</h2>
-          <p className="text-sm text-slate-500">{currentMode === "report" ? "Rekapitulasi persentase penyelesaian tugas siswa" : "Analisis progres belajar, intervensi, dan risiko siswa"}</p>
+          <h2 className="text-xl font-bold text-white">{currentMode === "report" ? "Laporan Hasil Belajar" : "Radar Pintar (Progres Siswa)"}</h2>
+          <p className="text-sm text-[rgba(226,245,255,0.76)]">{currentMode === "report" ? "Rekapitulasi persentase penyelesaian tugas siswa" : "Analisis progres belajar, intervensi, dan risiko siswa"}</p>
         </div>
         <div className="flex items-center gap-2">
           <button 
             type="button" 
             onClick={exportToCSV}
             disabled={loading || filteredData.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 font-bold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 bg-amber-400/20 text-amber-400 hover:bg-amber-400/30 font-bold rounded-lg transition-colors border border-amber-400/30 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
           >
             <Download className="h-4 w-4" />
             <span className="hidden sm:inline">Unduh Laporan</span>
           </button>
-          <button type="button" onClick={onClose} className="p-2 bg-slate-100 text-slate-600 rounded-full hover:bg-slate-200" title="Tutup Radar">
+          <button type="button" onClick={onClose} className="p-2 bg-[rgba(5,29,83,0.42)] text-[rgba(226,245,255,0.76)] rounded-full hover:bg-[rgba(5,29,83,0.6)] hover:text-white transition-colors border border-[rgba(125,211,252,0.22)]" title="Tutup Radar">
             <X className="h-5 w-5" />
           </button>
         </div>
       </div>
       
-      <div className="flex gap-2 p-1 bg-slate-100 rounded-lg mb-6 w-full overflow-x-auto hide-scrollbar">
+      <div className="flex gap-2 p-1 bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] rounded-lg mb-6 w-full overflow-x-auto hide-scrollbar">
         <button 
           onClick={() => setCurrentMode("radar")}
-          className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${currentMode === "radar" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+          className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${currentMode === "radar" ? "bg-[rgba(5,29,83,0.8)] border border-[rgba(125,211,252,0.22)] text-amber-400 shadow-sm" : "text-[rgba(226,245,255,0.76)] hover:text-white hover:bg-white/5"}`}
         >
           Radar Pintar
         </button>
         <button 
           onClick={() => setCurrentMode("report")}
-          className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${currentMode === "report" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+          className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${currentMode === "report" ? "bg-[rgba(5,29,83,0.8)] border border-[rgba(125,211,252,0.22)] text-amber-400 shadow-sm" : "text-[rgba(226,245,255,0.76)] hover:text-white hover:bg-white/5"}`}
         >
           Laporan Hasil Belajar
         </button>
         <button 
           onClick={() => setCurrentMode("koreksi")}
-          className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${currentMode === "koreksi" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+          className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${currentMode === "koreksi" ? "bg-[rgba(5,29,83,0.8)] border border-[rgba(125,211,252,0.22)] text-amber-400 shadow-sm" : "text-[rgba(226,245,255,0.76)] hover:text-white hover:bg-white/5"}`}
         >
           Koreksi IdeQuest
         </button>
       </div>
 
       {!loading && data.length > 0 && (
-        <div className="flex flex-col sm:flex-row gap-3 mb-6 bg-slate-50 p-3 rounded-xl border border-slate-200 animate-in fade-in slide-in-from-top-2">
+        <div className="flex flex-col sm:flex-row gap-3 mb-6 bg-[rgba(5,29,83,0.42)] p-3 rounded-xl border border-[rgba(125,211,252,0.22)] animate-in fade-in slide-in-from-top-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgba(226,245,255,0.76)]" />
             <input 
               type="text" 
               placeholder="Cari nama atau email siswa..." 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400"
+              className="w-full pl-9 pr-4 py-2 bg-[#0a1f5c] border border-[rgba(125,211,252,0.22)] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition-all placeholder:text-[rgba(226,245,255,0.5)]"
             />
           </div>
           <select 
             value={filterClass} 
             onChange={e => setFilterClass(e.target.value)}
-            className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 bg-[#0a1f5c] border border-[rgba(125,211,252,0.22)] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
           >
             <option value="all">Semua Kelas</option>
             {uniqueClasses.map(c => <option key={c} value={c}>{c}</option>)}
@@ -8045,7 +8814,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
           <select 
             value={filterRisk} 
             onChange={e => setFilterRisk(e.target.value)}
-            className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 bg-[#0a1f5c] border border-[rgba(125,211,252,0.22)] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
           >
             <option value="all">Semua Status</option>
             <option value="at-risk">Beresiko (Terlambat)</option>
@@ -8056,67 +8825,67 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-12">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
-          <p className="text-slate-500">Memuat data siswa...</p>
+          <div className="w-8 h-8 border-4 border-amber-400 border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-[rgba(226,245,255,0.76)]">Memuat data siswa...</p>
         </div>
       ) : data.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50">
-          <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mb-4">
+        <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-[rgba(226,245,255,0.4)] rounded-2xl bg-[rgba(5,29,83,0.42)]">
+          <div className="w-16 h-16 bg-white/10 text-[rgba(226,245,255,0.76)] rounded-full flex items-center justify-center mb-4 border border-white/20">
             <Users className="h-8 w-8" />
           </div>
-          <p className="text-slate-500">Belum ada siswa di kelas Anda.</p>
+          <p className="text-white">Belum ada siswa di kelas Anda.</p>
         </div>
       ) : filteredData.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 text-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
-          <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mb-4">
+        <div className="flex flex-col items-center justify-center py-12 text-center bg-[rgba(5,29,83,0.42)] rounded-2xl border-2 border-dashed border-[rgba(226,245,255,0.4)]">
+          <div className="w-16 h-16 bg-white/10 text-[rgba(226,245,255,0.76)] rounded-full flex items-center justify-center mb-4 border border-white/20">
             <Search className="h-8 w-8" />
           </div>
-          <p className="text-slate-500 mb-4">Siswa tidak ditemukan berdasarkan filter pencarian.</p>
-          <button type="button" onClick={() => { setSearchQuery(""); setFilterClass("all"); setFilterRisk("all"); }} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm">
+          <p className="text-white mb-4">Siswa tidak ditemukan berdasarkan filter pencarian.</p>
+          <button type="button" onClick={() => { setSearchQuery(""); setFilterClass("all"); setFilterRisk("all"); }} className="px-4 py-2 bg-amber-400/20 border border-amber-400/30 text-amber-300 rounded-lg text-sm font-bold hover:bg-amber-400/30 transition-colors shadow-sm">
             Reset Filter
           </button>
         </div>
       ) : currentMode === "report" ? (
-        <div className="overflow-x-auto mt-6 bg-white border border-slate-200 rounded-xl shadow-sm">
+        <div className="overflow-x-auto mt-6 bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] rounded-xl shadow-sm">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] sm:text-xs uppercase tracking-wider">
+              <tr className="bg-[rgba(5,29,83,0.6)] border-b border-[rgba(125,211,252,0.22)] text-[rgba(226,245,255,0.76)] text-[10px] sm:text-xs uppercase tracking-wider">
                 <th className="p-3 sm:p-4 font-bold">Nama Siswa</th>
                 <th className="p-3 sm:p-4 font-bold hidden sm:table-cell">Kelas</th>
                 <th className="p-3 sm:p-4 font-bold text-center">Materi Selesai</th>
                 <th className="p-3 sm:p-4 font-bold text-center">Quest Selesai</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-[rgba(125,211,252,0.1)]">
               {filteredData.map(student => {
                 const matCompleted = student.materials.filter(m => m.progress >= 100).length;
                 const questCompleted = student.quests.filter(q => q.progress >= 100).length;
                 return (
-                  <tr key={student.studentId} className="hover:bg-slate-50/50 transition-colors">
+                  <tr key={student.studentId} className="hover:bg-white/5 transition-colors">
                     <td className="p-3 sm:p-4">
                       <div className="flex items-center gap-3">
                         {student.avatarUrl ? (
-                          <img src={student.avatarUrl} className="w-8 h-8 rounded-full object-cover" alt="" />
+                          <img src={student.avatarUrl} className="w-8 h-8 rounded-full object-cover border border-white/20" alt="" />
                         ) : (
-                          <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0">
+                          <div className="w-8 h-8 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 flex items-center justify-center font-bold text-xs shrink-0">
                             {student.studentName[0].toUpperCase()}
                           </div>
                         )}
                         <div>
-                          <div className="font-bold text-slate-800 text-sm leading-tight">{student.studentName}</div>
-                          <div className="text-xs text-slate-500 hidden sm:block">{student.studentEmail}</div>
+                          <div className="font-bold text-white text-sm leading-tight">{student.studentName}</div>
+                          <div className="text-xs text-[rgba(226,245,255,0.76)] hidden sm:block">{student.studentEmail}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="p-3 sm:p-4 text-sm text-slate-600 hidden sm:table-cell">{student.className}</td>
+                    <td className="p-3 sm:p-4 text-sm text-[rgba(226,245,255,0.76)] hidden sm:table-cell">{student.className}</td>
                     <td className="p-3 sm:p-4 text-center">
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-bold">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-bold">
                         <BookOpen className="w-3.5 h-3.5" />
                         {matCompleted} / {student.materials.length}
                       </div>
                     </td>
                     <td className="p-3 sm:p-4 text-center">
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 text-xs font-bold">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-500/20 border border-orange-400/30 text-orange-300 text-xs font-bold">
                         <Target className="w-3.5 h-3.5" />
                         {questCompleted} / {student.quests.length}
                       </div>
@@ -8134,54 +8903,54 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
             if (completedQuests.length === 0) return null;
             
             return (
-              <div key={student.studentId} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                <div className="flex items-center gap-3 mb-4 border-b border-slate-100 pb-3">
+              <div key={student.studentId} className="bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] rounded-xl p-4 shadow-sm hover:border-amber-400/50 transition-all">
+                <div className="flex items-center gap-3 mb-4 border-b border-[rgba(125,211,252,0.22)] pb-3">
                   {student.avatarUrl ? (
-                    <img src={student.avatarUrl} className="w-8 h-8 rounded-full object-cover" alt="" />
+                    <img src={student.avatarUrl} className="w-8 h-8 rounded-full object-cover border border-white/20" alt="" />
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 flex items-center justify-center font-bold text-xs shrink-0">
                       {student.studentName[0].toUpperCase()}
                     </div>
                   )}
                   <div>
-                    <div className="font-bold text-slate-800 text-sm leading-tight">{student.studentName}</div>
-                    <div className="text-xs text-slate-500">{student.className}</div>
+                    <div className="font-bold text-white text-sm leading-tight">{student.studentName}</div>
+                    <div className="text-xs text-[rgba(226,245,255,0.76)]">{student.className}</div>
                   </div>
                 </div>
                 
                 <div className="flex flex-col gap-4">
                   {completedQuests.map(quest => (
-                    <div key={quest.id} className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                    <div key={quest.id} className="bg-[rgba(5,29,83,0.42)] p-4 rounded-lg border border-[rgba(125,211,252,0.22)] shadow-sm">
                       <div className="flex justify-between items-start mb-2">
                         <div>
-                          <h4 className="font-bold text-slate-700">{quest.title}</h4>
-                          <span className="text-xs text-slate-500">Dikumpulkan pada: {quest.completedAt ? new Date(quest.completedAt).toLocaleString('id-ID') : '-'}</span>
+                          <h4 className="font-bold text-white">{quest.title}</h4>
+                          <span className="text-xs text-[rgba(226,245,255,0.76)]">Dikumpulkan pada: {quest.completedAt ? new Date(quest.completedAt).toLocaleString('id-ID') : '-'}</span>
                         </div>
                         <div className="text-right">
-                          <span className="text-sm font-bold text-blue-600">{quest.earnedPoints} / {quest.maxPoints} Poin</span>
+                          <span className="text-sm font-bold text-amber-400">{quest.earnedPoints} / {quest.maxPoints} Poin</span>
                         </div>
                       </div>
                       
                       <div className="mt-3 space-y-3">
                         {quest.submissionText && (
-                          <div className="text-sm text-slate-700 bg-white p-3 rounded border border-slate-200 whitespace-pre-wrap">
-                            <strong>Isian Jawaban:</strong><br/>
+                          <div className="text-sm text-white bg-[#0a1f5c] p-3 rounded border border-[rgba(125,211,252,0.22)] whitespace-pre-wrap">
+                            <strong className="text-amber-400">Isian Jawaban:</strong><br/>
                             {quest.submissionText}
                           </div>
                         )}
                         {quest.submissionFileUrl && (
                           <div>
-                            <a href={quest.submissionFileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-200 font-bold transition-colors">
+                            <a href={quest.submissionFileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm text-blue-300 bg-blue-500/20 hover:bg-blue-500/30 px-3 py-1.5 rounded-lg border border-blue-400/30 font-bold transition-colors shadow-sm">
                               Buka File Jawaban PDF
                             </a>
                           </div>
                         )}
                         {(!quest.submissionText && !quest.submissionFileUrl) && (
-                          <p className="text-xs text-slate-400 italic">Diselesaikan tanpa lampiran (versi lawas)</p>
+                          <p className="text-xs text-[rgba(226,245,255,0.76)] italic">Diselesaikan tanpa lampiran (versi lawas)</p>
                         )}
                       </div>
                       
-                      <form className="mt-4 flex flex-col gap-2 border-t border-slate-200 pt-3" onSubmit={async (e) => {
+                      <form className="mt-4 flex flex-col gap-2 border-t border-[rgba(125,211,252,0.22)] pt-3" onSubmit={async (e) => {
                         e.preventDefault();
                         const formData = new FormData(e.currentTarget);
                         const newPoints = Number(formData.get("points"));
@@ -8198,14 +8967,14 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
                       }}>
                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
                           <label className="flex flex-col flex-1">
-                            <span className="text-xs font-bold text-slate-600 mb-1">Berikan / Ubah Nilai (Max {quest.maxPoints})</span>
-                            <input type="number" name="points" min="0" max={quest.maxPoints} defaultValue={quest.earnedPoints} className="border border-slate-300 rounded px-3 py-2 sm:py-1.5 text-sm bg-slate-50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500" required />
+                            <span className="text-xs font-bold text-[rgba(226,245,255,0.76)] mb-1">Berikan / Ubah Nilai (Max {quest.maxPoints})</span>
+                            <input type="number" name="points" min="0" max={quest.maxPoints} defaultValue={quest.earnedPoints} className="border border-[rgba(125,211,252,0.22)] rounded px-3 py-2 sm:py-1.5 text-sm bg-[#0a1f5c] text-white focus:outline-none focus:ring-2 focus:ring-amber-400" required />
                           </label>
                           <label className="flex flex-col flex-[2]">
-                            <span className="text-xs font-bold text-slate-600 mb-1">Umpan Balik (Opsional)</span>
-                            <input type="text" name="feedback" defaultValue={quest.teacherFeedback || ""} placeholder="Ketik pesan untuk siswa..." className="border border-slate-300 rounded px-3 py-2 sm:py-1.5 text-sm bg-slate-50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            <span className="text-xs font-bold text-[rgba(226,245,255,0.76)] mb-1">Umpan Balik (Opsional)</span>
+                            <input type="text" name="feedback" defaultValue={quest.teacherFeedback || ""} placeholder="Ketik pesan untuk siswa..." className="border border-[rgba(125,211,252,0.22)] rounded px-3 py-2 sm:py-1.5 text-sm bg-[#0a1f5c] text-white focus:outline-none focus:ring-2 focus:ring-amber-400 placeholder:text-[rgba(226,245,255,0.5)]" />
                           </label>
-                          <button type="submit" className="mt-1 sm:mt-5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-4 py-2.5 sm:py-1.5 rounded-md transition-colors shadow-sm w-full sm:w-auto text-center">Simpan</button>
+                          <button type="submit" className="mt-1 sm:mt-5 bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold text-sm px-4 py-2.5 sm:py-1.5 rounded-md transition-colors shadow-sm w-full sm:w-auto text-center">Simpan</button>
                         </div>
                       </form>
                     </div>
@@ -8216,7 +8985,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
           })}
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-6 mt-6">
           {filteredData.map(student => {
             const allTasks = [...student.materials, ...student.quests];
             const completed = allTasks.filter(t => t.progress >= 100);
@@ -8224,28 +8993,28 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
             const onTimeCompleted = completed.filter(t => !t.isLate);
             
             return (
-              <div key={student.studentId} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 md:p-5">
+              <div key={student.studentId} className="bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] rounded-2xl p-4 md:p-5 shadow-sm hover:border-amber-400/50 transition-all">
                 <div className="flex flex-col gap-3 mb-4">
                   <div className="flex items-start sm:items-center gap-4">
                     {student.avatarUrl ? (
-                      <img src={student.avatarUrl} alt={student.studentName} referrerPolicy="no-referrer" className="w-12 h-12 rounded-full border-2 border-white shadow-sm object-cover shrink-0" />
+                      <img src={student.avatarUrl} alt={student.studentName} referrerPolicy="no-referrer" className="w-12 h-12 rounded-full border border-white/20 shadow-sm object-cover shrink-0" />
                     ) : (
-                      <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg border-2 border-white shadow-sm shrink-0">
+                      <div className="w-12 h-12 rounded-full bg-blue-500/20 text-blue-300 flex items-center justify-center font-bold text-lg border border-blue-400/30 shadow-sm shrink-0">
                         {student.studentName.charAt(0).toUpperCase()}
                       </div>
                     )}
                     <div>
-                      <h3 className="font-bold text-slate-800 text-lg leading-tight">{student.studentName}</h3>
-                      <p className="text-sm text-slate-500">{student.className} • {student.studentEmail}</p>
+                      <h3 className="font-bold text-white text-lg leading-tight">{student.studentName}</h3>
+                      <p className="text-sm text-[rgba(226,245,255,0.76)]">{student.className} • {student.studentEmail}</p>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <div className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs font-bold flex items-center gap-1.5 whitespace-nowrap">
+                    <div className="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-400/30 rounded-lg text-xs font-bold flex items-center gap-1.5 whitespace-nowrap shadow-sm">
                       <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                       <span>{onTimeCompleted.length} Tepat Waktu</span>
                     </div>
                     {lateCompleted.length > 0 && (
-                      <div className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-bold flex items-center gap-1.5 whitespace-nowrap">
+                      <div className="px-3 py-1.5 bg-rose-500/20 text-rose-400 border border-rose-400/30 rounded-lg text-xs font-bold flex items-center gap-1.5 whitespace-nowrap shadow-sm">
                         <Timer className="w-3.5 h-3.5 shrink-0" />
                         <span>{lateCompleted.length} Terlambat</span>
                       </div>
@@ -8255,60 +9024,60 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
 
                 <div className="flex flex-col gap-3">
                   <details className="group">
-                    <summary className="flex justify-between items-center cursor-pointer text-xs font-bold text-slate-500 uppercase tracking-wider bg-white p-3 rounded-xl border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors list-none [&::-webkit-details-marker]:hidden">
+                    <summary className="flex justify-between items-center cursor-pointer text-xs font-bold text-amber-400 uppercase tracking-wider bg-[#0a1f5c] p-3 rounded-xl border border-[rgba(125,211,252,0.22)] shadow-sm hover:bg-[rgba(5,29,83,0.6)] transition-colors list-none [&::-webkit-details-marker]:hidden">
                       <div className="flex items-center gap-2">
-                        <BookOpen className="w-4 h-4 text-blue-500" />
+                        <BookOpen className="w-4 h-4 text-amber-400" />
                         <span>Materi ({student.materials.length})</span>
                       </div>
-                      <ChevronDown className="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform" />
+                      <ChevronDown className="w-4 h-4 text-amber-400 group-open:rotate-180 transition-transform" />
                     </summary>
-                    <div className="space-y-2 mt-2 pt-1 pl-2 border-l-2 border-slate-100">
+                    <div className="space-y-2 mt-2 pt-1 pl-2 border-l-2 border-[rgba(125,211,252,0.22)]">
                       {student.materials.map(m => (
-                        <div key={m.id} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                        <div key={m.id} className="flex items-center justify-between bg-[rgba(5,29,83,0.42)] p-3 rounded-xl border border-[rgba(125,211,252,0.22)] shadow-sm">
                           <div className="flex items-center gap-2 overflow-hidden">
-                            <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
-                            <span className="text-sm font-medium text-slate-700 truncate" title={m.title}>{m.title}</span>
+                            <div className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                            <span className="text-sm font-medium text-white truncate" title={m.title}>{m.title}</span>
                           </div>
                           <div className="flex items-center gap-2 shrink-0 ml-2">
-                            <span className="text-xs font-bold text-slate-500">{m.progress}%</span>
+                            <span className="text-xs font-bold text-white">{m.progress}%</span>
                             {m.progress >= 100 && (
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${m.isLate ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${m.isLate ? 'bg-rose-500/20 text-rose-400 border border-rose-400/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-400/30'}`}>
                                 {m.isLate ? 'Terlambat' : 'Selesai'}
                               </span>
                             )}
                           </div>
                         </div>
                       ))}
-                      {student.materials.length === 0 && <p className="text-sm text-slate-400 italic p-2">Belum ada materi</p>}
+                      {student.materials.length === 0 && <p className="text-sm text-[rgba(226,245,255,0.76)] italic p-2">Belum ada materi</p>}
                     </div>
                   </details>
                   
                   <details className="group">
-                    <summary className="flex justify-between items-center cursor-pointer text-xs font-bold text-slate-500 uppercase tracking-wider bg-white p-3 rounded-xl border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors list-none [&::-webkit-details-marker]:hidden">
+                    <summary className="flex justify-between items-center cursor-pointer text-xs font-bold text-amber-400 uppercase tracking-wider bg-[#0a1f5c] p-3 rounded-xl border border-[rgba(125,211,252,0.22)] shadow-sm hover:bg-[rgba(5,29,83,0.6)] transition-colors list-none [&::-webkit-details-marker]:hidden">
                       <div className="flex items-center gap-2">
-                        <Target className="w-4 h-4 text-purple-500" />
+                        <Target className="w-4 h-4 text-amber-400" />
                         <span>IdeQuest ({student.quests.length})</span>
                       </div>
-                      <ChevronDown className="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform" />
+                      <ChevronDown className="w-4 h-4 text-amber-400 group-open:rotate-180 transition-transform" />
                     </summary>
-                    <div className="space-y-2 mt-2 pt-1 pl-2 border-l-2 border-slate-100">
+                    <div className="space-y-2 mt-2 pt-1 pl-2 border-l-2 border-[rgba(125,211,252,0.22)]">
                       {student.quests.map(q => (
-                        <div key={q.id} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                        <div key={q.id} className="flex items-center justify-between bg-[rgba(5,29,83,0.42)] p-3 rounded-xl border border-[rgba(125,211,252,0.22)] shadow-sm">
                           <div className="flex items-center gap-2 overflow-hidden">
-                            <div className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" />
-                            <span className="text-sm font-medium text-slate-700 truncate" title={q.title}>{q.title}</span>
+                            <div className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                            <span className="text-sm font-medium text-white truncate" title={q.title}>{q.title}</span>
                           </div>
                           <div className="flex items-center gap-2 shrink-0 ml-2">
-                            <span className="text-xs font-bold text-slate-500">{q.progress}%</span>
+                            <span className="text-xs font-bold text-white">{q.progress}%</span>
                             {q.progress >= 100 && (
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${q.isLate ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${q.isLate ? 'bg-rose-500/20 text-rose-400 border border-rose-400/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-400/30'}`}>
                                 {q.isLate ? 'Terlambat' : 'Selesai'}
                               </span>
                             )}
                           </div>
                         </div>
                       ))}
-                      {student.quests.length === 0 && <p className="text-sm text-slate-400 italic p-2">Belum ada IdeQuest</p>}
+                      {student.quests.length === 0 && <p className="text-sm text-[rgba(226,245,255,0.76)] italic p-2">Belum ada IdeQuest</p>}
                     </div>
                   </details>
                 </div>
@@ -8322,23 +9091,29 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
 }
 
 function AdminAdvancedFeaturesPanel() {
-  const [tab, setTab] = React.useState<"logs" | "announcements" | "master">("announcements");
+  const [tab, setTab] = React.useState<"logs" | "announcements" | "master" | "quotes">("announcements");
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5">
-      <div className="mb-4">
+    <Card className="professional-card p-5">
+      <div className="professional-card__header">
         <div>
-          <h2 className="text-lg font-bold text-slate-800">Pengaturan Lanjutan</h2>
-          <p className="text-sm text-slate-500">Kelola log aktivitas, pengumuman, dan data master sistem.</p>
+          <h2 className="professional-card__title">Pengaturan Lanjutan</h2>
+          <p className="professional-card__hint">Kelola log aktivitas, pengumuman, data master, dan quotes selamat datang.</p>
         </div>
       </div>
 
-      <div className="flex border-b border-slate-100 mb-6">
+      <div className="flex flex-wrap border-b border-white/10 mb-6">
         <button
           onClick={() => setTab("announcements")}
           className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${tab === "announcements" ? "border-blue-500 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
         >
           <Bell className="h-4 w-4" /> Pengumuman Global
+        </button>
+        <button
+          onClick={() => setTab("quotes")}
+          className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${tab === "quotes" ? "border-violet-500 text-violet-400" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+        >
+          <Sparkles className="h-4 w-4" /> Quotes Selamat Datang
         </button>
         <button
           onClick={() => setTab("master")}
@@ -8356,8 +9131,356 @@ function AdminAdvancedFeaturesPanel() {
 
       <div className="min-h-[300px]">
         {tab === "announcements" && <AdvancedAnnouncements />}
+        {tab === "quotes" && <AdminWelcomeQuotes />}
         {tab === "master" && <AdvancedMasterData />}
         {tab === "logs" && <AdvancedActivityLogs />}
+      </div>
+    </Card>
+  );
+}
+
+// =============================================
+// WELCOME GREETING MODAL
+// =============================================
+
+function WelcomeGreetingModal({
+  user,
+  quotes,
+  onClose
+}: {
+  user: AuthUser;
+  quotes: WelcomeQuote[];
+  onClose: () => void;
+}) {
+  const role = user.activeRole as "teacher" | "student" | "parent";
+  const displayName = user.fullName?.split(" ")[0] || user.name?.split(" ")[0] || "Kamu";
+  const now = new Date();
+
+  // Waktu sapaan dinamis (WIB = UTC+7)
+  const jakartaHour = new Date(now.getTime() + 7 * 60 * 60 * 1000).getUTCHours();
+  const greeting =
+    jakartaHour < 11 ? "Selamat Pagi" :
+    jakartaHour < 15 ? "Selamat Siang" :
+    jakartaHour < 18 ? "Selamat Sore" : "Selamat Malam";
+
+  // Hari & tanggal format Indonesia
+  const dayNames = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+  const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+  const dayStr = `${dayNames[now.getDay()]}, ${now.getDate()} ${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+
+  // Quote random untuk role ini
+  const activeQuotes = quotes.filter(q => q.isActive && q.roles.includes(role));
+  const quote = activeQuotes.length > 0 ? activeQuotes[Math.floor(Math.random() * activeQuotes.length)] : null;
+
+  // Config per role
+  const roleConfig = {
+    teacher: {
+      emoji: "🎓",
+      accent: "from-indigo-600 via-blue-600 to-cyan-500",
+      cardBg: "from-indigo-950 via-blue-950 to-slate-950",
+      glow: "rgba(99,102,241,0.35)",
+      badge: "Selamat mengajar hari ini!",
+      badgeColor: "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30",
+      btnGradient: "from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500",
+      btnText: "Mulai Mengajar",
+      particles: false
+    },
+    student: {
+      emoji: "✨",
+      accent: "from-violet-600 via-purple-600 to-pink-500",
+      cardBg: "from-violet-950 via-purple-950 to-slate-950",
+      glow: "rgba(139,92,246,0.35)",
+      badge: "Semangat belajar hari ini!",
+      badgeColor: "bg-violet-500/20 text-violet-300 border border-violet-500/30",
+      btnGradient: "from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500",
+      btnText: "Mulai Belajar",
+      particles: true
+    },
+    parent: {
+      emoji: "💚",
+      accent: "from-emerald-600 via-teal-600 to-cyan-500",
+      cardBg: "from-emerald-950 via-teal-950 to-slate-950",
+      glow: "rgba(16,185,129,0.35)",
+      badge: "Terima kasih sudah hadir!",
+      badgeColor: "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30",
+      btnGradient: "from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500",
+      btnText: "Pantau Anak",
+      particles: false
+    }
+  }[role] ?? {
+    emoji: "👋",
+    accent: "from-slate-600 to-slate-500",
+    cardBg: "from-slate-950 to-slate-900",
+    glow: "rgba(100,116,139,0.3)",
+    badge: "Selamat datang!",
+    badgeColor: "bg-slate-500/20 text-slate-300 border border-slate-500/30",
+    btnGradient: "from-slate-600 to-slate-500",
+    btnText: "Masuk",
+    particles: false
+  };
+
+  return (
+    <div
+      style={{ zIndex: 9999 }}
+      className="fixed inset-0 flex items-center justify-center p-4 welcome-greeting-overlay"
+    >
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/70 backdrop-blur-md"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      {/* Particle layer for students */}
+      {roleConfig.particles && (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+          {Array.from({ length: 20 }).map((_, i) => (
+            <div
+              key={i}
+              className="welcome-particle"
+              style={{
+                left: `${Math.random() * 100}%`,
+                animationDelay: `${Math.random() * 3}s`,
+                animationDuration: `${3 + Math.random() * 4}s`,
+                width: `${6 + Math.random() * 8}px`,
+                height: `${6 + Math.random() * 8}px`,
+                backgroundColor: ["#a78bfa","#f472b6","#60a5fa","#34d399","#fbbf24"][Math.floor(Math.random()*5)]
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Modal card */}
+      <div
+        className={`relative w-full max-w-md welcome-greeting-card bg-gradient-to-br ${roleConfig.cardBg} border border-white/10 rounded-3xl shadow-2xl overflow-hidden`}
+        style={{ boxShadow: `0 0 80px ${roleConfig.glow}, 0 25px 50px rgba(0,0,0,0.6)` }}
+      >
+        {/* Gradient top bar */}
+        <div className={`h-1.5 w-full bg-gradient-to-r ${roleConfig.accent}`} />
+
+        <div className="p-7">
+          {/* Close button */}
+          <button
+            onClick={onClose}
+            className="absolute top-5 right-5 text-slate-400 hover:text-white transition-colors p-1.5 rounded-full hover:bg-white/10"
+            aria-label="Tutup"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          {/* Emoji + greeting */}
+          <div className="flex flex-col items-center text-center mb-6">
+            <div
+              className="text-6xl mb-4 welcome-emoji-bounce"
+              role="img"
+              aria-label="emoji"
+            >
+              {roleConfig.emoji}
+            </div>
+
+            <span className={`text-xs font-bold px-3 py-1 rounded-full mb-3 ${roleConfig.badgeColor}`}>
+              {roleConfig.badge}
+            </span>
+
+            <h2 className="text-2xl font-black text-white mb-1 welcome-title-slide">
+              {greeting},
+            </h2>
+            <h1 className={`text-3xl font-black bg-gradient-to-r ${roleConfig.accent} bg-clip-text text-transparent welcome-name-slide`}>
+              {displayName}!
+            </h1>
+
+            {/* Tanggal */}
+            <div className="flex items-center gap-2 mt-3 text-slate-400 text-sm">
+              <Calendar className="w-4 h-4" />
+              <span>{dayStr}</span>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className={`h-px w-full bg-gradient-to-r ${roleConfig.accent} opacity-30 mb-5`} />
+
+          {/* Quote */}
+          {quote ? (
+            <div className="bg-white/5 rounded-2xl p-4 mb-6 text-center border border-white/8 welcome-quote-fade">
+              <p className="text-slate-200 text-sm leading-relaxed italic">
+                &ldquo;{quote.text}&rdquo;
+              </p>
+              {quote.author && (
+                <p className={`text-xs mt-2 font-semibold bg-gradient-to-r ${roleConfig.accent} bg-clip-text text-transparent`}>
+                  — {quote.author}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="mb-6" />
+          )}
+
+          {/* CTA Button */}
+          <button
+            id="welcome-greeting-start-btn"
+            onClick={onClose}
+            className={`w-full py-3.5 px-6 rounded-2xl font-bold text-white text-base bg-gradient-to-r ${roleConfig.btnGradient} transition-all shadow-lg hover:shadow-xl active:scale-95 welcome-btn-pulse`}
+          >
+            {roleConfig.btnText} →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================
+// ADMIN: WELCOME QUOTES MANAGER
+// =============================================
+
+function AdminWelcomeQuotes() {
+  const [quotes, setQuotes] = useState<WelcomeQuote[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [text, setText] = useState("");
+  const [author, setAuthor] = useState("");
+  const [roles, setRoles] = useState<("teacher" | "student" | "parent")[]>(["teacher"]);
+
+  const load = async () => {
+    try {
+      const res = await api<{ quotes: WelcomeQuote[] }>("/api/admin/welcome-quotes");
+      setQuotes(res.quotes || []);
+    } catch { /* ignore */ } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!text.trim() || roles.length === 0) return;
+    setSubmitting(true);
+    try {
+      await api("/api/admin/welcome-quotes", {
+        method: "POST",
+        body: JSON.stringify({ text, author, roles })
+      });
+      setText(""); setAuthor(""); setRoles(["teacher"]);
+      load();
+    } catch { alert("Gagal menambahkan quote."); }
+    finally { setSubmitting(false); }
+  };
+
+  const handleToggle = async (id: string, isActive: boolean) => {
+    try {
+      await api(`/api/admin/welcome-quotes/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isActive })
+      });
+      load();
+    } catch { alert("Gagal mengubah status."); }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Hapus quote ini?")) return;
+    try {
+      await api(`/api/admin/welcome-quotes/${id}`, { method: "DELETE" });
+      load();
+    } catch { alert("Gagal menghapus."); }
+  };
+
+  const toggleRole = (r: "teacher" | "student" | "parent") => {
+    setRoles(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r]);
+  };
+
+  const roleChipColor: Record<string, string> = {
+    teacher: "bg-indigo-500/20 text-indigo-300 border-indigo-500/40",
+    student: "bg-violet-500/20 text-violet-300 border-violet-500/40",
+    parent: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+  };
+  const roleLabel: Record<string, string> = { teacher: "🎓 Guru", student: "✨ Siswa", parent: "💚 Ortu" };
+
+  return (
+    <div className="space-y-6">
+      {/* Form tambah quote */}
+      <form onSubmit={handleAdd} className="bg-black/20 p-5 rounded-2xl border border-white/10 flex flex-col gap-3">
+        <h3 className="font-bold text-slate-200 text-sm flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-violet-400" /> Tambah Quote Baru
+        </h3>
+        <textarea
+          placeholder="Teks kutipan motivasi..."
+          value={text}
+          onChange={e => setText(e.target.value)}
+          className="idetech-input bg-white/5 border-white/10 text-white placeholder-slate-400 min-h-[80px]"
+          required
+        />
+        <input
+          type="text"
+          placeholder="Nama penulis (opsional)"
+          value={author}
+          onChange={e => setAuthor(e.target.value)}
+          className="idetech-input bg-white/5 border-white/10 text-white placeholder-slate-400"
+        />
+        <div>
+          <p className="text-xs text-slate-400 mb-2">Tampilkan untuk:</p>
+          <div className="flex gap-2 flex-wrap">
+            {(["teacher","student","parent"] as const).map(r => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => toggleRole(r)}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${roles.includes(r) ? roleChipColor[r] : "bg-white/5 text-slate-500 border-white/10"}`}
+              >
+                {roleLabel[r]}
+              </button>
+            ))}
+          </div>
+        </div>
+        <button
+          type="submit"
+          disabled={submitting || !text.trim() || roles.length === 0}
+          className="bg-violet-600 hover:bg-violet-700 text-white font-bold py-2 px-6 rounded-xl disabled:opacity-50 transition-colors self-start"
+        >
+          {submitting ? "Menyimpan..." : "Tambah Quote"}
+        </button>
+      </form>
+
+      {/* Daftar quotes */}
+      <div className="space-y-3">
+        {loading ? (
+          <div className="text-center text-slate-500 py-6 animate-pulse">Memuat quotes...</div>
+        ) : quotes.length === 0 ? (
+          <div className="text-center text-slate-500 py-6 italic">Belum ada quote. Tambahkan di atas.</div>
+        ) : quotes.map(q => (
+          <div
+            key={q.id}
+            className={`p-4 rounded-xl border transition-all ${q.isActive ? "bg-white/5 border-white/10" : "bg-black/20 border-white/5 opacity-60"}`}
+          >
+            <div className="flex justify-between items-start gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-slate-200 text-sm italic leading-relaxed">"{q.text}"</p>
+                {q.author && <p className="text-xs text-slate-500 mt-1">— {q.author}</p>}
+                <div className="flex gap-1.5 flex-wrap mt-2">
+                  {q.roles.map(r => (
+                    <span key={r} className={`text-xs px-2 py-0.5 rounded-full border ${roleChipColor[r]}`}>{roleLabel[r]}</span>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => handleToggle(q.id, !q.isActive)}
+                  title={q.isActive ? "Nonaktifkan" : "Aktifkan"}
+                  className={`p-2 rounded-lg transition-colors text-sm font-bold ${q.isActive ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30" : "bg-slate-500/20 text-slate-400 hover:bg-slate-500/30"}`}
+                >
+                  {q.isActive ? <CheckCircle2 className="w-4 h-4" /> : <X className="w-4 h-4" />}
+                </button>
+                <button
+                  onClick={() => handleDelete(q.id)}
+                  className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -8412,12 +9535,12 @@ function AdvancedAnnouncements() {
 
   return (
     <div className="space-y-6">
-      <form onSubmit={handleSubmit} className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-3">
-        <h3 className="font-bold text-slate-700 text-sm">Buat Pengumuman Baru</h3>
-        <input type="text" placeholder="Judul Pengumuman" value={title} onChange={e=>setTitle(e.target.value)} className="idetech-input bg-white" required />
-        <textarea placeholder="Isi pengumuman..." value={content} onChange={e=>setContent(e.target.value)} className="idetech-input bg-white min-h-[100px]" required />
+      <form onSubmit={handleSubmit} className="bg-black/20 p-4 rounded-xl border border-white/10 flex flex-col gap-3">
+        <h3 className="font-bold text-slate-200 text-sm">Buat Pengumuman Baru</h3>
+        <input type="text" placeholder="Judul Pengumuman" value={title} onChange={e=>setTitle(e.target.value)} className="idetech-input bg-white/5 border-white/10 text-white placeholder-slate-400" required />
+        <textarea placeholder="Isi pengumuman..." value={content} onChange={e=>setContent(e.target.value)} className="idetech-input bg-white/5 border-white/10 text-white placeholder-slate-400 min-h-[100px]" required />
         <div className="flex gap-4 items-center">
-          <select value={type} onChange={e=>setType(e.target.value)} className="idetech-input bg-white w-auto">
+          <select value={type} onChange={e=>setType(e.target.value)} className="idetech-input bg-white/5 border-white/10 text-white w-auto">
             <option value="info">Info</option>
             <option value="warning">Peringatan</option>
             <option value="success">Sukses</option>
@@ -8430,14 +9553,14 @@ function AdvancedAnnouncements() {
         {loading ? <div className="text-center text-slate-500 py-4">Memuat pengumuman...</div> : 
           data.length === 0 ? <div className="text-center text-slate-500 py-4 italic">Belum ada pengumuman</div> :
           data.map(a => (
-            <div key={a.id} className={`p-4 rounded-xl border ${a.type === 'warning' ? 'bg-orange-50 border-orange-200' : a.type === 'success' ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
+            <div key={a.id} className={`p-4 rounded-xl border ${a.type === 'warning' ? 'bg-orange-950/30 border-orange-500/30' : a.type === 'success' ? 'bg-green-950/30 border-green-500/30' : 'bg-blue-950/30 border-blue-500/30'}`}>
               <div className="flex justify-between items-start">
                 <div>
-                  <h4 className="font-bold text-slate-800">{a.title}</h4>
-                  <p className="text-sm text-slate-600 mt-1 whitespace-pre-wrap">{a.content}</p>
-                  <p className="text-xs text-slate-400 mt-3">Oleh: {a.authorName} • {new Date(a.createdAt).toLocaleString('id-ID')}</p>
+                  <h4 className="font-bold text-slate-200">{a.title}</h4>
+                  <p className="text-sm text-slate-400 mt-1 whitespace-pre-wrap">{a.content}</p>
+                  <p className="text-xs text-slate-500 mt-3">Oleh: {a.authorName} • {new Date(a.createdAt).toLocaleString('id-ID')}</p>
                 </div>
-                <button onClick={() => handleDelete(a.id)} className="text-red-500 hover:text-red-700 p-2"><Trash2 className="w-4 h-4" /></button>
+                <button onClick={() => handleDelete(a.id)} className="text-red-400 hover:text-red-300 p-2"><Trash2 className="w-4 h-4" /></button>
               </div>
             </div>
           ))
@@ -8494,37 +9617,37 @@ function AdvancedMasterData() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div className="border border-slate-200 rounded-xl overflow-hidden">
-        <div className="bg-slate-50 p-4 border-b border-slate-200">
-          <h3 className="font-bold text-slate-700">Master Mata Pelajaran</h3>
+      <div className="border border-white/10 rounded-xl overflow-hidden bg-black/20">
+        <div className="bg-white/5 p-4 border-b border-white/10">
+          <h3 className="font-bold text-slate-200">Master Mata Pelajaran</h3>
         </div>
         <div className="p-4 flex gap-2">
-          <input type="text" placeholder="Tambah Mapel Baru" value={newSubj} onChange={e=>setNewSubj(e.target.value)} className="idetech-input flex-1" />
+          <input type="text" placeholder="Tambah Mapel Baru" value={newSubj} onChange={e=>setNewSubj(e.target.value)} className="idetech-input flex-1 bg-white/5 border-white/10 text-white placeholder-slate-400" />
           <button onClick={() => handleAdd("subjects", newSubj, setNewSubj)} disabled={!newSubj} className="bg-blue-600 text-white px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50"><Plus className="w-5 h-5" /></button>
         </div>
-        <div className="divide-y divide-slate-100 max-h-[300px] overflow-y-auto">
+        <div className="divide-y divide-white/5 max-h-[300px] overflow-y-auto">
           {subjects.map(s => (
-            <div key={s.id} className="flex justify-between items-center p-3 hover:bg-slate-50">
-              <span className="text-sm font-medium text-slate-700">{s.name}</span>
-              <button onClick={() => handleDelete("subjects", s.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
+            <div key={s.id} className="flex justify-between items-center p-3 hover:bg-white/5">
+              <span className="text-sm font-medium text-slate-300">{s.name}</span>
+              <button onClick={() => handleDelete("subjects", s.id)} className="text-red-400 hover:text-red-300"><Trash2 className="w-4 h-4" /></button>
             </div>
           ))}
         </div>
       </div>
       
-      <div className="border border-slate-200 rounded-xl overflow-hidden">
-        <div className="bg-slate-50 p-4 border-b border-slate-200">
-          <h3 className="font-bold text-slate-700">Master Tingkatan Kelas</h3>
+      <div className="border border-white/10 rounded-xl overflow-hidden bg-black/20">
+        <div className="bg-white/5 p-4 border-b border-white/10">
+          <h3 className="font-bold text-slate-200">Master Tingkatan Kelas</h3>
         </div>
         <div className="p-4 flex gap-2">
-          <input type="text" placeholder="Tambah Kelas Baru" value={newGrade} onChange={e=>setNewGrade(e.target.value)} className="idetech-input flex-1" />
+          <input type="text" placeholder="Tambah Kelas Baru" value={newGrade} onChange={e=>setNewGrade(e.target.value)} className="idetech-input flex-1 bg-white/5 border-white/10 text-white placeholder-slate-400" />
           <button onClick={() => handleAdd("grades", newGrade, setNewGrade)} disabled={!newGrade} className="bg-blue-600 text-white px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50"><Plus className="w-5 h-5" /></button>
         </div>
-        <div className="divide-y divide-slate-100 max-h-[300px] overflow-y-auto">
+        <div className="divide-y divide-white/5 max-h-[300px] overflow-y-auto">
           {grades.map(g => (
-            <div key={g.id} className="flex justify-between items-center p-3 hover:bg-slate-50">
-              <span className="text-sm font-medium text-slate-700">{g.name}</span>
-              <button onClick={() => handleDelete("grades", g.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
+            <div key={g.id} className="flex justify-between items-center p-3 hover:bg-white/5">
+              <span className="text-sm font-medium text-slate-300">{g.name}</span>
+              <button onClick={() => handleDelete("grades", g.id)} className="text-red-400 hover:text-red-300"><Trash2 className="w-4 h-4" /></button>
             </div>
           ))}
         </div>
@@ -8555,29 +9678,29 @@ function AdvancedActivityLogs() {
   if (logs.length === 0) return <div className="text-center text-slate-500 py-8 italic">Belum ada aktivitas tercatat</div>;
 
   return (
-    <div className="overflow-x-auto border border-slate-200 rounded-xl">
+    <div className="overflow-x-auto border border-white/10 rounded-xl bg-black/20">
       <table className="w-full text-left text-sm border-collapse">
         <thead>
-          <tr className="bg-slate-50 text-slate-600">
-            <th className="p-3 font-bold border-b">Waktu</th>
-            <th className="p-3 font-bold border-b">Pengguna</th>
-            <th className="p-3 font-bold border-b">Aksi</th>
-            <th className="p-3 font-bold border-b">Tipe</th>
-            <th className="p-3 font-bold border-b">Detail Tambahan</th>
+          <tr className="bg-white/5 text-slate-300">
+            <th className="p-3 font-bold border-b border-white/10">Waktu</th>
+            <th className="p-3 font-bold border-b border-white/10">Pengguna</th>
+            <th className="p-3 font-bold border-b border-white/10">Aksi</th>
+            <th className="p-3 font-bold border-b border-white/10">Tipe</th>
+            <th className="p-3 font-bold border-b border-white/10">Detail Tambahan</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-white/5">
           {logs.map(log => (
-            <tr key={log.id} className="hover:bg-slate-50 transition-colors">
-              <td className="p-3 text-slate-500 text-xs whitespace-nowrap">{new Date(log.createdAt).toLocaleString('id-ID')}</td>
-              <td className="p-3 font-medium text-slate-800">{log.userName}</td>
+            <tr key={log.id} className="hover:bg-white/5 transition-colors">
+              <td className="p-3 text-slate-400 text-xs whitespace-nowrap">{new Date(log.createdAt).toLocaleString('id-ID')}</td>
+              <td className="p-3 font-medium text-slate-200">{log.userName}</td>
               <td className="p-3">
-                <span className={`px-2 py-1 rounded text-xs font-bold ${log.action === 'create' ? 'bg-green-100 text-green-700' : log.action === 'update' ? 'bg-blue-100 text-blue-700' : log.action === 'delete' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}`}>
+                <span className={`px-2 py-1 rounded text-xs font-bold ${log.action === 'create' ? 'bg-green-900/50 text-green-300' : log.action === 'update' ? 'bg-blue-900/50 text-blue-300' : log.action === 'delete' ? 'bg-red-900/50 text-red-300' : 'bg-slate-800 text-slate-300'}`}>
                   {log.action.toUpperCase()}
                 </span>
               </td>
-              <td className="p-3 text-slate-600">{log.resourceType}</td>
-              <td className="p-3 text-xs text-slate-500 max-w-[200px] truncate" title={log.details || "-"}>{log.details || "-"}</td>
+              <td className="p-3 text-slate-300">{log.resourceType}</td>
+              <td className="p-3 text-xs text-slate-400 max-w-[200px] truncate" title={log.details || "-"}>{log.details || "-"}</td>
             </tr>
           ))}
         </tbody>
@@ -8656,11 +9779,11 @@ function AdminParentStudents({ users }: { users: AdminUser[] }) {
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <label className="flex flex-col gap-1.5">
-              <span className="text-sm font-semibold text-slate-700">Akun Orang Tua</span>
+              <span className="text-sm font-semibold text-slate-300">Akun Orang Tua</span>
               <Select 
                 value={form.parentUserId} 
                 onChange={e => setForm(current => ({ ...current, parentUserId: e.target.value }))}
-                className="w-full"
+                className="w-full professional-select"
                 disabled={busy}
               >
                 <option value="">Pilih Orang Tua...</option>
@@ -8670,11 +9793,11 @@ function AdminParentStudents({ users }: { users: AdminUser[] }) {
               </Select>
             </label>
             <label className="flex flex-col gap-1.5">
-              <span className="text-sm font-semibold text-slate-700">Akun Siswa</span>
+              <span className="text-sm font-semibold text-slate-300">Akun Siswa</span>
               <Select 
                 value={form.studentUserId} 
                 onChange={e => setForm(current => ({ ...current, studentUserId: e.target.value }))}
-                className="w-full"
+                className="w-full professional-select"
                 disabled={busy}
               >
                 <option value="">Pilih Siswa...</option>
@@ -8684,13 +9807,13 @@ function AdminParentStudents({ users }: { users: AdminUser[] }) {
               </Select>
             </label>
             <label className="flex flex-col gap-1.5">
-              <span className="text-sm font-semibold text-slate-700">Hubungan</span>
+              <span className="text-sm font-semibold text-slate-300">Hubungan</span>
               <input 
                 type="text"
                 placeholder="Ayah / Ibu / Wali"
                 value={form.relationship}
                 onChange={e => setForm(current => ({ ...current, relationship: e.target.value }))}
-                className="idetech-input"
+                className="w-full px-3 py-2 bg-[#27272a] border border-white/10 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 disabled={busy}
               />
             </label>
@@ -8698,49 +9821,52 @@ function AdminParentStudents({ users }: { users: AdminUser[] }) {
           <button 
             type="submit" 
             disabled={busy || !form.parentUserId || !form.studentUserId || !form.relationship} 
-            className="mt-2 self-start rounded-lg bg-blue-600 px-6 py-2.5 font-bold text-white shadow-sm hover:bg-blue-700 active:scale-95 disabled:opacity-50 transition-all"
+            className="mt-2 self-start rounded-xl bg-blue-600 px-6 py-2.5 font-bold text-white shadow-sm hover:bg-blue-700 active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition-all"
           >
             {busy ? "Menyimpan..." : "Tambahkan"}
           </button>
         </form>
       </Card>
 
-      <Card className="professional-card p-0 overflow-hidden">
-        <div className="p-5 border-b border-slate-100">
-          <h2 className="professional-card__title">Daftar Relasi Orang Tua & Siswa</h2>
-          <p className="professional-card__hint">Total {data.length} relasi yang terdaftar.</p>
+      <Card className="professional-card p-5">
+        <div className="professional-card__header mb-0">
+          <div>
+            <h2 className="professional-card__title">Daftar Relasi Orang Tua & Siswa</h2>
+            <p className="professional-card__hint">Total {data.length} relasi yang terdaftar.</p>
+          </div>
         </div>
-        <div className="overflow-x-auto">
+
+        <div className="overflow-x-auto mt-6 rounded-xl border border-white/10">
           <table className="w-full text-left text-sm border-collapse">
             <thead>
-              <tr className="bg-slate-50 text-slate-600">
-                <th className="p-4 font-bold border-b">Orang Tua</th>
-                <th className="p-4 font-bold border-b">Siswa</th>
-                <th className="p-4 font-bold border-b">Hubungan</th>
-                <th className="p-4 font-bold border-b w-24 text-center">Aksi</th>
+              <tr className="bg-[#18181b] text-slate-400 text-[11px] uppercase">
+                <th className="p-4 font-bold border-b border-white/10">Orang Tua</th>
+                <th className="p-4 font-bold border-b border-white/10">Siswa</th>
+                <th className="p-4 font-bold border-b border-white/10">Hubungan</th>
+                <th className="p-4 font-bold border-b border-white/10 w-24 text-center">Aksi</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="bg-[#27272a]/50">
               {data.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="p-8 text-center text-slate-500 italic">Belum ada data relasi.</td>
+                  <td colSpan={4} className="p-8 text-center text-slate-400 italic">Belum ada data relasi.</td>
                 </tr>
               ) : null}
               {data.map(item => {
                 const pUser = parentUsers.find(u => u.id === item.parentId);
                 const sUser = studentUsers.find(u => u.id === item.studentId);
                 return (
-                <tr key={item.id} className="border-b last:border-b-0 hover:bg-slate-50/50 transition-colors">
+                <tr key={item.id} className="border-b border-white/10 last:border-b-0 hover:bg-white/5 transition-colors">
                   <td className="p-4">
-                    <div className="font-semibold text-slate-800">{pUser?.name || item.parentName}</div>
-                    <div className="text-xs text-slate-500">{pUser?.email || item.parentEmail}</div>
+                    <div className="font-semibold text-slate-200">{pUser?.name || item.parentName}</div>
+                    <div className="text-xs text-slate-400">{pUser?.email || item.parentEmail}</div>
                   </td>
                   <td className="p-4">
-                    <div className="font-semibold text-slate-800">{sUser?.name || item.studentName}</div>
-                    <div className="text-xs text-slate-500">{sUser?.email || item.studentEmail}</div>
+                    <div className="font-semibold text-slate-200">{sUser?.name || item.studentName}</div>
+                    <div className="text-xs text-slate-400">{sUser?.email || item.studentEmail}</div>
                   </td>
                   <td className="p-4">
-                    <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                    <span className="inline-flex items-center rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-bold text-blue-400 ring-1 ring-inset ring-blue-500/20">
                       {item.relationship}
                     </span>
                   </td>
@@ -8748,7 +9874,7 @@ function AdminParentStudents({ users }: { users: AdminUser[] }) {
                     <button 
                       onClick={() => handleDelete(item.id)}
                       disabled={busy}
-                      className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-md transition-colors"
+                      className="text-red-400 hover:text-red-300 hover:bg-red-500/20 p-2 rounded-md transition-colors"
                       title="Hapus Relasi"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -8843,9 +9969,9 @@ function AdminBlogManager() {
   };
 
   const ErrorAlert = () => errorMsg ? (
-    <div className="bg-red-50 text-red-600 p-4 rounded-xl border border-red-100 text-sm mb-4 flex justify-between items-center shadow-sm">
+    <div className="bg-red-950/30 text-red-400 p-4 rounded-xl border border-red-500/30 text-sm mb-4 flex justify-between items-center shadow-sm">
       <span>{errorMsg}</span>
-      <button type="button" onClick={() => setErrorMsg(null)} className="hover:bg-red-100 p-1 rounded-md transition-colors">
+      <button type="button" onClick={() => setErrorMsg(null)} className="hover:bg-red-900/50 p-1 rounded-md transition-colors">
         <X className="w-4 h-4" />
       </button>
     </div>
@@ -8853,47 +9979,47 @@ function AdminBlogManager() {
 
   if (isFormOpen) {
     return (
-      <div className="bg-white rounded-xl shadow p-6">
+      <div className="bg-black/20 border border-white/10 rounded-xl shadow p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-bold">Buat Artikel Blog</h3>
-          <button onClick={() => setIsFormOpen(false)} className="text-slate-500 hover:text-slate-700">Kembali</button>
+          <h3 className="text-xl font-bold text-slate-200">Buat Artikel Blog</h3>
+          <button onClick={() => setIsFormOpen(false)} className="text-slate-400 hover:text-slate-300">Kembali</button>
         </div>
         <ErrorAlert />
         <form onSubmit={handleSave} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">Judul Artikel</label>
-            <input required type="text" className="professional-input" value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder="Contoh: Pentingnya Gamifikasi" />
+            <input required type="text" className="idetech-input w-full bg-white/5 border-white/10 text-white placeholder-slate-500" value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder="Contoh: Pentingnya Gamifikasi" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Kutipan Pendek (Excerpt)</label>
-            <textarea className="professional-input" rows={2} value={form.excerpt} onChange={e => setForm({...form, excerpt: e.target.value})} placeholder="Ringkasan singkat untuk halaman depan..." />
+            <textarea className="idetech-input w-full bg-white/5 border-white/10 text-white placeholder-slate-500" rows={2} value={form.excerpt} onChange={e => setForm({...form, excerpt: e.target.value})} placeholder="Ringkasan singkat untuk halaman depan..." />
           </div>
           
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h4 className="font-semibold text-blue-800 flex items-center gap-2 mb-2"><Wand2 className="w-4 h-4"/> AI Writer</h4>
+          <div className="p-4 bg-blue-950/30 border border-blue-500/30 rounded-lg">
+            <h4 className="font-semibold text-blue-400 flex items-center gap-2 mb-2"><Wand2 className="w-4 h-4"/> AI Writer</h4>
             <div className="flex gap-2">
-              <input type="text" className="professional-input flex-1 bg-white" placeholder="Ide tulisan: Manfaat teknologi di kelas..." value={form.prompt} onChange={e => setForm({...form, prompt: e.target.value})} />
-              <button type="button" onClick={handleGenerateAI} disabled={busy} className="professional-button is-primary whitespace-nowrap">
+              <input type="text" className="professional-input flex-1 bg-white/5 border-white/10 text-white placeholder-slate-500" placeholder="Ide tulisan: Manfaat teknologi di kelas..." value={form.prompt} onChange={e => setForm({...form, prompt: e.target.value})} />
+              <button type="button" onClick={handleGenerateAI} disabled={busy} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors whitespace-nowrap">
                 {busy ? "Loading AI..." : "Generate Draft"}
               </button>
             </div>
-            <p className="text-xs text-blue-600 mt-2">AI akan membantu menuliskan draf panjang untuk artikel Anda.</p>
+            <p className="text-xs text-blue-400 mt-2">AI akan membantu menuliskan draf panjang untuk artikel Anda.</p>
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1">Konten (Markdown)</label>
-            <textarea required className="professional-input font-mono text-sm" rows={12} value={form.content} onChange={e => setForm({...form, content: e.target.value})} placeholder="# Judul Besar&#10;&#10;Isi tulisan..." />
+            <textarea required className="idetech-input w-full font-mono text-sm bg-white/5 border-white/10 text-white placeholder-slate-500" rows={12} value={form.content} onChange={e => setForm({...form, content: e.target.value})} placeholder="# Judul Besar&#10;&#10;Isi tulisan..." />
           </div>
           
           <div>
             <label className="block text-sm font-medium mb-1">Status Publikasi</label>
-            <select className="professional-input" value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
+            <select className="idetech-input w-full bg-white/5 border-white/10 text-white" value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
               <option value="draft">Draf (Disembunyikan)</option>
               <option value="published">Publikasi Terbuka</option>
             </select>
           </div>
           
-          <button type="submit" disabled={busy} className="professional-button is-primary w-full justify-center">Simpan Artikel</button>
+          <button type="submit" disabled={busy} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors w-full flex justify-center">Simpan Artikel</button>
         </form>
       </div>
     );
@@ -8901,12 +10027,12 @@ function AdminBlogManager() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex justify-between items-center bg-black/20 p-4 rounded-xl border border-white/10 shadow-sm">
         <div>
-          <h3 className="font-bold text-slate-800">Daftar Artikel Blog</h3>
-          <p className="text-sm text-slate-500">Kelola informasi publik dan pembaruan IdeTech.</p>
+          <h3 className="font-bold text-slate-200">Daftar Artikel Blog</h3>
+          <p className="text-sm text-slate-400">Kelola informasi publik dan pembaruan IdeTech.</p>
         </div>
-        <button onClick={() => setIsFormOpen(true)} className="professional-button is-primary flex items-center gap-2"><Plus className="w-4 h-4"/> Buat Artikel Baru</button>
+        <button onClick={() => setIsFormOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2"><Plus className="w-4 h-4"/> Buat Artikel Baru</button>
       </div>
 
       <ErrorAlert />
@@ -8914,23 +10040,23 @@ function AdminBlogManager() {
       {busy && blogs.length === 0 ? (
         <p className="text-center text-slate-500">Memuat data blog...</p>
       ) : blogs.length === 0 ? (
-        <div className="text-center bg-white p-8 rounded-xl border border-slate-200 text-slate-500">
+        <div className="text-center bg-black/20 p-8 rounded-xl border border-white/10 text-slate-400">
           Belum ada artikel. Klik "Buat Artikel Baru" untuk mulai.
         </div>
       ) : (
         <div className="grid gap-4">
           {blogs.map(blog => (
-            <div key={blog.id} className="bg-white p-4 rounded-xl border border-slate-200 flex justify-between items-center">
+            <div key={blog.id} className="bg-black/20 p-4 rounded-xl border border-white/10 flex justify-between items-center">
               <div>
-                <h4 className="font-bold text-slate-800">{blog.title}</h4>
+                <h4 className="font-bold text-slate-200">{blog.title}</h4>
                 <div className="flex items-center gap-3 text-sm mt-1">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${blog.status === 'published' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${blog.status === 'published' ? 'bg-emerald-950/30 text-emerald-400 border-emerald-500/30' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>
                     {blog.status.toUpperCase()}
                   </span>
-                  <span className="text-slate-500">{new Date(blog.createdAt).toLocaleDateString()}</span>
+                  <span className="text-slate-400">{new Date(blog.createdAt).toLocaleDateString()}</span>
                 </div>
               </div>
-              <button onClick={() => handleDelete(blog.id)} disabled={busy} className="professional-button text-red-600 hover:bg-red-50">Hapus</button>
+              <button onClick={() => handleDelete(blog.id)} disabled={busy} className="bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg font-semibold transition-colors">Hapus</button>
             </div>
           ))}
         </div>
