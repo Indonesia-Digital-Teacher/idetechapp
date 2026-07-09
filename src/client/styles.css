@@ -6749,3 +6749,121 @@ select {
   pointer-events: none;
   animation: wg-particle-float linear infinite;
 }
+
+/* ─── Teacher To-Do Panel ───────────────────────────────────────── */
+
+.todo-panel {
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(99, 102, 241, 0.18) 0%, transparent 55%),
+    radial-gradient(ellipse at 90% 100%, rgba(139, 92, 246, 0.14) 0%, transparent 50%),
+    linear-gradient(180deg, #0b1120 0%, #0f1628 60%, #0b1120 100%);
+  border-left: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.todo-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(99, 102, 241, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.todo-panel__filters {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.todo-panel__list {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.todo-panel__footer {
+  padding: 14px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(12px);
+}
+
+.todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.04);
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
+}
+
+.todo-item:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(99, 102, 241, 0.25);
+  transform: translateX(-2px);
+}
+
+.todo-item.is-done {
+  opacity: 0.55;
+}
+
+.todo-item.is-overdue {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.04);
+  animation: todo-overdue-pulse 3s ease-in-out infinite;
+}
+
+@keyframes todo-overdue-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+  50%       { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.08); }
+}
+
+.todo-item__check {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: #a5b4fc;
+  transition: all 0.2s;
+  margin-top: 1px;
+}
+
+.todo-item__check:hover {
+  border-color: rgba(99, 102, 241, 0.7);
+  background: rgba(99, 102, 241, 0.15);
+}
+
+.todo-item__check.is-checked {
+  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  border-color: #6d28d9;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+}
+
+.todo-form-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 10px 14px;
+  color: #ffffff;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.todo-form-input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.todo-form-input:focus {
+  border-color: rgba(99, 102, 241, 0.6);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}

@@ -164,6 +164,7 @@ export const classes = mysqlTable(
     progress: int("progress").notNull().default(0),
     nextSession: varchar("next_session", { length: 255 }).notNull(),
     status: mysqlEnum("status", ["active", "draft", "archived"]).notNull().default("active"),
+    unlockedLevel: int("unlocked_level").notNull().default(1),
     createdAt: ts("created_at"),
     updatedAt: ts("updated_at")
   },
@@ -196,6 +197,7 @@ export const materials = mysqlTable("materials", {
   options: json("options"),
   status: mysqlEnum("status", ["draft", "published"]).notNull().default("published"),
   bankStatus: mysqlEnum("bank_status", ["none", "pending", "approved", "rejected"]).notNull().default("none"),
+  level: int("level").notNull().default(1),
   createdAt: ts("created_at"),
   updatedAt: ts("updated_at")
 });
@@ -211,6 +213,7 @@ export const ideQuests = mysqlTable("ide_quests", {
   dueDate: varchar("due_date", { length: 50 }).notNull(),
   status: mysqlEnum("status", ["draft", "published", "archived"]).notNull().default("published"),
   bankStatus: mysqlEnum("bank_status", ["none", "pending", "approved", "rejected"]).notNull().default("none"),
+  level: int("level").notNull().default(1),
   createdAt: ts("created_at"),
   updatedAt: ts("updated_at")
 });
@@ -454,6 +457,18 @@ export const consultationMessages = mysqlTable("consultation_messages", {
   senderUserId: fk("sender_user_id").references(() => users.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
   createdAt: ts("created_at")
+});
+
+export const teacherTodos = mysqlTable("teacher_todos", {
+  id: pk(),
+  userId: fk("user_id").references(() => users.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  priority: mysqlEnum("priority", ["high", "medium", "low"]).notNull().default("medium"),
+  isCompleted: boolean("is_completed").notNull().default(false),
+  dueDate: optionalTs("due_date"),
+  createdAt: ts("created_at"),
+  updatedAt: ts("updated_at")
 });
 
 export type RoleName = "admin" | "teacher" | "student" | "parent";

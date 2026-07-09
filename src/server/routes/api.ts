@@ -29,7 +29,8 @@ import {
   blogs,
   coinTransactions,
   consultationThreads,
-  consultationMessages
+  consultationMessages,
+  teacherTodos
 } from "../db/schema";
 import type { RoleName } from "../db/schema";
 import { type AppEnv, authRequired, requirePermission, requireRole } from "../lib/auth";
@@ -130,8 +131,14 @@ app.patch("/profile", async (c) => {
   const contactValue = body.contactValue?.trim() ?? "";
 
   if (fullName.length < 3) return c.json({ message: "Nama lengkap minimal 3 karakter." }, 400);
+  if (fullName.length > 100) return c.json({ message: "Nama lengkap maksimal 100 karakter." }, 400);
+  if (!/^[a-zA-Z\s.'’`]+$/.test(fullName)) {
+    return c.json({ message: "Nama lengkap hanya boleh mengandung huruf, spasi, titik, atau tanda petik." }, 400);
+  }
   if (schoolName.length < 3) return c.json({ message: "Nama sekolah wajib dipilih." }, 400);
+  if (schoolName.length > 150) return c.json({ message: "Nama sekolah maksimal 150 karakter." }, 400);
   if (contactChannel !== "wa" && contactChannel !== "telegram") return c.json({ message: "Pilih kontak WA atau Telegram." }, 400);
+  if (contactValue.length > 50) return c.json({ message: "Kontak maksimal 50 karakter." }, 400);
   if (contactChannel === "wa" && !/^[0-9+][0-9\s-]{7,18}$/.test(contactValue)) return c.json({ message: "Nomor WA tidak valid." }, 400);
   if (contactChannel === "telegram" && !/^@?[a-zA-Z0-9_]{5,32}$/.test(contactValue)) return c.json({ message: "Username Telegram tidak valid." }, 400);
 
@@ -558,9 +565,54 @@ app.delete("/admin/announcements/:id", requireRole(["admin"]), async (c) => {
 
 // Public: fetch active quotes per role (called on client after login)
 app.get("/welcome-quotes", authRequired, async (c) => {
-  const { getWelcomeQuotesConfig } = await import("../lib/settings");
+  const user = c.get("authUser");
+  const { getWelcomeQuotesConfig, getAiGenerationQuotaConfig } = await import("../lib/settings");
   const config = await getWelcomeQuotesConfig();
-  return c.json({ quotes: config.quotes });
+
+  let aiQuota = null;
+
+  if (user.activeRole === "teacher" || user.activeRole === "admin") {
+    const now = new Date();
+    
+    // Calculate most recent 06:00 AM
+    const last06 = new Date(now);
+    if (now.getHours() < 6) {
+      last06.setDate(last06.getDate() - 1);
+    }
+    last06.setHours(6, 0, 0, 0);
+
+    const [dbUser] = await db
+      .select({ createdAt: users.createdAt })
+      .from(users)
+      .where(eq(users.id, user.id))
+      .limit(1);
+
+    const userCreatedAt = dbUser?.createdAt ?? new Date();
+    const isFirst24Hours = now.getTime() - userCreatedAt.getTime() < 24 * 60 * 60 * 1000;
+
+    const { defaultLimit, overrides } = await getAiGenerationQuotaConfig();
+    const limit = isFirst24Hours 
+      ? 3 
+      : (overrides[user.email] !== undefined ? overrides[user.email] : defaultLimit);
+
+    let [quota] = await db.select().from(aiGenerationQuotas).where(eq(aiGenerationQuotas.userId, user.id)).limit(1);
+
+    let used = 0;
+    if (quota) {
+      const isExpired = quota.lastResetAt.getTime() < last06.getTime();
+      if (!isExpired) {
+        used = quota.generationsCount;
+      }
+    }
+
+    aiQuota = {
+      limit,
+      used,
+      remaining: Math.max(0, limit - used)
+    };
+  }
+
+  return c.json({ quotes: config.quotes, aiQuota });
 });
 
 // Admin: get all quotes (including inactive)
@@ -789,6 +841,145 @@ app.post("/teacher/classes", requireRole(["teacher", "admin"]), requirePermissio
   return c.json({ class: created }, 201);
 });
 
+app.patch("/teacher/classes/:id", requireRole(["teacher", "admin"]), requirePermission("class.manage"), async (c) => {
+  const user = c.get("authUser");
+  const id = c.req.param("id");
+  if (!id) return c.json({ message: "ID kelas wajib diisi." }, 400);
+
+  const body = (await c.req.json().catch(() => ({}))) as {
+    unlockedLevel?: number;
+  };
+
+  const [targetClass] = await db.select().from(classes).where(eq(classes.id, id)).limit(1);
+  if (!targetClass || (user.activeRole !== "admin" && targetClass.teacherUserId !== user.id)) {
+    return c.json({ message: "Kelas tidak ditemukan atau bukan milik guru aktif." }, 404);
+  }
+
+  if (body.unlockedLevel !== undefined) {
+    const level = Math.max(1, Number(body.unlockedLevel));
+    await db
+      .update(classes)
+      .set({
+        unlockedLevel: level,
+        updatedAt: new Date()
+      })
+      .where(eq(classes.id, id));
+  }
+
+  const [updated] = await db.select().from(classes).where(eq(classes.id, id)).limit(1);
+
+  return c.json({ class: updated });
+});
+
+app.delete("/teacher/classes/:classId/students/:studentId", requireRole(["teacher", "admin"]), requirePermission("class.manage"), async (c) => {
+  const user = c.get("authUser");
+  const classId = c.req.param("classId");
+  const studentId = c.req.param("studentId");
+
+  if (!classId || !studentId) {
+    return c.json({ message: "Parameter tidak lengkap." }, 400);
+  }
+
+  const [targetClass] = await db.select().from(classes).where(eq(classes.id, classId)).limit(1);
+  if (!targetClass) {
+    return c.json({ message: "Kelas tidak ditemukan." }, 404);
+  }
+  if (user.activeRole !== "admin" && targetClass.teacherUserId !== user.id) {
+    return c.json({ message: "Anda tidak memiliki akses ke kelas ini." }, 403);
+  }
+
+  await db.delete(classStudents)
+    .where(
+      and(
+        eq(classStudents.classId, classId),
+        eq(classStudents.studentUserId, studentId)
+      )
+    );
+
+  await writeActivityLog({
+    userId: user.id,
+    action: "remove_student",
+    resourceType: "class_student",
+    resourceId: `${classId}_${studentId}`,
+    details: { classId, studentId }
+  });
+
+  return c.json({ ok: true });
+});
+
+// ─── Teacher To-Do List ───────────────────────────────────────────────────────
+
+app.get("/teacher/todos", requireRole(["teacher", "admin"]), async (c) => {
+  const user = c.get("authUser");
+  const rows = await db
+    .select()
+    .from(teacherTodos)
+    .where(eq(teacherTodos.userId, user.id))
+    .orderBy(desc(teacherTodos.createdAt));
+  return c.json({ todos: rows });
+});
+
+app.post("/teacher/todos", requireRole(["teacher", "admin"]), async (c) => {
+  const user = c.get("authUser");
+  const body = await c.req.json<{ title: string; description?: string; priority?: "high" | "medium" | "low"; dueDate?: string }>();
+
+  if (!body.title?.trim()) {
+    return c.json({ message: "Judul tugas wajib diisi." }, 400);
+  }
+
+  const now = new Date();
+  const id = nanoid();
+  await db.insert(teacherTodos).values({
+    id,
+    userId: user.id,
+    title: body.title.trim(),
+    description: body.description?.trim() || null,
+    priority: body.priority ?? "medium",
+    isCompleted: false,
+    dueDate: body.dueDate ? new Date(body.dueDate) : null,
+    createdAt: now,
+    updatedAt: now
+  });
+
+  const [created] = await db.select().from(teacherTodos).where(eq(teacherTodos.id, id)).limit(1);
+  return c.json({ todo: created }, 201);
+});
+
+app.patch("/teacher/todos/:id", requireRole(["teacher", "admin"]), async (c) => {
+  const user = c.get("authUser");
+  const id = c.req.param("id");
+  if (!id) return c.json({ message: "ID tidak valid." }, 400);
+  const body = await c.req.json<{ title?: string; description?: string; priority?: "high" | "medium" | "low"; isCompleted?: boolean; dueDate?: string | null }>();
+
+  const [existing] = await db.select().from(teacherTodos).where(and(eq(teacherTodos.id, id), eq(teacherTodos.userId, user.id))).limit(1);
+  if (!existing) return c.json({ message: "Tugas tidak ditemukan." }, 404);
+
+  const updates: Partial<typeof teacherTodos.$inferInsert> = { updatedAt: new Date() };
+  if (body.title !== undefined) updates.title = body.title.trim();
+  if (body.description !== undefined) updates.description = body.description?.trim() || null;
+  if (body.priority !== undefined) updates.priority = body.priority;
+  if (body.isCompleted !== undefined) updates.isCompleted = body.isCompleted;
+  if ("dueDate" in body) updates.dueDate = body.dueDate ? new Date(body.dueDate) : null;
+
+  await db.update(teacherTodos).set(updates).where(eq(teacherTodos.id, id));
+  const [updated] = await db.select().from(teacherTodos).where(eq(teacherTodos.id, id)).limit(1);
+  return c.json({ todo: updated });
+});
+
+app.delete("/teacher/todos/:id", requireRole(["teacher", "admin"]), async (c) => {
+  const user = c.get("authUser");
+  const id = c.req.param("id");
+  if (!id) return c.json({ message: "ID tidak valid." }, 400);
+
+  const [existing] = await db.select().from(teacherTodos).where(and(eq(teacherTodos.id, id), eq(teacherTodos.userId, user.id))).limit(1);
+  if (!existing) return c.json({ message: "Tugas tidak ditemukan." }, 404);
+
+  await db.delete(teacherTodos).where(eq(teacherTodos.id, id));
+  return c.json({ ok: true });
+});
+
+// ─── Teacher Materials ────────────────────────────────────────────────────────
+
 app.get("/teacher/materials", requireRole(["teacher", "admin"]), requirePermission("material.create"), async (c) => {
   const user = c.get("authUser");
   const rows =
@@ -808,6 +999,7 @@ app.post("/teacher/materials", requireRole(["teacher", "admin"]), requirePermiss
     description?: string;
     content?: string;
     options?: unknown;
+    level?: number;
   };
 
   const title = body.title?.trim();
@@ -835,6 +1027,7 @@ app.post("/teacher/materials", requireRole(["teacher", "admin"]), requirePermiss
       content: body.content ?? null,
       options: body.options ?? null,
       status: "published",
+      level: Math.max(1, Number(body.level ?? 1)),
       createdAt: now,
       updatedAt: now
     });
@@ -863,6 +1056,7 @@ app.patch("/teacher/materials/:id", requireRole(["teacher", "admin"]), requirePe
     content?: string;
     options?: unknown;
     status?: "draft" | "published";
+    level?: number;
   };
 
   const [targetMaterial] = await db.select().from(materials).where(eq(materials.id, id));
@@ -879,6 +1073,7 @@ app.patch("/teacher/materials/:id", requireRole(["teacher", "admin"]), requirePe
       content: body.content !== undefined ? body.content : targetMaterial.content,
       options: body.options !== undefined ? body.options : targetMaterial.options,
       status: body.status ?? targetMaterial.status,
+      level: body.level !== undefined ? Math.max(1, Number(body.level)) : targetMaterial.level,
       updatedAt: new Date()
     })
     .where(eq(materials.id, id));
@@ -1006,6 +1201,7 @@ app.post("/teacher/idequests", requireRole(["teacher", "admin"]), requirePermiss
       points: Math.max(0, Number(body.points ?? 100)),
       dueDate,
       status: "published",
+      level: Math.max(1, Number(body.level ?? 1)),
       createdAt: now,
       updatedAt: now
     });
@@ -1034,6 +1230,7 @@ app.patch("/teacher/idequests/:id", requireRole(["teacher", "admin"]), requirePe
     points?: number;
     dueDate?: string;
     status?: "draft" | "published" | "archived";
+    level?: number;
   };
 
   const [targetQuest] = await db.select().from(ideQuests).where(eq(ideQuests.id, id));
@@ -1057,6 +1254,7 @@ app.patch("/teacher/idequests/:id", requireRole(["teacher", "admin"]), requirePe
       points: body.points !== undefined ? Math.max(0, Number(body.points)) : targetQuest.points,
       dueDate: body.dueDate?.trim() || targetQuest.dueDate,
       status: body.status ?? targetQuest.status,
+      level: body.level !== undefined ? Math.max(1, Number(body.level)) : targetQuest.level,
       updatedAt: new Date()
     })
     .where(eq(ideQuests.id, id));
@@ -1175,6 +1373,7 @@ app.get("/teacher/student-progress", requireRole(["teacher", "admin"]), requireP
 
     return {
       studentId: sc.studentId,
+      classId: sc.classId,
       studentName: sc.studentName,
       studentEmail: sc.studentEmail,
       avatarUrl: sc.avatarUrl,
@@ -1414,8 +1613,19 @@ app.post("/teacher/generate-ai", requireRole(["teacher", "admin"]), requirePermi
   }
   last06.setHours(6, 0, 0, 0);
 
+  const [dbUser] = await db
+    .select({ createdAt: users.createdAt })
+    .from(users)
+    .where(eq(users.id, user.id))
+    .limit(1);
+
+  const userCreatedAt = dbUser?.createdAt ?? new Date();
+  const isFirst24Hours = now.getTime() - userCreatedAt.getTime() < 24 * 60 * 60 * 1000;
+
   const { defaultLimit, overrides } = await getAiGenerationQuotaConfig();
-  const limit = overrides[user.email] !== undefined ? overrides[user.email] : defaultLimit;
+  const limit = isFirst24Hours 
+    ? 3 
+    : (overrides[user.email] !== undefined ? overrides[user.email] : defaultLimit);
 
   let [quota] = await db.select().from(aiGenerationQuotas).where(eq(aiGenerationQuotas.userId, user.id)).limit(1);
 
@@ -1940,19 +2150,80 @@ app.post("/student/classes/join", requireRole(["student"]), async (c) => {
   return c.json({ class: targetClass, joined, alreadyHadClass: Boolean(existing) }, 201);
 });
 
+async function getLockedStatusMap(studentUserId: string, classIds: string[]) {
+  if (classIds.length === 0) return new Map<string, boolean>();
+
+  const classRows = await db.select().from(classes).where(inArray(classes.id, classIds));
+  const allMaterials = await db.select().from(materials).where(and(inArray(materials.classId, classIds), eq(materials.status, "published")));
+  const allQuests = await db.select().from(ideQuests).where(and(inArray(ideQuests.classId, classIds), eq(ideQuests.status, "published")));
+
+  const materialProgress = await db.select().from(studentMaterialProgress).where(eq(studentMaterialProgress.studentUserId, studentUserId));
+  const questProgress = await db.select().from(studentQuestProgress).where(eq(studentQuestProgress.studentUserId, studentUserId));
+
+  const completedMaterialIds = new Set(materialProgress.filter(p => p.progress >= 100).map(p => p.materialId));
+  const completedQuestIds = new Set(questProgress.filter(p => p.progress >= 100).map(p => p.questId));
+
+  const lockedMap = new Map<string, boolean>();
+
+  for (const cls of classRows) {
+    const classId = cls.id;
+    const teacherUnlockedLevel = cls.unlockedLevel;
+
+    const classMaterials = allMaterials.filter(m => m.classId === classId);
+    const classQuests = allQuests.filter(q => q.classId === classId);
+
+    const levelsSet = new Set<number>([1]);
+    classMaterials.forEach(m => levelsSet.add(m.level));
+    classQuests.forEach(q => levelsSet.add(q.level));
+
+    const sortedLevels = Array.from(levelsSet).sort((a, b) => a - b);
+    const prerequisiteUnlocked = new Set<number>([1]);
+
+    for (const lvl of sortedLevels) {
+      if (lvl === 1) continue;
+      const prevLevel = lvl - 1;
+      if (prerequisiteUnlocked.has(prevLevel)) {
+        const prevMaterials = classMaterials.filter(m => m.level === prevLevel);
+        const prevQuests = classQuests.filter(q => q.level === prevLevel);
+
+        const allPrevMaterialsCompleted = prevMaterials.every(m => completedMaterialIds.has(m.id));
+        const allPrevQuestsCompleted = prevQuests.every(q => completedQuestIds.has(q.id));
+
+        if (allPrevMaterialsCompleted && allPrevQuestsCompleted) {
+          prerequisiteUnlocked.add(lvl);
+        } else {
+          break;
+        }
+      } else {
+        break;
+      }
+    }
+
+    for (const lvl of sortedLevels) {
+      const isLocked = lvl > teacherUnlockedLevel || !prerequisiteUnlocked.has(lvl);
+      lockedMap.set(`${classId}_${lvl}`, isLocked);
+    }
+  }
+
+  return lockedMap;
+}
+
 app.get("/student/materials", requireRole(["student"]), async (c) => {
   const user = c.get("authUser");
   const classIds = await getStudentClassIds(user.id);
   const progressRows = await db.select().from(studentMaterialProgress).where(eq(studentMaterialProgress.studentUserId, user.id));
   const allMaterials = await db.select().from(materials).orderBy(desc(materials.updatedAt));
+  const lockedStatusMap = await getLockedStatusMap(user.id, classIds);
   const visibleMaterials = allMaterials
     .filter((material) => classIds.includes(material.classId) && material.status === "published")
     .map((material) => {
       const progress = progressRows.find((row) => row.materialId === material.id);
+      const isLocked = lockedStatusMap.get(`${material.classId}_${material.level}`) ?? false;
       return {
         ...material,
         progress: progress?.progress ?? 0,
-        completedAt: progress?.completedAt ?? null
+        completedAt: progress?.completedAt ?? null,
+        isLocked
       };
     });
 
@@ -1967,6 +2238,11 @@ app.post("/student/materials/:id/complete", requireRole(["student"]), async (c) 
   const [material] = await db.select().from(materials).where(eq(materials.id, id));
   if (!material || material.status !== "published" || !classIds.includes(material.classId)) {
     return c.json({ message: "Materi tidak ditemukan untuk kelas siswa aktif." }, 404);
+  }
+
+  const lockedStatusMap = await getLockedStatusMap(user.id, [material.classId]);
+  if (lockedStatusMap.get(`${material.classId}_${material.level}`)) {
+    return c.json({ message: "Materi ini masih terkunci." }, 403);
   }
 
   const now = new Date();
@@ -2006,10 +2282,12 @@ app.get("/student/quests", requireRole(["student"]), requirePermission("quest.pl
   const user = c.get("authUser");
   const classIds = await getStudentClassIds(user.id);
   const progressRows = await db.select().from(studentQuestProgress).where(eq(studentQuestProgress.studentUserId, user.id));
+  const lockedStatusMap = await getLockedStatusMap(user.id, classIds);
   const dbQuests = (await db.select().from(ideQuests).orderBy(desc(ideQuests.updatedAt)))
     .filter((quest) => classIds.includes(quest.classId) && quest.status === "published")
     .map((quest) => {
       const progress = progressRows.find((row) => row.questId === quest.id);
+      const isLocked = lockedStatusMap.get(`${quest.classId}_${quest.level}`) ?? false;
       return {
         id: quest.id,
         title: quest.title,
@@ -2021,7 +2299,9 @@ app.get("/student/quests", requireRole(["student"]), requirePermission("quest.pl
         dueDate: quest.dueDate,
         mission: quest.mission,
         classId: quest.classId,
-        materialId: quest.materialId
+        materialId: quest.materialId,
+        level: quest.level,
+        isLocked
       };
     });
   const quests = dbQuests;
@@ -2054,6 +2334,11 @@ app.post("/student/quests/:id/complete", requireRole(["student"]), requirePermis
   const [quest] = await db.select().from(ideQuests).where(eq(ideQuests.id, id));
   if (!quest || quest.status !== "published" || !classIds.includes(quest.classId)) {
     return c.json({ message: "IdeQuest tidak ditemukan untuk kelas siswa aktif." }, 404);
+  }
+
+  const lockedStatusMap = await getLockedStatusMap(user.id, [quest.classId]);
+  if (lockedStatusMap.get(`${quest.classId}_${quest.level}`)) {
+    return c.json({ message: "IdeQuest ini masih terkunci." }, 403);
   }
 
   if (quest.materialId) {

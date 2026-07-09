@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom/client";
+import { registerSW } from "virtual:pwa-register";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkMath from "remark-math";
@@ -85,6 +86,12 @@ import {
   Gift,
   Ticket,
   Menu,
+  CheckSquare,
+  AlertCircle,
+  Flag,
+  ClipboardList,
+  GripVertical,
+  Edit3,
 } from "lucide-react";
 import { Button, Card, SecondaryButton, Select, StatusPill } from "./components/ui";
 import "./styles.css";
@@ -175,6 +182,7 @@ type TeacherClass = {
   progress: number;
   nextSession: string;
   status: "active" | "draft" | "archived";
+  unlockedLevel?: number;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -195,6 +203,7 @@ type TeacherMaterial = {
   content?: string;
   options?: { dueDate?: string; [key: string]: any } | null;
   status: "draft" | "published";
+  level?: number;
 };
 
 type TeacherIdeQuest = {
@@ -207,6 +216,19 @@ type TeacherIdeQuest = {
   points: number;
   dueDate: string;
   status: "draft" | "published" | "archived";
+  level?: number;
+};
+
+type TeacherTodo = {
+  id: string;
+  userId: string;
+  title: string;
+  description: string | null;
+  priority: "high" | "medium" | "low";
+  isCompleted: boolean;
+  dueDate: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 type StudentMaterial = TeacherMaterial & {
@@ -225,6 +247,7 @@ type StudentQuest = {
   mission: string;
   classId: string;
   materialId: string | null;
+  level?: number;
 };
 
 type StudentAchievement = {
@@ -620,6 +643,7 @@ function App() {
   const [adminContact, setAdminContact] = useState("6281234567890");
   const [welcomeQuotes, setWelcomeQuotes] = useState<WelcomeQuote[]>([]);
   const [showWelcomeGreeting, setShowWelcomeGreeting] = useState(false);
+  const [welcomeAiQuota, setWelcomeAiQuota] = useState<{ limit: number; used: number; remaining: number } | null>(null);
 
   async function loadSession() {
     setLoading(true);
@@ -660,10 +684,12 @@ function App() {
       if (!localStorage.getItem(greetingKey)) {
         // Fetch quotes dan jadwalkan modal tampil
         try {
-          const qRes = await api<{ quotes: WelcomeQuote[] }>("/api/welcome-quotes");
+          const qRes = await api<{ quotes: WelcomeQuote[]; aiQuota: { limit: number; used: number; remaining: number } | null }>("/api/welcome-quotes");
           setWelcomeQuotes(qRes.quotes || []);
+          setWelcomeAiQuota(qRes.aiQuota || null);
         } catch {
           setWelcomeQuotes([]);
+          setWelcomeAiQuota(null);
         }
         setShowWelcomeGreeting(true);
       }
@@ -895,6 +921,7 @@ function App() {
         <WelcomeGreetingModal
           user={user}
           quotes={welcomeQuotes}
+          aiQuota={welcomeAiQuota}
           onClose={() => {
             const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
             localStorage.setItem(`idetech_greeting_${user.id}_${today}`, "1");
@@ -1031,13 +1058,14 @@ function ProfileSetupScreen({
         <form className="profile-setup-form" onSubmit={submit}>
           <label>
             <span>Nama Lengkap</span>
-            <input value={fullName} placeholder="Nama sesuai identitas sekolah" onChange={(event) => setFullName(event.target.value)} />
+            <input value={fullName} maxLength={100} placeholder="Nama sesuai identitas sekolah" onChange={(event) => setFullName(event.target.value)} />
           </label>
 
           <label>
             <span>Nama Sekolah</span>
             <input
               value={schoolName}
+              maxLength={150}
               placeholder="Cari nama sekolah se-Indonesia"
               list="school-options"
               onChange={(event) => setSchoolName(event.target.value)}
@@ -1064,6 +1092,7 @@ function ProfileSetupScreen({
               <span>{contactChannel === "wa" ? "Nomor HP / WA" : "Username Telegram"}</span>
               <input
                 value={contactValue}
+                maxLength={50}
                 placeholder={contactChannel === "wa" ? "08xxxxxxxxxx" : "@username"}
                 onChange={(event) => setContactValue(event.target.value)}
               />
@@ -2161,7 +2190,7 @@ function StudentContentModal({
 
             <div className="grid grid-cols-3 gap-3">
               {taskSlots.map((material, index) => {
-                const isUnavailable = !material;
+                const isUnavailable = !material || (material as any).isLocked;
                 const isDone = Boolean(material && material.progress >= 100);
                 const Icon = material?.type === "quiz" ? Puzzle : material?.type === "video" ? Rocket : material?.type === "document" ? ScrollText : BookOpen;
                 const isSelected = material && selectedTaskId === material.id;
@@ -2195,7 +2224,7 @@ function StudentContentModal({
                     </strong>
                     
                     <span className="text-[#bbb] text-[9px] font-bold uppercase tracking-wider text-center mt-1.5 bg-black/40 px-2 py-0.5 rounded-full border border-white/10 w-full truncate">
-                      {material ? (isDone ? "Selesai" : `${material.progress}%`) : "Terkunci"}
+                      {material && !(material as any).isLocked ? (isDone ? "Selesai" : `${material.progress}%`) : "Terkunci"}
                     </span>
                   </button>
                 );
@@ -2236,7 +2265,7 @@ function StudentContentModal({
               const relatedMaterial = materials.find((material) => material.id === quest.materialId);
               const materialDone = !quest.materialId || (relatedMaterial?.progress ?? 0) >= 100;
               const isDone = quest.progress >= 100;
-              const isUnavailable = !materialDone;
+              const isUnavailable = (quest as any).isLocked || !materialDone;
               const isSelected = selectedTaskId === quest.id;
 
               return (
@@ -2410,35 +2439,55 @@ function StudentContentModal({
                     pathNodes.push({ type: 'quest', data: q, id: q.id, title: q.title, progress: q.progress });
                   });
 
+                  pathNodes.sort((a, b) => {
+                    const aLvl = a.data.level ?? 1;
+                    const bLvl = b.data.level ?? 1;
+                    if (aLvl !== bLvl) return aLvl - bLvl;
+                    if (a.type !== b.type) return a.type === 'material' ? -1 : 1;
+                    return 0;
+                  });
+
                   return pathNodes.map((node, i) => {
                     const isCompleted = node.progress >= 100;
-                    const prevCompleted = i === 0 || pathNodes[i-1].progress >= 100;
-                    const isLocked = !isCompleted && !prevCompleted;
+                    const isLocked = node.data.isLocked;
                     
                     const positions = ['translate-x-0', 'translate-x-12', 'translate-x-0', '-translate-x-12'];
                     const alignClass = positions[i % 4];
 
+                    const currentLevel = node.data.level ?? 1;
+                    const prevLevel = i > 0 ? pathNodes[i-1].data.level ?? 1 : null;
+                    const showLevelHeader = prevLevel === null || currentLevel !== prevLevel;
+
                     return (
-                      <div key={node.id} className={`relative flex items-center justify-center my-4 ${alignClass} w-full max-w-[200px]`}>
-                        <button 
-                          className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center border-4 shadow-[0_6px_0_rgba(0,0,0,0.4)] transition-transform hover:-translate-y-1 active:translate-y-0 relative z-10 ${isCompleted ? 'bg-gradient-to-br from-green-400 to-green-600 border-green-200' : isLocked ? 'bg-[#444] border-[#222] grayscale opacity-70 cursor-not-allowed' : 'bg-gradient-to-br from-blue-400 to-blue-600 border-blue-200 ring-4 ring-yellow-400 ring-offset-2 ring-offset-[#222]'}`}
-                          onClick={() => {
-                            if (!isLocked && node.type === 'material') {
-                                setSelectedTaskId(node.id);
-                            }
-                          }}
-                          aria-label={node.title}
-                          disabled={isLocked}
-                        >
-                           <div className="absolute inset-1 rounded-full border-2 border-white/20 pointer-events-none" />
-                           {isLocked ? <Lock className="w-6 h-6 sm:w-8 sm:h-8 text-slate-400 drop-shadow-md" /> : (node.type === 'quest' ? <Puzzle className="w-6 h-6 sm:w-8 sm:h-8 text-white drop-shadow-md" /> : <BookOpen className="w-6 h-6 sm:w-8 sm:h-8 text-white drop-shadow-md" />)}
-                        </button>
-                        
-                        <div className={`absolute top-1/2 -translate-y-1/2 ${i % 4 === 1 ? 'right-full mr-4 text-right' : i % 4 === 3 ? 'left-full ml-4 text-left' : (i % 2 === 0 ? (i % 4 === 0 ? 'left-full ml-6' : 'right-full mr-6 text-right') : '')} w-[140px] drop-shadow-md pointer-events-none`}>
-                          <small className="block text-yellow-400 font-bold text-[10px] uppercase tracking-wider">{node.type === 'material' ? 'Materi' : 'Quest'}</small>
-                          <span className="block text-white font-black text-[12px] sm:text-sm leading-tight">{node.title}</span>
+                      <React.Fragment key={node.id}>
+                        {showLevelHeader && (
+                          <div className="w-full flex items-center justify-center my-6 relative z-10">
+                            <div className="bg-[#1f2937] border-2 border-indigo-500/50 rounded-full px-5 py-1.5 shadow-[0_0_15px_rgba(99,102,241,0.3)]">
+                              <span className="text-indigo-400 font-extrabold text-xs tracking-wider uppercase">⚔️ Pertemuan / Level {currentLevel}</span>
+                            </div>
+                          </div>
+                        )}
+                        <div className={`relative flex items-center justify-center my-4 ${alignClass} w-full max-w-[200px]`}>
+                          <button 
+                            className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center border-4 shadow-[0_6px_0_rgba(0,0,0,0.4)] transition-transform hover:-translate-y-1 active:translate-y-0 relative z-10 ${isCompleted ? 'bg-gradient-to-br from-green-400 to-green-600 border-green-200' : isLocked ? 'bg-[#444] border-[#222] grayscale opacity-70 cursor-not-allowed' : 'bg-gradient-to-br from-blue-400 to-blue-600 border-blue-200 ring-4 ring-yellow-400 ring-offset-2 ring-offset-[#222]'}`}
+                            onClick={() => {
+                              if (!isLocked) {
+                                  setSelectedTaskId(node.id);
+                              }
+                            }}
+                            aria-label={node.title}
+                            disabled={isLocked}
+                          >
+                             <div className="absolute inset-1 rounded-full border-2 border-white/20 pointer-events-none" />
+                             {isLocked ? <Lock className="w-6 h-6 sm:w-8 sm:h-8 text-slate-400 drop-shadow-md" /> : (node.type === 'quest' ? <Puzzle className="w-6 h-6 sm:w-8 sm:h-8 text-white drop-shadow-md" /> : <BookOpen className="w-6 h-6 sm:w-8 sm:h-8 text-white drop-shadow-md" />)}
+                          </button>
+                          
+                          <div className={`absolute top-1/2 -translate-y-1/2 ${i % 4 === 1 ? 'right-full mr-4 text-right' : i % 4 === 3 ? 'left-full ml-4 text-left' : (i % 2 === 0 ? (i % 4 === 0 ? 'left-full ml-6' : 'right-full mr-6 text-right') : '')} w-[140px] drop-shadow-md pointer-events-none`}>
+                            <small className="block text-yellow-400 font-bold text-[10px] uppercase tracking-wider">{node.type === 'material' ? 'Materi' : 'Quest'}</small>
+                            <span className="block text-white font-black text-[12px] sm:text-sm leading-tight">{node.title}</span>
+                          </div>
                         </div>
-                      </div>
+                      </React.Fragment>
                     )
                   });
                 })()}
@@ -2455,8 +2504,8 @@ function StudentContentModal({
       </section>
 
       {toastMessage && (
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-5 py-3 rounded-full shadow-2xl z-[100] text-sm font-bold flex items-center gap-3 animate-in fade-in slide-in-from-bottom-6">
-          <Info className="w-5 h-5 text-yellow-400" />
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-[#0a1f5c] border border-[rgba(125,211,252,0.3)] shadow-[0_0_20px_rgba(125,211,252,0.25)] text-white px-6 py-3.5 rounded-full z-[100] text-sm font-bold flex items-center gap-3 animate-in fade-in slide-in-from-bottom-6">
+          <Info className="w-5 h-5 text-amber-400" />
           {toastMessage}
         </div>
       )}
@@ -3609,6 +3658,8 @@ function TeacherSpaceDashboard({
   const [showChat, setShowChat] = useState(false);
   const [showConsultationModal, setShowConsultationModal] = useState(false);
   const [hasUnpublishedJournalDraft, setHasUnpublishedJournalDraft] = useState(false);
+  const [todos, setTodos] = useState<TeacherTodo[]>([]);
+  const [showTodoPanel, setShowTodoPanel] = useState(false);
 
   useEffect(() => {
     const checkDraft = () => {
@@ -3631,6 +3682,12 @@ function TeacherSpaceDashboard({
     setActiveFeature(null);
   }, [activeMenu]);
 
+  useEffect(() => {
+    api<{ todos: TeacherTodo[] }>("/api/teacher/todos")
+      .then((payload) => setTodos(payload.todos))
+      .catch(() => {});
+  }, []);
+
   const [showRppGenerator, setShowRppGenerator] = useState(false);
   const [classForm, setClassForm] = useState({
     name: "",
@@ -3652,7 +3709,8 @@ function TeacherSpaceDashboard({
     type: "lesson" as TeacherMaterial["type"],
     description: "",
     content: "",
-    dueDate: ""
+    dueDate: "",
+    level: "1"
   });
   const [questForm, setQuestForm] = useState({
     classId: "",
@@ -3660,7 +3718,8 @@ function TeacherSpaceDashboard({
     title: "",
     mission: "",
     points: "100",
-    dueDate: ""
+    dueDate: "",
+    level: "1"
   });
   const featureGroups: Record<MobileNavId, RoleFeature[]> = {
     map: roleFeatures.teacher.filter((feature) => feature.name === "Jurnal Mengajar"),
@@ -3734,6 +3793,22 @@ function TeacherSpaceDashboard({
     }
   }
 
+  async function updateUnlockedLevel(classId: string, unlockedLevel: number) {
+    setClassBusy(true);
+    setClassError(null);
+    try {
+      await api<{ class: TeacherClass }>(`/api/teacher/classes/${classId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ unlockedLevel })
+      });
+      await loadTeacherClasses();
+    } catch (err) {
+      setClassError(err instanceof Error ? err.message : "Gagal memperbarui level.");
+    } finally {
+      setClassBusy(false);
+    }
+  }
+
   async function createMaterial(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStudioBusy(true);
@@ -3743,6 +3818,7 @@ function TeacherSpaceDashboard({
       if (editingMaterialId) {
         const payload = {
           ...materialForm,
+          level: Number(materialForm.level || 1),
           options: materialForm.dueDate ? { dueDate: materialForm.dueDate } : null
         };
         await api<{ material: TeacherMaterial }>(`/api/teacher/materials/${editingMaterialId}`, {
@@ -3753,6 +3829,7 @@ function TeacherSpaceDashboard({
       } else {
         const payload = {
           ...materialForm,
+          level: Number(materialForm.level || 1),
           options: materialForm.dueDate ? { dueDate: materialForm.dueDate } : null
         };
         await api<{ material: TeacherMaterial }>("/api/teacher/materials", {
@@ -3760,7 +3837,7 @@ function TeacherSpaceDashboard({
           body: JSON.stringify(payload)
         });
       }
-      setMaterialForm((current) => ({ ...current, title: "", description: "", dueDate: "" }));
+      setMaterialForm((current) => ({ ...current, title: "", description: "", dueDate: "", level: "1" }));
       await loadTeacherStudio();
     } catch (err) {
       setStudioError(err instanceof Error ? err.message : "Gagal menyimpan materi.");
@@ -3777,6 +3854,7 @@ function TeacherSpaceDashboard({
     try {
       const payload = {
         ...questForm,
+        level: Number(questForm.level || 1),
         materialId: questForm.materialId || undefined,
         points: Number(questForm.points)
       };
@@ -3793,7 +3871,7 @@ function TeacherSpaceDashboard({
           body: JSON.stringify(payload)
         });
       }
-      setQuestForm((current) => ({ ...current, materialId: "", title: "", mission: "", points: "100", dueDate: "" }));
+      setQuestForm((current) => ({ ...current, materialId: "", title: "", mission: "", points: "100", dueDate: "", level: "1" }));
       await loadTeacherStudio();
     } catch (err) {
       setStudioError(err instanceof Error ? err.message : "Gagal menyimpan IdeQuest.");
@@ -3810,15 +3888,16 @@ function TeacherSpaceDashboard({
       type: material.type,
       description: material.description,
       content: material.content || "",
-      dueDate: material.options?.dueDate || ""
+      dueDate: material.options?.dueDate || "",
+      level: String(material.level ?? 1)
     });
   }
 
   function cancelEditMaterial() {
     setEditingMaterialId(null);
     setEditingQuestId(null);
-    setMaterialForm({ classId: "", title: "", type: "lesson", description: "", content: "", dueDate: "" });
-    setQuestForm({ classId: "", materialId: "", title: "", mission: "", points: "100", dueDate: "" });
+    setMaterialForm({ classId: "", title: "", type: "lesson", description: "", content: "", dueDate: "", level: "1" });
+    setQuestForm({ classId: "", materialId: "", title: "", mission: "", points: "100", dueDate: "", level: "1" });
   }
 
   function startEditQuest(quest: TeacherIdeQuest) {
@@ -3829,13 +3908,14 @@ function TeacherSpaceDashboard({
       title: quest.title,
       mission: quest.mission,
       points: String(quest.points),
-      dueDate: quest.dueDate
+      dueDate: quest.dueDate,
+      level: String(quest.level ?? 1)
     });
   }
 
   function cancelEditQuest() {
     setEditingQuestId(null);
-    setQuestForm({ classId: "", materialId: "", title: "", mission: "", points: "100", dueDate: "" });
+    setQuestForm({ classId: "", materialId: "", title: "", mission: "", points: "100", dueDate: "", level: "1" });
   }
 
   async function deleteMaterial(id: string) {
@@ -4062,6 +4142,7 @@ function TeacherSpaceDashboard({
               error={classError}
               onFormChange={setClassForm}
               onCreate={createTeacherClass}
+              onUpdateUnlockedLevel={updateUnlockedLevel}
             />
           ) : activeMenu === "profile" ? (
             <TeacherProfileView user={user} />
@@ -4269,7 +4350,316 @@ Fitur ini menganalisis semua aktivitas siswa di kelas Anda:
       {showConsultationModal && (
         <TeacherConsultationModal onClose={() => setShowConsultationModal(false)} />
       )}
+
+      {/* Todo Floating Button */}
+      <button
+        type="button"
+        onClick={() => setShowTodoPanel(true)}
+        className="fixed bottom-40 right-4 z-[990] h-14 w-14 bg-gradient-to-br from-violet-500 to-indigo-600 text-white rounded-full flex items-center justify-center shadow-[0_8px_30px_rgba(99,102,241,0.45)] hover:scale-110 active:scale-95 transition-all border-2 border-white/30"
+        aria-label="Buka To-Do List"
+      >
+        <CheckSquare size={22} />
+        {(() => {
+          const overduePending = todos.filter(t => !t.isCompleted && t.dueDate && new Date(t.dueDate) < new Date());
+          const pendingCount = todos.filter(t => !t.isCompleted).length;
+          const badgeCount = overduePending.length > 0 ? overduePending.length : pendingCount;
+          return badgeCount > 0 ? (
+            <span className={`absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full text-[10px] font-black flex items-center justify-center border-2 border-white animate-pulse ${overduePending.length > 0 ? 'bg-red-500' : 'bg-amber-400 text-slate-900'}`}>
+              {badgeCount > 9 ? "9+" : badgeCount}
+            </span>
+          ) : null;
+        })()}
+      </button>
+
+      {/* Todo Panel Sidebar */}
+      <TeacherTodoPanel
+        todos={todos}
+        isOpen={showTodoPanel}
+        onClose={() => setShowTodoPanel(false)}
+        onTodosChange={setTodos}
+      />
     </main>
+  );
+}
+
+function TeacherTodoPanel({
+  todos,
+  isOpen,
+  onClose,
+  onTodosChange
+}: {
+  todos: TeacherTodo[];
+  isOpen: boolean;
+  onClose: () => void;
+  onTodosChange: (todos: TeacherTodo[]) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [filterPriority, setFilterPriority] = useState<"all" | "high" | "medium" | "low">("all");
+  const [filterStatus, setFilterStatus] = useState<"active" | "done" | "all">("active");
+  const [showForm, setShowForm] = useState(false);
+  const [editingTodo, setEditingTodo] = useState<TeacherTodo | null>(null);
+  const [formTitle, setFormTitle] = useState("");
+  const [formDesc, setFormDesc] = useState("");
+  const [formPriority, setFormPriority] = useState<"high" | "medium" | "low">("medium");
+  const [formDueDate, setFormDueDate] = useState("");
+  const [formBusy, setFormBusy] = useState(false);
+
+  const now = new Date();
+
+  const filtered = todos.filter((t) => {
+    const matchSearch = !search || t.title.toLowerCase().includes(search.toLowerCase()) || (t.description?.toLowerCase().includes(search.toLowerCase()) ?? false);
+    const matchPriority = filterPriority === "all" || t.priority === filterPriority;
+    const matchStatus = filterStatus === "all" || (filterStatus === "active" ? !t.isCompleted : t.isCompleted);
+    return matchSearch && matchPriority && matchStatus;
+  });
+
+  const overdueCount = todos.filter(t => !t.isCompleted && t.dueDate && new Date(t.dueDate) < now).length;
+
+  function openAddForm() {
+    setEditingTodo(null);
+    setFormTitle(""); setFormDesc(""); setFormPriority("medium"); setFormDueDate("");
+    setShowForm(true);
+  }
+
+  function openEditForm(todo: TeacherTodo) {
+    setEditingTodo(todo);
+    setFormTitle(todo.title);
+    setFormDesc(todo.description ?? "");
+    setFormPriority(todo.priority);
+    setFormDueDate(todo.dueDate ? todo.dueDate.slice(0, 16) : "");
+    setShowForm(true);
+  }
+
+  async function handleSubmitForm(e: React.FormEvent) {
+    e.preventDefault();
+    if (!formTitle.trim()) return;
+    setFormBusy(true);
+    try {
+      const body = { title: formTitle, description: formDesc, priority: formPriority, dueDate: formDueDate || undefined };
+      if (editingTodo) {
+        const result = await api<{ todo: TeacherTodo }>(`/api/teacher/todos/${editingTodo.id}`, { method: "PATCH", body: JSON.stringify(body) });
+        onTodosChange(todos.map(t => t.id === editingTodo.id ? result.todo : t));
+      } else {
+        const result = await api<{ todo: TeacherTodo }>("/api/teacher/todos", { method: "POST", body: JSON.stringify(body) });
+        onTodosChange([result.todo, ...todos]);
+      }
+      setShowForm(false);
+    } catch {}
+    setFormBusy(false);
+  }
+
+  async function toggleComplete(todo: TeacherTodo) {
+    try {
+      const result = await api<{ todo: TeacherTodo }>(`/api/teacher/todos/${todo.id}`, { method: "PATCH", body: JSON.stringify({ isCompleted: !todo.isCompleted }) });
+      onTodosChange(todos.map(t => t.id === todo.id ? result.todo : t));
+    } catch {}
+  }
+
+  async function deleteTodo(todo: TeacherTodo) {
+    if (!confirm(`Hapus tugas "${todo.title}"?`)) return;
+    try {
+      await api(`/api/teacher/todos/${todo.id}`, { method: "DELETE" });
+      onTodosChange(todos.filter(t => t.id !== todo.id));
+    } catch {}
+  }
+
+  const priorityConfig = {
+    high: { label: "Tinggi", color: "text-rose-400", bg: "bg-rose-500/10 border-rose-500/25", dot: "bg-rose-400" },
+    medium: { label: "Sedang", color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/25", dot: "bg-amber-400" },
+    low: { label: "Rendah", color: "text-blue-400", bg: "bg-blue-500/10 border-blue-500/25", dot: "bg-blue-400" }
+  };
+
+  function getDueDateLabel(dueDate: string | null): { label: string; className: string } | null {
+    if (!dueDate) return null;
+    const due = new Date(dueDate);
+    const diffMs = due.getTime() - now.getTime();
+    const diffH = diffMs / 3600000;
+    if (diffH < 0) return { label: "⚠ Terlambat", className: "text-red-400 font-bold animate-pulse" };
+    if (diffH < 24) return { label: "⏰ Hari ini", className: "text-orange-400 font-bold" };
+    const diffDays = Math.ceil(diffH / 24);
+    return { label: `📅 ${diffDays} hari lagi`, className: "text-slate-400" };
+  }
+
+  if (!isOpen) return null;
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div className="fixed inset-0 z-[995] bg-black/20 backdrop-blur-[2px]" onClick={onClose} />
+
+      {/* Panel */}
+      <aside className="todo-panel fixed right-0 top-0 h-full z-[996] w-[340px] max-w-[95vw] flex flex-col shadow-2xl animate-in slide-in-from-right duration-300">
+        {/* Header */}
+        <div className="todo-panel__header">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+              <ClipboardList className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-base font-black text-white">To-Do List</h2>
+              <p className="text-[11px] text-white/60 font-medium">
+                {todos.filter(t => !t.isCompleted).length} tugas aktif{overdueCount > 0 && <span className="text-red-400 ml-1">• {overdueCount} terlambat!</span>}
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
+            <X className="w-4 h-4 text-white" />
+          </button>
+        </div>
+
+        {/* Search & Filters */}
+        <div className="todo-panel__filters">
+          <div className="flex items-center gap-2 bg-white/5 rounded-xl px-3 py-2 border border-white/10">
+            <Search className="w-4 h-4 text-white/40 shrink-0" />
+            <input
+              type="text"
+              placeholder="Cari tugas..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="bg-transparent border-none outline-none text-sm text-white placeholder-white/40 w-full"
+            />
+          </div>
+          <div className="flex gap-2 mt-3">
+            <div className="flex gap-1 bg-white/5 rounded-lg p-1 border border-white/10 flex-1">
+              {(["active","done","all"] as const).map(s => (
+                <button key={s} onClick={() => setFilterStatus(s)} className={`flex-1 text-[10px] font-bold py-1 rounded-md transition-colors ${filterStatus === s ? 'bg-indigo-500 text-white' : 'text-white/50 hover:text-white/80'}`}>
+                  {s === "active" ? "Aktif" : s === "done" ? "Selesai" : "Semua"}
+                </button>
+              ))}
+            </div>
+            <select
+              value={filterPriority}
+              onChange={e => setFilterPriority(e.target.value as any)}
+              className="bg-white/5 border border-white/10 rounded-lg text-[11px] text-white/70 px-2 outline-none cursor-pointer"
+            >
+              <option value="all">Semua</option>
+              <option value="high">🔴 Tinggi</option>
+              <option value="medium">🟡 Sedang</option>
+              <option value="low">🔵 Rendah</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Todo List */}
+        <div className="todo-panel__list flex-1 overflow-y-auto">
+          {filtered.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-14 text-center px-4">
+              <CheckSquare className="w-10 h-10 text-white/15 mb-3" />
+              <p className="text-white/40 text-sm font-medium">
+                {todos.length === 0 ? "Belum ada tugas. Tambahkan yang pertama!" : "Tidak ada tugas yang cocok."}
+              </p>
+            </div>
+          )}
+          {filtered.map(todo => {
+            const pc = priorityConfig[todo.priority];
+            const dueMeta = getDueDateLabel(todo.dueDate);
+            return (
+              <div key={todo.id} className={`todo-item ${todo.isCompleted ? 'is-done' : ''} ${!todo.isCompleted && todo.dueDate && new Date(todo.dueDate) < now ? 'is-overdue' : ''}`}>
+                <button
+                  type="button"
+                  onClick={() => toggleComplete(todo)}
+                  className={`todo-item__check ${todo.isCompleted ? 'is-checked' : ''}`}
+                  aria-label={todo.isCompleted ? "Tandai belum selesai" : "Tandai selesai"}
+                >
+                  {todo.isCompleted && <CheckSquare className="w-4 h-4" />}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-bold leading-tight ${todo.isCompleted ? 'line-through text-white/35' : 'text-white'}`}>{todo.title}</p>
+                  {todo.description && <p className="text-[11px] text-white/45 mt-0.5 leading-relaxed line-clamp-2">{todo.description}</p>}
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                    <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${pc.bg} ${pc.color}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${pc.dot}`} />
+                      {pc.label}
+                    </span>
+                    {dueMeta && <span className={`text-[10px] ${dueMeta.className}`}>{dueMeta.label}</span>}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1 shrink-0">
+                  <button onClick={() => openEditForm(todo)} className="w-7 h-7 rounded-lg bg-white/5 hover:bg-indigo-500/30 flex items-center justify-center transition-colors" aria-label="Edit">
+                    <Edit3 className="w-3.5 h-3.5 text-white/50 hover:text-indigo-300" />
+                  </button>
+                  <button onClick={() => deleteTodo(todo)} className="w-7 h-7 rounded-lg bg-white/5 hover:bg-red-500/30 flex items-center justify-center transition-colors" aria-label="Hapus">
+                    <Trash2 className="w-3.5 h-3.5 text-white/50 hover:text-red-400" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer: Add Button */}
+        <div className="todo-panel__footer">
+          <button
+            type="button"
+            onClick={openAddForm}
+            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-400 hover:to-indigo-500 text-white font-bold rounded-xl py-3 transition-all shadow-lg shadow-indigo-500/20 active:scale-95"
+          >
+            <Plus className="w-5 h-5" />
+            Tambah Tugas Baru
+          </button>
+        </div>
+
+        {/* Add/Edit Form Modal */}
+        {showForm && (
+          <div className="absolute inset-0 z-10 flex flex-col bg-[#0f1628]/95 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="flex items-center justify-between p-5 border-b border-white/10">
+              <h3 className="text-white font-black text-base">{editingTodo ? "Edit Tugas" : "Tugas Baru"}</h3>
+              <button onClick={() => setShowForm(false)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center">
+                <X className="w-4 h-4 text-white" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmitForm} className="flex flex-col gap-4 p-5 flex-1 overflow-y-auto">
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-bold text-white/60 uppercase tracking-wider">Judul Tugas *</span>
+                <input
+                  autoFocus
+                  value={formTitle}
+                  onChange={e => setFormTitle(e.target.value)}
+                  placeholder="Contoh: Siapkan soal ulangan harian..."
+                  className="todo-form-input"
+                  required
+                />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-bold text-white/60 uppercase tracking-wider">Deskripsi (opsional)</span>
+                <textarea
+                  value={formDesc}
+                  onChange={e => setFormDesc(e.target.value)}
+                  placeholder="Detail tambahan tentang tugas ini..."
+                  rows={3}
+                  className="todo-form-input resize-none"
+                />
+              </label>
+              <div>
+                <span className="text-xs font-bold text-white/60 uppercase tracking-wider block mb-2">Prioritas</span>
+                <div className="flex gap-2">
+                  {(["high","medium","low"] as const).map(p => {
+                    const pc = priorityConfig[p];
+                    return (
+                      <button key={p} type="button" onClick={() => setFormPriority(p)}
+                        className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${formPriority === p ? `${pc.bg} ${pc.color} border-current scale-105 shadow-lg` : 'bg-white/5 text-white/40 border-white/10 hover:bg-white/10'}`}
+                      >{pc.label}</button>
+                    );
+                  })}
+                </div>
+              </div>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-bold text-white/60 uppercase tracking-wider">Tenggat Waktu (opsional)</span>
+                <input
+                  type="datetime-local"
+                  value={formDueDate}
+                  onChange={e => setFormDueDate(e.target.value)}
+                  className="todo-form-input"
+                />
+              </label>
+              <button type="submit" disabled={formBusy || !formTitle.trim()} className="mt-auto bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-400 hover:to-indigo-500 text-white font-black rounded-xl py-3 transition-all disabled:opacity-50 shadow-lg shadow-indigo-500/20">
+                {formBusy ? "Menyimpan..." : editingTodo ? "Perbarui Tugas" : "Simpan Tugas"}
+              </button>
+            </form>
+          </div>
+        )}
+      </aside>
+    </>
   );
 }
 
@@ -4297,39 +4687,67 @@ function DeveloperModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
           <p className="text-sm font-semibold leading-relaxed text-slate-600 mb-5">
             IdeTech dibangun dengan semangat untuk mewujudkan pendidikan yang lebih baik, efisien, dan menyenangkan di seluruh Indonesia.
           </p>
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3 border border-slate-100">
-              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600">
-                <Sparkles className="h-5 w-5" />
+          <div className="grid grid-cols-2 gap-2.5">
+            {/* Feri Lee */}
+            <div className="flex flex-col justify-between rounded-2xl bg-slate-50 p-3 border border-slate-100 min-h-[100px]">
+              <div>
+                <p className="text-sm font-bold text-slate-800 leading-tight">Feri Lee</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-1 leading-snug">UI/UX Designer</p>
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-slate-800">Feri Lee</p>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">Development & Design</p>
-              </div>
-              <div className="flex gap-2">
-                <a href="https://t.me/ferilee" target="_blank" rel="noreferrer" className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-slate-600 hover:bg-blue-100 hover:text-blue-600 transition-colors" title="Telegram @ferilee">
-                  <Send className="h-4 w-4" />
+              <div className="flex gap-2 mt-2 pt-2 border-t border-slate-200/60">
+                <a href="https://t.me/ferilee" target="_blank" rel="noreferrer" className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-200 text-slate-600 hover:bg-blue-100 hover:text-blue-600 transition-colors" title="Telegram @ferilee">
+                  <Send className="h-3.5 w-3.5" />
                 </a>
-                <a href="https://ferilee.gurumuda.eu.org/" target="_blank" rel="noreferrer" className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-slate-600 hover:bg-blue-100 hover:text-blue-600 transition-colors" title="Website Feri Lee">
-                  <Globe className="h-4 w-4" />
+                <a href="https://ferilee.gurumuda.eu.org/" target="_blank" rel="noreferrer" className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-200 text-slate-600 hover:bg-blue-100 hover:text-blue-600 transition-colors" title="Website Feri Lee">
+                  <Globe className="h-3.5 w-3.5" />
                 </a>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3 border border-slate-100">
-              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-                <UserRound className="h-5 w-5" />
+            {/* Gunanto */}
+            <div className="flex flex-col justify-between rounded-2xl bg-slate-50 p-3 border border-slate-100 min-h-[100px]">
+              <div>
+                <p className="text-sm font-bold text-slate-800 leading-tight">Gunanto</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-1 leading-snug">Full Stack Vibe Coder</p>
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-slate-800">Gunanto</p>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">Development & Design</p>
-              </div>
-              <div className="flex gap-2">
-                <a href="https://t.me/pg957" target="_blank" rel="noreferrer" className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-slate-600 hover:bg-emerald-100 hover:text-emerald-600 transition-colors" title="Telegram @pg957">
-                  <Send className="h-4 w-4" />
+              <div className="flex gap-2 mt-2 pt-2 border-t border-slate-200/60">
+                <a href="https://t.me/pg957" target="_blank" rel="noreferrer" className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-200 text-slate-600 hover:bg-emerald-100 hover:text-emerald-600 transition-colors" title="Telegram @pg957">
+                  <Send className="h-3.5 w-3.5" />
                 </a>
-                <a href="#" className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-slate-600 hover:bg-emerald-100 hover:text-emerald-600 transition-colors" title="Website (Belum Tersedia)">
-                  <Globe className="h-4 w-4" />
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-slate-300 cursor-not-allowed" title="Website (Belum Tersedia)">
+                  <Globe className="h-3.5 w-3.5" />
+                </span>
+              </div>
+            </div>
+
+            {/* Aan Triono */}
+            <div className="flex flex-col justify-between rounded-2xl bg-slate-50 p-3 border border-slate-100 min-h-[100px]">
+              <div>
+                <p className="text-sm font-bold text-slate-800 leading-tight">Aan Triono</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-1 leading-snug">Idea & Marketing</p>
+              </div>
+              <div className="flex gap-2 mt-2 pt-2 border-t border-slate-200/60">
+                <a href="https://t.me/aantriono" target="_blank" rel="noreferrer" className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-200 text-slate-600 hover:bg-purple-100 hover:text-purple-600 transition-colors" title="Telegram @aantriono">
+                  <Send className="h-3.5 w-3.5" />
+                </a>
+                <a href="https://www.aantriono.com" target="_blank" rel="noreferrer" className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-200 text-slate-600 hover:bg-purple-100 hover:text-purple-600 transition-colors" title="Website Aan Triono">
+                  <Globe className="h-3.5 w-3.5" />
+                </a>
+              </div>
+            </div>
+
+            {/* Bang Hasan */}
+            <div className="flex flex-col justify-between rounded-2xl bg-slate-50 p-3 border border-slate-100 min-h-[100px]">
+              <div>
+                <p className="text-sm font-bold text-slate-800 leading-tight">Bang Hasan</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-1 leading-snug">Coach</p>
+              </div>
+              <div className="flex gap-2 mt-2 pt-2 border-t border-slate-200/60">
+                <a href="https://t.me/hasanudinhs" target="_blank" rel="noreferrer" className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-200 text-slate-600 hover:bg-amber-100 hover:text-amber-600 transition-colors" title="Telegram @hasanudinhs">
+                  <Send className="h-3.5 w-3.5" />
+                </a>
+                <a href="https://banghasan.com" target="_blank" rel="noreferrer" className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-200 text-slate-600 hover:bg-amber-100 hover:text-amber-600 transition-colors" title="Website Bang Hasan">
+                  <Globe className="h-3.5 w-3.5" />
                 </a>
               </div>
             </div>
@@ -4364,14 +4782,14 @@ function TeacherStudioManager({
   classes: TeacherClass[];
   materials: TeacherMaterial[];
   quests: TeacherIdeQuest[];
-  materialForm: { classId: string; title: string; type: TeacherMaterial["type"]; description: string; content: string; dueDate: string };
-  questForm: { classId: string; materialId: string; title: string; mission: string; points: string; dueDate: string };
+  materialForm: { classId: string; title: string; type: TeacherMaterial["type"]; description: string; content: string; dueDate: string; level: string };
+  questForm: { classId: string; materialId: string; title: string; mission: string; points: string; dueDate: string; level: string };
   busy: boolean;
   error: string | null;
   editingMaterialId?: string | null;
   editingQuestId?: string | null;
-  onMaterialFormChange: React.Dispatch<React.SetStateAction<{ classId: string; title: string; type: TeacherMaterial["type"]; description: string; content: string; dueDate: string }>>;
-  onQuestFormChange: React.Dispatch<React.SetStateAction<{ classId: string; materialId: string; title: string; mission: string; points: string; dueDate: string }>>;
+  onMaterialFormChange: React.Dispatch<React.SetStateAction<{ classId: string; title: string; type: TeacherMaterial["type"]; description: string; content: string; dueDate: string; level: string }>>;
+  onQuestFormChange: React.Dispatch<React.SetStateAction<{ classId: string; materialId: string; title: string; mission: string; points: string; dueDate: string; level: string }>>;
   onCreateMaterial: (event: React.FormEvent<HTMLFormElement>) => void;
   onCreateQuest: (event: React.FormEvent<HTMLFormElement>) => void;
   onEditMaterial?: (material: TeacherMaterial) => void;
@@ -4512,10 +4930,18 @@ Buat struktur: 1. Pendahuluan, 2. Isi Materi, 3. Kesimpulan.`;
     
     setIsGeneratingQuestAI(true);
     try {
-      const prompt = `Bertindaklah sebagai perancang game edukasi. Buatkan Judul Misi dan Deskripsi Misi yang epik, kreatif, dan menantang untuk topik: "${questForm.title}".
-Format harus teks biasa dengan pola berikut:
-Judul: [Tulis judul di sini]
-Misi: [Tulis deskripsi misi di sini]`;
+      const prompt = `Bertindaklah sebagai perancang game edukasi. Buatkan detail quest/petualangan belajar yang epik, kreatif, dan menantang untuk topik pembelajaran: "${questForm.title}".
+Format balasan harus menggunakan pola berikut secara persis:
+
+Judul: [Tulis judul di sini, tambahkan emoji pembuka yang seru dan relevan di depannya, contoh: 🗝️ Membuka Gerbang Aljabar Linear]
+Poin: [Tulis angka koin reward di sini saja sesuai tingkat kesulitan, contoh: 100 atau 150]
+Misi:
+[Deskripsi cerita/narasi misi yang memotivasi siswa untuk belajar/menyelesaikan tugas, contoh: "Kunci gerbang kastil angka telah hilang! Gerbang ini hanya bisa dibuka dengan memecahkan kode rahasia yang menggunakan variabel X dan Y."]
+
+Langkah Petualangan:
+- [Langkah 1, contoh: Pelajari metode Eliminasi & Substitusi pada lampiran materi.]
+- [Langkah 2, contoh: Kerjakan 3 soal latihan pemanasan di buku tulismu.]
+- [Langkah 3, contoh: Selesaikan kuis "Gerbang SPLDV" dengan nilai minimal 80 untuk mendapatkan kunci gerbangnya!]`;
 
       const data = await api<any>("/api/teacher/generate-ai", {
         method: "POST",
@@ -4525,13 +4951,15 @@ Misi: [Tulis deskripsi misi di sini]`;
       if (data && data.reply) {
         let content = data.reply;
         const titleMatch = content.match(/Judul:\s*([^\n]+)/i);
+        const pointsMatch = content.match(/Poin:\s*(\d+)/i);
         const missionMatch = content.match(/Misi:\s*([\s\S]+)/i);
         
         if (titleMatch && missionMatch) {
           onQuestFormChange((current) => ({ 
             ...current, 
             title: titleMatch[1].trim().replace(/["*]/g, ''),
-            mission: missionMatch[1].trim()
+            mission: missionMatch[1].trim(),
+            points: pointsMatch ? pointsMatch[1].trim() : current.points
           }));
           showToast("IdeQuest berhasil dikembangkan oleh AI!");
         } else {
@@ -4704,6 +5132,17 @@ Misi: [Tulis deskripsi misi di sini]`;
               <option value="document">Document</option>
               <option value="quiz">Quiz</option>
             </select>
+          </label>
+        </div>
+        <div className="teacher-studio-form__grid mt-2">
+          <label>
+            <span>Pertemuan / Level</span>
+            <input
+              type="number"
+              min="1"
+              value={materialForm.level || "1"}
+              onChange={(event) => onMaterialFormChange((current) => ({ ...current, level: event.target.value }))}
+            />
           </label>
         </div>
 
@@ -4929,6 +5368,17 @@ Misi: [Tulis deskripsi misi di sini]`;
               type="number"
               value={questForm.points}
               onChange={(event) => onQuestFormChange((current) => ({ ...current, points: event.target.value }))}
+            />
+          </label>
+        </div>
+        <div className="teacher-studio-form__grid mt-2">
+          <label>
+            <span>Pertemuan / Level</span>
+            <input
+              type="number"
+              min="1"
+              value={questForm.level || "1"}
+              onChange={(event) => onQuestFormChange((current) => ({ ...current, level: event.target.value }))}
             />
           </label>
         </div>
@@ -5452,8 +5902,8 @@ Misi: [Tulis deskripsi misi di sini]`;
       )}
 
       {toastMessage && (
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-5 py-3 rounded-full shadow-2xl z-[100] text-sm font-bold flex items-center gap-3 animate-in fade-in slide-in-from-bottom-6">
-          <CheckCircle2 className="w-5 h-5 text-green-400" />
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-[#0a1f5c] border border-[rgba(125,211,252,0.3)] shadow-[0_0_20px_rgba(125,211,252,0.25)] text-white px-6 py-3.5 rounded-full z-[100] text-sm font-bold flex items-center gap-3 animate-in fade-in slide-in-from-bottom-6">
+          <CheckCircle2 className="w-5 h-5 text-amber-400" />
           {toastMessage}
         </div>
       )}
@@ -5468,7 +5918,8 @@ function TeacherClassManager({
   busy,
   error,
   onFormChange,
-  onCreate
+  onCreate,
+  onUpdateUnlockedLevel
 }: {
   classes: TeacherClass[];
   summary: TeacherClassSummary | null;
@@ -5477,6 +5928,7 @@ function TeacherClassManager({
   error: string | null;
   onFormChange: React.Dispatch<React.SetStateAction<{ name: string; subject: string; grade: string; students: string }>>;
   onCreate: (event: React.FormEvent<HTMLFormElement>) => void;
+  onUpdateUnlockedLevel: (classId: string, level: number) => void;
 }) {
   return (
     <section className="teacher-class-manager">
@@ -5568,9 +6020,30 @@ function TeacherClassManager({
                     <span>{item.subject} - {item.grade}</span>
                     <small>ClassID: {item.classCode ?? item.nextSession}</small>
                   </div>
-                  <div className="teacher-class-card__meta">
-                    <span>{item.students} siswa</span>
+                  <div className="teacher-class-card__meta flex flex-col items-end gap-1.5">
+                    <div className="flex items-center gap-1 bg-white/10 px-2 py-0.5 rounded border border-white/20 text-[10px] text-white">
+                      <span>Lvl {item.unlockedLevel ?? 1}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onUpdateUnlockedLevel(item.id, Math.max(1, (item.unlockedLevel ?? 1) - 1));
+                        }}
+                        disabled={busy}
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white rounded w-3.5 h-3.5 flex items-center justify-center font-black transition-colors ml-1"
+                      >-</button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onUpdateUnlockedLevel(item.id, (item.unlockedLevel ?? 1) + 1);
+                        }}
+                        disabled={busy}
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white rounded w-3.5 h-3.5 flex items-center justify-center font-black transition-colors"
+                      >+</button>
+                    </div>
                     <b>{item.progress}%</b>
+                    <span className="text-[10px] text-white/60">{item.students} siswa</span>
                   </div>
                 </article>
               ))}
@@ -8637,8 +9110,8 @@ function AdminBankApprovalPanel() {
       </div>
 
       {toastMessage && (
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-5 py-3 rounded-full shadow-2xl z-[100] text-sm font-bold flex items-center gap-3 animate-in fade-in slide-in-from-bottom-6">
-          <CheckCircle2 className="w-5 h-5 text-green-400" />
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-[#0a1f5c] border border-[rgba(125,211,252,0.3)] shadow-[0_0_20px_rgba(125,211,252,0.25)] text-white px-6 py-3.5 rounded-full z-[100] text-sm font-bold flex items-center gap-3 animate-in fade-in slide-in-from-bottom-6">
+          <CheckCircle2 className="w-5 h-5 text-amber-400" />
           {toastMessage}
         </div>
       )}
@@ -8648,6 +9121,7 @@ function AdminBankApprovalPanel() {
 
 type StudentProgressReport = {
   studentId: string;
+  classId: string;
   studentName: string;
   studentEmail: string;
   avatarUrl: string | null;
@@ -8709,6 +9183,18 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
     }
     fetchProgress();
   }, []);
+
+  const removeStudent = async (classId: string, studentId: string, studentName: string, className: string) => {
+    if (!confirm(`Apakah Anda yakin ingin mengeluarkan siswa "${studentName}" dari kelas "${className}"?`)) {
+      return;
+    }
+    try {
+      await api(`/api/teacher/classes/${classId}/students/${studentId}`, { method: "DELETE" });
+      setData(prev => prev.filter(s => !(s.studentId === studentId && s.classId === classId)));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Gagal mengeluarkan siswa.");
+    }
+  };
 
   const exportToCSV = () => {
     if (filteredData.length === 0) return;
@@ -8857,6 +9343,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
                 <th className="p-3 sm:p-4 font-bold hidden sm:table-cell">Kelas</th>
                 <th className="p-3 sm:p-4 font-bold text-center">Materi Selesai</th>
                 <th className="p-3 sm:p-4 font-bold text-center">Quest Selesai</th>
+                <th className="p-3 sm:p-4 font-bold text-center">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[rgba(125,211,252,0.1)]">
@@ -8864,7 +9351,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
                 const matCompleted = student.materials.filter(m => m.progress >= 100).length;
                 const questCompleted = student.quests.filter(q => q.progress >= 100).length;
                 return (
-                  <tr key={student.studentId} className="hover:bg-white/5 transition-colors">
+                  <tr key={`${student.studentId}-${student.classId}`} className="hover:bg-white/5 transition-colors">
                     <td className="p-3 sm:p-4">
                       <div className="flex items-center gap-3">
                         {student.avatarUrl ? (
@@ -8892,6 +9379,16 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
                         <Target className="w-3.5 h-3.5" />
                         {questCompleted} / {student.quests.length}
                       </div>
+                    </td>
+                    <td className="p-3 sm:p-4 text-center">
+                      <button
+                        type="button"
+                        onClick={() => removeStudent(student.classId, student.studentId, student.studentName, student.className)}
+                        className="p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 rounded-md transition-colors"
+                        title="Keluarkan Siswa"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </td>
                   </tr>
                 );
@@ -8996,20 +9493,30 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
             const onTimeCompleted = completed.filter(t => !t.isLate);
             
             return (
-              <div key={student.studentId} className="bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] rounded-2xl p-4 md:p-5 shadow-sm hover:border-amber-400/50 transition-all">
+              <div key={`${student.studentId}-${student.classId}`} className="bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] rounded-2xl p-4 md:p-5 shadow-sm hover:border-amber-400/50 transition-all">
                 <div className="flex flex-col gap-3 mb-4">
-                  <div className="flex items-start sm:items-center gap-4">
-                    {student.avatarUrl ? (
-                      <img src={student.avatarUrl} alt={student.studentName} referrerPolicy="no-referrer" className="w-12 h-12 rounded-full border border-white/20 shadow-sm object-cover shrink-0" />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-blue-500/20 text-blue-300 flex items-center justify-center font-bold text-lg border border-blue-400/30 shadow-sm shrink-0">
-                        {student.studentName.charAt(0).toUpperCase()}
+                  <div className="flex items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-start sm:items-center gap-4">
+                      {student.avatarUrl ? (
+                        <img src={student.avatarUrl} alt={student.studentName} referrerPolicy="no-referrer" className="w-12 h-12 rounded-full border border-white/20 shadow-sm object-cover shrink-0" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-blue-500/20 text-blue-300 flex items-center justify-center font-bold text-lg border border-blue-400/30 shadow-sm shrink-0">
+                          {student.studentName.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div>
+                        <h3 className="font-bold text-white text-lg leading-tight">{student.studentName}</h3>
+                        <p className="text-sm text-[rgba(226,245,255,0.76)]">{student.className} • {student.studentEmail}</p>
                       </div>
-                    )}
-                    <div>
-                      <h3 className="font-bold text-white text-lg leading-tight">{student.studentName}</h3>
-                      <p className="text-sm text-[rgba(226,245,255,0.76)]">{student.className} • {student.studentEmail}</p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => removeStudent(student.classId, student.studentId, student.studentName, student.className)}
+                      className="p-2 text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 rounded-xl transition-colors border border-rose-500/10 shrink-0 self-center"
+                      title="Keluarkan Siswa"
+                    >
+                      <Trash2 className="h-4.5 w-4.5" />
+                    </button>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <div className="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-400/30 rounded-lg text-xs font-bold flex items-center gap-1.5 whitespace-nowrap shadow-sm">
@@ -9149,10 +9656,12 @@ function AdminAdvancedFeaturesPanel() {
 function WelcomeGreetingModal({
   user,
   quotes,
+  aiQuota,
   onClose
 }: {
   user: AuthUser;
   quotes: WelcomeQuote[];
+  aiQuota: { limit: number; used: number; remaining: number } | null;
   onClose: () => void;
 }) {
   const role = user.activeRole as "teacher" | "student" | "parent";
@@ -9317,6 +9826,30 @@ function WelcomeGreetingModal({
             </div>
           ) : (
             <div className="mb-6" />
+          )}
+
+          {/* AI Quota Information for Teachers/Admins */}
+          {role === "teacher" && aiQuota && (
+            <div className="bg-indigo-950/40 border border-indigo-500/20 rounded-2xl p-4 mb-6 text-center welcome-quote-fade">
+              <div className="flex items-center justify-center gap-2 mb-1.5">
+                <span className="text-indigo-400">⚡</span>
+                <h4 className="text-xs font-extrabold tracking-wider uppercase text-indigo-300">
+                  Kuota AI Generator Anda
+                </h4>
+              </div>
+              <p className="text-2xl font-black text-white">
+                {aiQuota.remaining} <span className="text-xs font-normal text-slate-400">dari {aiQuota.limit} tersedia hari ini</span>
+              </p>
+              {aiQuota.limit === 3 ? (
+                <p className="text-[10px] mt-1.5 text-indigo-300 bg-indigo-500/10 py-1.5 px-2 rounded-lg border border-indigo-500/20 inline-block">
+                  🎉 Hari Pertama: Kuota Ekstra 3x untuk Eksplorasi!
+                </p>
+              ) : (
+                <p className="text-[10px] mt-1.5 text-slate-400">
+                  Kuota harian direset otomatis setiap pukul 06:00 WIB.
+                </p>
+              )}
+            </div>
           )}
 
           {/* CTA Button */}
@@ -10073,3 +10606,10 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <App />
   </React.StrictMode>
 );
+
+registerSW({
+  immediate: true,
+  onNeedRefresh() {
+    window.location.reload();
+  }
+});

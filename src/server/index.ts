@@ -35,7 +35,12 @@ app.get("*", async (c) => {
   }
 
   const file = Bun.file("./dist/index.html");
-  if (await file.exists()) return c.html(await file.text());
+  if (await file.exists()) {
+    c.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    c.header("Pragma", "no-cache");
+    c.header("Expires", "0");
+    return c.html(await file.text());
+  }
   return c.text("Jalankan `bun run dev` untuk mode development atau `bun run build && bun run start` untuk produksi.");
 });
 

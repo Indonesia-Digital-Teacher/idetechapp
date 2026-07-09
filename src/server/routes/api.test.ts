@@ -287,7 +287,7 @@ describe("Backend API Endpoints", () => {
       const [dbUser] = await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1);
       expect(dbUser).toBeDefined();
       expect(dbUser.name).toBe("Test Google Success");
-      expect(dbUser.status).toBe("pending");
+      expect(dbUser.status).toBe("active");
 
       const roleRows = await db
         .select({ name: roles.name })
@@ -1555,6 +1555,101 @@ describe("Backend API Endpoints", () => {
           expect(res.status).toBe(403);
         });
       });
+
+      describe("PATCH /api/profile", () => {
+        test("Harus berhasil memperbarui profil jika data valid", async () => {
+          const { token } = await createUserWithPermissions("student", []);
+          const res = await requestWithToken(token, "/profile", "PATCH", {
+            fullName: "Budi Santoso",
+            schoolName: "SMP Negeri 1 Jakarta",
+            contactChannel: "wa",
+            contactValue: "081234567890"
+          });
+          expect(res.status).toBe(200);
+          const json = await res.json();
+          expect(json).toHaveProperty("ok", true);
+        });
+
+        test("Harus mengembalikan 400 jika nama lengkap kurang dari 3 karakter", async () => {
+          const { token } = await createUserWithPermissions("student", []);
+          const res = await requestWithToken(token, "/profile", "PATCH", {
+            fullName: "Bu",
+            schoolName: "SMP Negeri 1 Jakarta",
+            contactChannel: "wa",
+            contactValue: "081234567890"
+          });
+          expect(res.status).toBe(400);
+          const json = await res.json();
+          expect(json.message).toContain("minimal 3 karakter");
+        });
+
+        test("Harus mengembalikan 400 jika nama lengkap lebih dari 100 karakter", async () => {
+          const { token } = await createUserWithPermissions("student", []);
+          const longName = "Budi".repeat(30); // 120 chars
+          const res = await requestWithToken(token, "/profile", "PATCH", {
+            fullName: longName,
+            schoolName: "SMP Negeri 1 Jakarta",
+            contactChannel: "wa",
+            contactValue: "081234567890"
+          });
+          expect(res.status).toBe(400);
+          const json = await res.json();
+          expect(json.message).toContain("maksimal 100 karakter");
+        });
+
+        test("Harus mengembalikan 400 jika nama lengkap mengandung karakter non-alphabet", async () => {
+          const { token } = await createUserWithPermissions("student", []);
+          const res = await requestWithToken(token, "/profile", "PATCH", {
+            fullName: "Budi 123",
+            schoolName: "SMP Negeri 1 Jakarta",
+            contactChannel: "wa",
+            contactValue: "081234567890"
+          });
+          expect(res.status).toBe(400);
+          const json = await res.json();
+          expect(json.message).toContain("hanya boleh mengandung huruf");
+        });
+
+        test("Harus mengembalikan 400 jika nama sekolah kurang dari 3 karakter", async () => {
+          const { token } = await createUserWithPermissions("student", []);
+          const res = await requestWithToken(token, "/profile", "PATCH", {
+            fullName: "Budi Santoso",
+            schoolName: "SD",
+            contactChannel: "wa",
+            contactValue: "081234567890"
+          });
+          expect(res.status).toBe(400);
+          const json = await res.json();
+          expect(json.message).toContain("wajib dipilih");
+        });
+
+        test("Harus mengembalikan 400 jika nama sekolah lebih dari 150 karakter", async () => {
+          const { token } = await createUserWithPermissions("student", []);
+          const longSchoolName = "SMP Negeri 1 Jakarta".repeat(10); // 200 chars
+          const res = await requestWithToken(token, "/profile", "PATCH", {
+            fullName: "Budi Santoso",
+            schoolName: longSchoolName,
+            contactChannel: "wa",
+            contactValue: "081234567890"
+          });
+          expect(res.status).toBe(400);
+          const json = await res.json();
+          expect(json.message).toContain("maksimal 150 karakter");
+        });
+
+        test("Harus mengembalikan 400 jika nomor WA tidak valid", async () => {
+          const { token } = await createUserWithPermissions("student", []);
+          const res = await requestWithToken(token, "/profile", "PATCH", {
+            fullName: "Budi Santoso",
+            schoolName: "SMP Negeri 1 Jakarta",
+            contactChannel: "wa",
+            contactValue: "abc12345"
+          });
+          expect(res.status).toBe(400);
+          const json = await res.json();
+          expect(json.message).toContain("Nomor WA tidak valid");
+        });
     });
   });
+});
 

@@ -43,6 +43,13 @@
       "when": 1783308500000,
       "tag": "0005_add_hp_and_welcome_bonus",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1783561138464,
+      "tag": "0006_cultured_roulette",
+      "breakpoints": true
     }
   ]
 }

@@ -171,7 +171,7 @@ export async function upsertGoogleUser(profile: {
       email: normalizedEmail,
       avatarUrl: profile.avatarUrl ?? null,
       emailVerified: profile.emailVerified,
-      status: accountRule.status ?? "pending",
+      status: accountRule.status ?? "active",
       createdAt: now,
       updatedAt: now
     });
@@ -210,7 +210,7 @@ export async function upsertGoogleUser(profile: {
   return {
     userId,
     isKnownUser,
-    status: accountRule.status ?? existing?.status ?? "pending",
+    status: accountRule.status ?? existing?.status ?? "active",
     roles: roleRows.map((row) => row.name as RoleName)
   };
 }
@@ -230,7 +230,7 @@ async function resolveGoogleUserRule(email: string): Promise<{ roles: RoleName[]
     return { roles: ["student"], status: "active" };
   }
 
-  return { roles: [rule.defaultRole], status: "pending" };
+  return { roles: [rule.defaultRole], status: "active" };
 }
 
 async function syncUserRoles(userId: string, roleNames: RoleName[], now: Date) {
