@@ -9,6 +9,7 @@ import { nanoid } from "nanoid";
 import { sessionCookieName, createSession } from "../lib/auth";
 import { initializeDatabase } from "../db/init";
 import { permissionCatalog, roleCatalog, rolePermissions as catalogRolePermissions } from "../lib/catalog";
+import { pool } from "../db/client";
 
 function clearS3Env() {
   const original: Record<string, string | undefined> = {};
@@ -38,7 +39,24 @@ function restoreS3Env(original: Record<string, string | undefined>) {
   }
 }
 
-describe("Backend API Endpoints", () => {
+async function hasDatabaseConnection(timeoutMs = 1500) {
+  const timeout = new Promise<false>((resolve) => {
+    setTimeout(() => resolve(false), timeoutMs);
+  });
+
+  const probe = pool.getConnection()
+    .then((connection) => {
+      connection.release();
+      return true;
+    })
+    .catch(() => false);
+
+  return Promise.race([probe, timeout]);
+}
+
+const describeIfDb = (await hasDatabaseConnection()) ? describe : describe.skip;
+
+describeIfDb("Backend API Endpoints", () => {
   let testUserToken: string;
   let testUserEmail: string;
 
@@ -1652,4 +1670,3 @@ describe("Backend API Endpoints", () => {
     });
   });
 });
-

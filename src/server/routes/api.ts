@@ -42,6 +42,52 @@ import authRoutes from "./auth";
 
 const app = new Hono<AppEnv>();
 
+// ─── Real-Time Chat Infrastructure (SSE) ─────────────────────────────────────
+// threadId → Set of SSE response controllers
+type SseController = { enqueue: (data: string) => void; close: () => void };
+const sseClients = new Map<string, Set<SseController>>();
+
+// userId → { threadId, lastSeen }
+const onlinePresence = new Map<string, { threadId: string; lastSeen: number }>();
+
+// threadId:userId → boolean (is typing)
+const typingState = new Map<string, ReturnType<typeof setTimeout>>();
+const teacherConsultationClients = new Map<string, Set<SseController>>();
+
+function broadcastToThread(threadId: string, event: string, data: unknown) {
+  const clients = sseClients.get(threadId);
+  if (!clients || clients.size === 0) return;
+  const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  for (const ctrl of clients) {
+    try { ctrl.enqueue(payload); } catch { /* client disconnected */ }
+  }
+}
+
+function broadcastToTeacher(teacherUserId: string, event: string, data: unknown) {
+  const clients = teacherConsultationClients.get(teacherUserId);
+  if (!clients || clients.size === 0) return;
+  const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  for (const ctrl of clients) {
+    try {
+      ctrl.enqueue(payload);
+    } catch {
+      /* client disconnected */
+    }
+  }
+}
+
+function getOnlineUsersInThread(threadId: string): string[] {
+  const now = Date.now();
+  const result: string[] = [];
+  for (const [userId, info] of onlinePresence.entries()) {
+    if (info.threadId === threadId && now - info.lastSeen < 35000) {
+      result.push(userId);
+    }
+  }
+  return result;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 app.route("/auth", authRoutes);
 
 app.get("/health", (c) => c.json({ status: "ok", app: "IdeTech", apiBase: "/api" }));
@@ -919,6 +965,33 @@ app.get("/teacher/todos", requireRole(["teacher", "admin"]), async (c) => {
   return c.json({ todos: rows });
 });
 
+function parseTeacherTodoDueDate(input: unknown): Date | null {
+  if (typeof input !== "string") return null;
+  const value = input.trim();
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function serializeTeacherTodo(todo: {
+  id: string;
+  userId: string;
+  title: string;
+  description: string | null;
+  priority: "high" | "medium" | "low";
+  isCompleted: boolean;
+  dueDate: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
+  return {
+    ...todo,
+    dueDate: todo.dueDate ? todo.dueDate.toISOString() : null,
+    createdAt: todo.createdAt.toISOString(),
+    updatedAt: todo.updatedAt.toISOString()
+  };
+}
+
 app.post("/teacher/todos", requireRole(["teacher", "admin"]), async (c) => {
   const user = c.get("authUser");
   const body = await c.req.json<{ title: string; description?: string; priority?: "high" | "medium" | "low"; dueDate?: string }>();
@@ -927,22 +1000,37 @@ app.post("/teacher/todos", requireRole(["teacher", "admin"]), async (c) => {
     return c.json({ message: "Judul tugas wajib diisi." }, 400);
   }
 
-  const now = new Date();
-  const id = nanoid();
-  await db.insert(teacherTodos).values({
-    id,
-    userId: user.id,
-    title: body.title.trim(),
-    description: body.description?.trim() || null,
-    priority: body.priority ?? "medium",
-    isCompleted: false,
-    dueDate: body.dueDate ? new Date(body.dueDate) : null,
-    createdAt: now,
-    updatedAt: now
-  });
+  const dueDate = parseTeacherTodoDueDate(body.dueDate);
+  if (body.dueDate && dueDate === null) {
+    return c.json({ message: "Format tenggat tugas tidak valid." }, 400);
+  }
 
-  const [created] = await db.select().from(teacherTodos).where(eq(teacherTodos.id, id)).limit(1);
-  return c.json({ todo: created }, 201);
+  try {
+    const now = new Date();
+    const id = nanoid();
+    const todo = {
+      id,
+      userId: user.id,
+      title: body.title.trim(),
+      description: body.description?.trim() || null,
+      priority: body.priority ?? "medium",
+      isCompleted: false,
+      dueDate,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    await db.insert(teacherTodos).values(todo);
+    return c.json({ todo: serializeTeacherTodo(todo) }, 201);
+  } catch (error) {
+    console.error("Failed to create teacher todo:", error);
+    const detail = error instanceof Error ? error.message : String(error);
+    const message =
+      process.env.NODE_ENV === "production"
+        ? "Gagal menyimpan tugas. Coba ulangi beberapa saat lagi."
+        : `Gagal menyimpan tugas: ${detail}`;
+    return c.json({ message }, 500);
+  }
 });
 
 app.patch("/teacher/todos/:id", requireRole(["teacher", "admin"]), async (c) => {
@@ -959,11 +1047,38 @@ app.patch("/teacher/todos/:id", requireRole(["teacher", "admin"]), async (c) => 
   if (body.description !== undefined) updates.description = body.description?.trim() || null;
   if (body.priority !== undefined) updates.priority = body.priority;
   if (body.isCompleted !== undefined) updates.isCompleted = body.isCompleted;
-  if ("dueDate" in body) updates.dueDate = body.dueDate ? new Date(body.dueDate) : null;
+  if ("dueDate" in body) {
+    if (body.dueDate === null) {
+      updates.dueDate = null;
+    } else {
+      const dueDate = parseTeacherTodoDueDate(body.dueDate);
+      if (body.dueDate && dueDate === null) {
+        return c.json({ message: "Format tenggat tugas tidak valid." }, 400);
+      }
+      updates.dueDate = dueDate;
+    }
+  }
 
-  await db.update(teacherTodos).set(updates).where(eq(teacherTodos.id, id));
-  const [updated] = await db.select().from(teacherTodos).where(eq(teacherTodos.id, id)).limit(1);
-  return c.json({ todo: updated });
+  try {
+    await db.update(teacherTodos).set(updates).where(eq(teacherTodos.id, id));
+    return c.json({
+      todo: {
+        ...existing,
+        ...updates,
+        updatedAt: (updates.updatedAt ?? new Date()).toISOString(),
+        createdAt: existing.createdAt.toISOString(),
+        dueDate: updates.dueDate ? updates.dueDate.toISOString() : updates.dueDate === null ? null : existing.dueDate ? existing.dueDate.toISOString() : null
+      }
+    });
+  } catch (error) {
+    console.error("Failed to update teacher todo:", error);
+    const detail = error instanceof Error ? error.message : String(error);
+    const message =
+      process.env.NODE_ENV === "production"
+        ? "Gagal memperbarui tugas. Coba ulangi beberapa saat lagi."
+        : `Gagal memperbarui tugas: ${detail}`;
+    return c.json({ message }, 500);
+  }
 });
 
 app.delete("/teacher/todos/:id", requireRole(["teacher", "admin"]), async (c) => {
@@ -2913,6 +3028,13 @@ app.post("/parent/consultations", requireRole(["parent"]), async (c) => {
   });
 
   const [thread] = await db.select().from(consultationThreads).where(eq(consultationThreads.id, threadId)).limit(1);
+  broadcastToTeacher(body.teacherId, "consultation", {
+    threadId,
+    kind: "new_thread",
+    senderUserId: user.id,
+    senderName: user.name,
+    createdAt: now.toISOString()
+  });
   return c.json({ thread }, 201);
 });
 
@@ -2951,8 +3073,9 @@ app.post("/parent/consultations/:id/reply", requireRole(["parent"]), async (c) =
   if (!thread) return c.json({ message: "Not found" }, 404);
 
   const now = new Date();
+  const msgId = `msg_${nanoid(12)}`;
   await db.insert(consultationMessages).values({
-    id: `msg_${nanoid(12)}`,
+    id: msgId,
     threadId: String(threadId),
     senderUserId: user.id,
     content: body.content,
@@ -2960,6 +3083,25 @@ app.post("/parent/consultations/:id/reply", requireRole(["parent"]), async (c) =
   });
 
   await db.update(consultationThreads).set({ updatedAt: now }).where(eq(consultationThreads.id, String(threadId)));
+
+  // Broadcast new message to SSE clients
+  broadcastToThread(String(threadId), "message", {
+    id: msgId,
+    threadId: String(threadId),
+    senderUserId: user.id,
+    senderName: user.name,
+    content: body.content,
+    createdAt: now.toISOString()
+  });
+  if (thread.teacherUserId) {
+    broadcastToTeacher(thread.teacherUserId, "consultation", {
+      threadId: String(threadId),
+      kind: "message",
+      senderUserId: user.id,
+      senderName: user.name,
+      createdAt: now.toISOString()
+    });
+  }
 
   return c.json({ success: true }, 201);
 });
@@ -2982,6 +3124,96 @@ app.get("/teacher/consultations", requireRole(["teacher"]), async (c) => {
     .orderBy(desc(consultationThreads.updatedAt));
 
   return c.json({ threads });
+});
+
+app.get("/teacher/consultations/events", requireRole(["teacher"]), async (c) => {
+  const user = c.get("authUser");
+  const controller = { enqueue: (_: string) => {}, close: () => {} };
+
+  const stream = new ReadableStream({
+    start(ctrl) {
+      controller.enqueue = (data: string) => ctrl.enqueue(new TextEncoder().encode(data));
+      controller.close = () => ctrl.close();
+
+      if (!teacherConsultationClients.has(user.id)) teacherConsultationClients.set(user.id, new Set());
+      teacherConsultationClients.get(user.id)!.add(controller);
+
+      const ping = setInterval(() => {
+        try {
+          ctrl.enqueue(new TextEncoder().encode(`:heartbeat\n\n`));
+        } catch {
+          clearInterval(ping);
+        }
+      }, 25000);
+
+      c.req.raw.signal.addEventListener("abort", () => {
+        clearInterval(ping);
+        teacherConsultationClients.get(user.id)?.delete(controller);
+        if (teacherConsultationClients.get(user.id)?.size === 0) {
+          teacherConsultationClients.delete(user.id);
+        }
+      });
+    }
+  });
+
+  const unreadCount = await (async () => {
+    const threads = await db.select({ id: consultationThreads.id })
+      .from(consultationThreads)
+      .where(and(eq(consultationThreads.teacherUserId, user.id), eq(consultationThreads.status, "open")));
+
+    if (threads.length === 0) return 0;
+
+    const threadIds = threads.map((t) => t.id);
+    const recentMessages = await db.select({
+      id: consultationMessages.id,
+      senderUserId: consultationMessages.senderUserId
+    })
+      .from(consultationMessages)
+      .where(inArray(consultationMessages.threadId, threadIds))
+      .orderBy(desc(consultationMessages.createdAt))
+      .limit(50);
+
+    return recentMessages.filter((m) => m.senderUserId !== user.id).length;
+  })();
+
+  controller.enqueue(`event: consultation\ndata: ${JSON.stringify({ unreadCount })}\n\n`);
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+      "X-Accel-Buffering": "no"
+    }
+  });
+});
+
+// Unread count for teacher badge notification
+app.get("/teacher/consultations/unread-count", requireRole(["teacher"]), async (c) => {
+  const user = c.get("authUser");
+  // Get all teacher's open threads
+  const threads = await db.select({ id: consultationThreads.id })
+    .from(consultationThreads)
+    .where(and(eq(consultationThreads.teacherUserId, user.id), eq(consultationThreads.status, "open")));
+
+  if (threads.length === 0) return c.json({ count: 0 });
+
+  const threadIds = threads.map(t => t.id);
+  // Count messages from parents (non-teacher senders) in these threads
+  const recentMessages = await db.select({
+    id: consultationMessages.id,
+    senderUserId: consultationMessages.senderUserId
+  })
+    .from(consultationMessages)
+    .where(and(
+      inArray(consultationMessages.threadId, threadIds),
+    ))
+    .orderBy(desc(consultationMessages.createdAt))
+    .limit(50);
+
+  // Filter out messages sent by the teacher themselves to get "incoming" messages
+  const unreadCount = recentMessages.filter(m => m.senderUserId !== user.id).length;
+  return c.json({ count: Math.min(unreadCount, 99) });
 });
 
 app.get("/teacher/consultations/:id", requireRole(["teacher"]), async (c) => {
@@ -3025,8 +3257,9 @@ app.post("/teacher/consultations/:id/reply", requireRole(["teacher"]), async (c)
   if (!thread) return c.json({ message: "Not found" }, 404);
 
   const now = new Date();
+  const msgId = `msg_${nanoid(12)}`;
   await db.insert(consultationMessages).values({
-    id: `msg_${nanoid(12)}`,
+    id: msgId,
     threadId: String(threadId),
     senderUserId: user.id,
     content: body.content,
@@ -3034,6 +3267,25 @@ app.post("/teacher/consultations/:id/reply", requireRole(["teacher"]), async (c)
   });
 
   await db.update(consultationThreads).set({ updatedAt: now }).where(eq(consultationThreads.id, String(threadId)));
+
+  // Broadcast new message to SSE clients
+  broadcastToThread(String(threadId), "message", {
+    id: msgId,
+    threadId: String(threadId),
+    senderUserId: user.id,
+    senderName: user.name,
+    content: body.content,
+    createdAt: now.toISOString()
+  });
+  if (thread.parentUserId) {
+    broadcastToTeacher(thread.teacherUserId, "consultation", {
+      threadId: String(threadId),
+      kind: "message",
+      senderUserId: user.id,
+      senderName: user.name,
+      createdAt: now.toISOString()
+    });
+  }
 
   return c.json({ success: true }, 201);
 });
@@ -3051,11 +3303,114 @@ app.post("/teacher/consultations/:id/close", requireRole(["teacher"]), async (c)
   return c.json({ success: true });
 });
 
+// ─── Real-Time SSE Endpoints ──────────────────────────────────────────────────
+
+// SSE stream: client connects and receives real-time events for a thread
+app.get("/chat/events", authRequired, async (c) => {
+  const user = c.get("authUser");
+  const threadId = c.req.query("threadId");
+  if (!threadId) return c.json({ message: "threadId required" }, 400);
+
+  // Verify user is a participant (parent or teacher)
+  const [thread] = await db.select().from(consultationThreads)
+    .where(eq(consultationThreads.id, threadId)).limit(1);
+  if (!thread) return c.json({ message: "Not found" }, 404);
+  if (thread.parentUserId !== user.id && thread.teacherUserId !== user.id) {
+    return c.json({ message: "Unauthorized" }, 403);
+  }
+
+  const controller = { enqueue: (_: string) => {}, close: () => {} };
+
+  const stream = new ReadableStream({
+    start(ctrl) {
+      controller.enqueue = (data: string) => ctrl.enqueue(new TextEncoder().encode(data));
+      controller.close = () => ctrl.close();
+
+      // Register client
+      if (!sseClients.has(threadId)) sseClients.set(threadId, new Set());
+      sseClients.get(threadId)!.add(controller);
+
+      // Mark user as online
+      onlinePresence.set(user.id, { threadId, lastSeen: Date.now() });
+
+      // Send initial online list
+      const onlineUsers = getOnlineUsersInThread(threadId);
+      ctrl.enqueue(new TextEncoder().encode(
+        `event: presence\ndata: ${JSON.stringify({ onlineUserIds: onlineUsers })}\n\n`
+      ));
+
+      // Notify others this user came online
+      broadcastToThread(threadId, "presence", { onlineUserIds: getOnlineUsersInThread(threadId) });
+
+      // Heartbeat every 25s to keep connection alive
+      const heartbeat = setInterval(() => {
+        try {
+          onlinePresence.set(user.id, { threadId, lastSeen: Date.now() });
+          ctrl.enqueue(new TextEncoder().encode(`:heartbeat\n\n`));
+        } catch {
+          clearInterval(heartbeat);
+        }
+      }, 25000);
+
+      // Cleanup on disconnect
+      c.req.raw.signal.addEventListener("abort", () => {
+        clearInterval(heartbeat);
+        sseClients.get(threadId)?.delete(controller);
+        if (sseClients.get(threadId)?.size === 0) sseClients.delete(threadId);
+        onlinePresence.delete(user.id);
+        // Notify others this user went offline
+        broadcastToThread(threadId, "presence", { onlineUserIds: getOnlineUsersInThread(threadId) });
+      });
+    }
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+      "X-Accel-Buffering": "no"
+    }
+  });
+});
+
+// Typing indicator: POST with { threadId, isTyping }
+app.post("/chat/typing", authRequired, async (c) => {
+  const user = c.get("authUser");
+  const body = await c.req.json().catch(() => ({})) as { threadId?: string; isTyping?: boolean };
+  if (!body.threadId) return c.json({ message: "threadId required" }, 400);
+
+  const key = `${body.threadId}:${user.id}`;
+
+  if (body.isTyping) {
+    // Broadcast typing started
+    broadcastToThread(body.threadId, "typing", { userId: user.id, isTyping: true });
+
+    // Auto-stop typing after 4s if no more updates
+    if (typingState.has(key)) clearTimeout(typingState.get(key)!);
+    typingState.set(key, setTimeout(() => {
+      broadcastToThread(body.threadId!, "typing", { userId: user.id, isTyping: false });
+      typingState.delete(key);
+    }, 4000));
+  } else {
+    if (typingState.has(key)) {
+      clearTimeout(typingState.get(key)!);
+      typingState.delete(key);
+    }
+    broadcastToThread(body.threadId, "typing", { userId: user.id, isTyping: false });
+  }
+
+  return c.json({ ok: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 app.get("/permissions/matrix", authRequired, async (c) => {
   const rows = await db
     .select({
       role: roles.name,
       permission: permissions.name
+
     })
     .from(rolePermissions)
     .innerJoin(roles, eq(rolePermissions.roleId, roles.id))

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { UserCircle2, LogOut, CheckCircle2, User, FileText, Bell, Plus, Loader2, X, Info, Target, BookOpen, Activity, ChevronRight, MessageSquare, Send } from "lucide-react";
 
 async function parentApi<T>(path: string, init?: RequestInit): Promise<T> {
@@ -52,6 +52,21 @@ export function ParentFriendlyDashboard({
   const [threadMessages, setThreadMessages] = useState<any[]>([]);
   const [replyContent, setReplyContent] = useState("");
 
+  // Real-time state
+  const [isTeacherOnline, setIsTeacherOnline] = useState(false);
+  const [isTeacherTyping, setIsTeacherTyping] = useState(false);
+  const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const sseRef = useRef<EventSource | null>(null);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTypingSentRef = useRef(false);
+
+  // Auto-scroll on new messages / typing
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [threadMessages, isTeacherTyping]);
+
   const loadConsultations = () => {
     parentApi<{ threads: any[] }>("/api/parent/consultations")
       .then(res => setConsultations(res.threads))
@@ -70,25 +85,83 @@ export function ParentFriendlyDashboard({
   useEffect(() => {
     if (activeTab === "pesan") {
       loadConsultations();
-      if (selectedChild) {
-        loadTeachers(selectedChild.id);
-      }
+      if (selectedChild) loadTeachers(selectedChild.id);
     }
   }, [activeTab, selectedChild]);
 
+  // SSE connection when a thread is active
   useEffect(() => {
-    if (activeThreadId) {
-      parentApi<{ thread: any, messages: any[] }>(`/api/parent/consultations/${activeThreadId}`)
-        .then(res => {
-          setActiveThread(res.thread);
-          setThreadMessages(res.messages);
-        })
-        .catch(() => setActiveThreadId(null));
-    } else {
+    if (sseRef.current) { sseRef.current.close(); sseRef.current = null; }
+    setIsTeacherOnline(false);
+    setIsTeacherTyping(false);
+    setOnlineUserIds([]);
+
+    if (!activeThreadId) {
       setActiveThread(null);
       setThreadMessages([]);
+      return;
     }
+
+    // Load messages
+    parentApi<{ thread: any; messages: any[] }>(`/api/parent/consultations/${activeThreadId}`)
+      .then(res => { setActiveThread(res.thread); setThreadMessages(res.messages || []); })
+      .catch(() => setActiveThreadId(null));
+
+    // Open SSE
+    const es = new EventSource(`/api/chat/events?threadId=${activeThreadId}`, { withCredentials: true });
+    sseRef.current = es;
+
+    es.addEventListener("message", (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        setThreadMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
+        if (msg.senderUserId !== user.id) setIsTeacherTyping(false);
+      } catch { /* ignore */ }
+    });
+
+    es.addEventListener("presence", (e) => {
+      try {
+        const { onlineUserIds: ids } = JSON.parse(e.data);
+        setOnlineUserIds(ids);
+      } catch { /* ignore */ }
+    });
+
+    es.addEventListener("typing", (e) => {
+      try {
+        const { userId, isTyping } = JSON.parse(e.data);
+        if (userId !== user.id) setIsTeacherTyping(isTyping);
+      } catch { /* ignore */ }
+    });
+
+    return () => { es.close(); sseRef.current = null; };
   }, [activeThreadId]);
+
+  // Derive teacher online status
+  useEffect(() => {
+    if (!activeThread) return;
+    const teacherId = activeThread.teacherId;
+    if (teacherId) setIsTeacherOnline(onlineUserIds.includes(teacherId));
+  }, [onlineUserIds, activeThread]);
+
+  const sendTypingIndicator = useCallback((typing: boolean) => {
+    if (!activeThreadId) return;
+    fetch("/api/chat/typing", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ threadId: activeThreadId, isTyping: typing })
+    }).catch(() => {});
+  }, [activeThreadId]);
+
+  const handleReplyInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setReplyContent(e.target.value);
+    if (!isTypingSentRef.current) { sendTypingIndicator(true); isTypingSentRef.current = true; }
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => {
+      sendTypingIndicator(false);
+      isTypingSentRef.current = false;
+    }, 2500);
+  };
 
   const handleCreateThread = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,17 +191,18 @@ export function ParentFriendlyDashboard({
   const handleReply = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeThreadId || !replyContent.trim()) return;
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    sendTypingIndicator(false);
+    isTypingSentRef.current = false;
     setMessagingBusy(true);
+    const content = replyContent;
+    setReplyContent("");
     try {
       await parentApi(`/api/parent/consultations/${activeThreadId}/reply`, {
         method: "POST",
-        body: JSON.stringify({ content: replyContent })
+        body: JSON.stringify({ content })
       });
-      setReplyContent("");
-      // Reload thread
-      const res = await parentApi<{ thread: any, messages: any[] }>(`/api/parent/consultations/${activeThreadId}`);
-      setActiveThread(res.thread);
-      setThreadMessages(res.messages);
+      // Message will arrive via SSE
     } catch (err) {
       console.error(err);
     } finally {
@@ -494,23 +568,32 @@ export function ParentFriendlyDashboard({
             ) : (
               <div className="flex flex-col h-[65vh] relative z-10">
                 <div className="flex items-center gap-3 border-b border-white/10 pb-4 mb-4 bg-[#09090b]/50 -mx-6 px-6 pt-2 sticky top-0 backdrop-blur-md">
-                  <button 
+                  <button
                     onClick={() => setActiveThreadId(null)}
                     className="p-2 -ml-2 bg-white/5 hover:bg-white/10 text-slate-400 rounded-full transition-colors"
                   >
                     <ChevronRight size={20} className="rotate-180" />
                   </button>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <h3 className="font-bold text-slate-100 truncate text-base">{activeThread?.topic}</h3>
-                    <p className="text-xs text-slate-400 truncate flex items-center gap-1">
-                       <User size={12}/> Dengan: {activeThread?.teacherName || "Guru"}
-                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {isTeacherOnline && (
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                        </span>
+                      )}
+                      <p className="text-xs text-slate-400 truncate flex items-center gap-1">
+                        <User size={12}/> {activeThread?.teacherName || "Guru"}
+                        {isTeacherOnline && <span className="text-emerald-400 font-semibold">· online</span>}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto flex flex-col gap-4 pb-4 px-2 scrollbar-thin scrollbar-thumb-white/10">
                   {threadMessages.map(msg => {
-                    const isMine = msg.senderId === user.id;
+                    const isMine = (msg.senderUserId ?? msg.senderId) === user.id;
                     return (
                       <div key={msg.id} className={`flex flex-col max-w-[85%] ${isMine ? 'self-end items-end' : 'self-start items-start'}`}>
                         <div className={`p-3.5 shadow-md ${isMine ? 'bg-blue-600 text-white rounded-2xl rounded-br-sm' : 'bg-[#27272a] text-slate-200 border border-white/5 rounded-2xl rounded-bl-sm'}`}>
@@ -522,19 +605,35 @@ export function ParentFriendlyDashboard({
                       </div>
                     );
                   })}
+
+                  {/* Teacher typing indicator */}
+                  {isTeacherTyping && (
+                    <div className="flex flex-col self-start items-start max-w-[85%]">
+                      <div className="flex gap-1 bg-[#27272a] border border-white/5 rounded-2xl rounded-bl-sm px-4 py-3">
+                        <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                        <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                        <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                      </div>
+                      <span className="text-[10px] text-slate-500 mt-1.5 px-1 italic">
+                        {activeThread?.teacherName || "Guru"} sedang mengetik...
+                      </span>
+                    </div>
+                  )}
+
+                  <div ref={messagesEndRef} />
                 </div>
 
                 {activeThread?.status === 'open' ? (
                   <form onSubmit={handleReply} className="pt-3 pb-2 flex gap-2">
-                    <input 
-                      type="text" 
-                      placeholder="Tulis pesan Anda..." 
+                    <input
+                      type="text"
+                      placeholder="Tulis pesan Anda..."
                       className="flex-1 bg-[#27272a] border border-white/10 rounded-full px-5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-inner"
                       value={replyContent}
-                      onChange={e => setReplyContent(e.target.value)}
+                      onChange={handleReplyInputChange}
                       disabled={messagingBusy}
                     />
-                    <button 
+                    <button
                       type="submit"
                       disabled={messagingBusy || !replyContent.trim()}
                       className="h-11 w-11 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-full flex items-center justify-center transition-colors shrink-0 shadow-[0_0_15px_rgba(37,99,235,0.3)]"

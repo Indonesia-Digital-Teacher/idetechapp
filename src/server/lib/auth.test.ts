@@ -7,8 +7,26 @@ import { roles, userRoles, users } from "../db/schema";
 import { roleCatalog } from "./catalog";
 import { upsertGoogleUser } from "./auth";
 import { setSystemSetting } from "./settings";
+import { pool } from "../db/client";
 
-describe("upsertGoogleUser", () => {
+async function hasDatabaseConnection(timeoutMs = 1500) {
+  const timeout = new Promise<false>((resolve) => {
+    setTimeout(() => resolve(false), timeoutMs);
+  });
+
+  const probe = pool.getConnection()
+    .then((connection) => {
+      connection.release();
+      return true;
+    })
+    .catch(() => false);
+
+  return Promise.race([probe, timeout]);
+}
+
+const describeIfDb = (await hasDatabaseConnection()) ? describe : describe.skip;
+
+describeIfDb("upsertGoogleUser", () => {
   beforeAll(async () => {
     await initializeDatabase();
 

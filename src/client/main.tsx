@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { registerSW } from "virtual:pwa-register";
 import ReactMarkdown from "react-markdown";
@@ -3657,9 +3657,48 @@ function TeacherSpaceDashboard({
   const [showDevModal, setShowDevModal] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [showConsultationModal, setShowConsultationModal] = useState(false);
+  const [consultationUnreadCount, setConsultationUnreadCount] = useState(0);
   const [hasUnpublishedJournalDraft, setHasUnpublishedJournalDraft] = useState(false);
   const [todos, setTodos] = useState<TeacherTodo[]>([]);
   const [showTodoPanel, setShowTodoPanel] = useState(false);
+
+  const loadConsultationUnreadCount = useCallback(() => {
+    fetch("/api/teacher/consultations/unread-count", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => setConsultationUnreadCount(d.count ?? 0))
+      .catch(() => {});
+  }, []);
+
+  // Real-time consultation badge + fallback polling
+  useEffect(() => {
+    const initialTimer = window.setTimeout(() => {
+      loadConsultationUnreadCount();
+    }, 1200);
+    const es = new EventSource("/api/teacher/consultations/events", { withCredentials: true });
+    const refresh = () => {
+      if (!showConsultationModal) {
+        loadConsultationUnreadCount();
+      }
+    };
+
+    es.addEventListener("consultation", () => {
+      refresh();
+    });
+
+    es.onerror = () => {};
+
+    const interval = setInterval(() => {
+      if (!showConsultationModal) {
+        loadConsultationUnreadCount();
+      }
+    }, 15000);
+
+    return () => {
+      window.clearTimeout(initialTimer);
+      es.close();
+      clearInterval(interval);
+    };
+  }, [loadConsultationUnreadCount, showConsultationModal]);
 
   useEffect(() => {
     const checkDraft = () => {
@@ -3981,9 +4020,23 @@ function TeacherSpaceDashboard({
 
         <article className="teacher-space-phone is-primary">
           <header className="teacher-space-phone__top">
-            <button className="teacher-space-menu-button relative" type="button" aria-label="Konsultasi Orang Tua" onClick={() => setShowConsultationModal(true)}>
+            <button
+              className="teacher-space-menu-button relative"
+              type="button"
+              aria-label="Konsultasi Orang Tua"
+              onClick={() => { setShowConsultationModal(true); setConsultationUnreadCount(0); }}
+            >
               <MessageSquare className="h-5 w-5 text-slate-700" />
+              {consultationUnreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-500 text-white text-[8px] font-black items-center justify-center">
+                    {consultationUnreadCount > 9 ? "9+" : consultationUnreadCount}
+                  </span>
+                </span>
+              )}
             </button>
+
             <h1 className="teacher-space-logo-title">
               <IdeTechLogo className="teacher-space-logo" />
               IdeTech
@@ -4348,8 +4401,15 @@ Fitur ini menganalisis semua aktivitas siswa di kelas Anda:
 
       {/* Consultation Modal */}
       {showConsultationModal && (
-        <TeacherConsultationModal onClose={() => setShowConsultationModal(false)} />
+        <TeacherConsultationModal
+          onClose={() => {
+            setShowConsultationModal(false);
+            loadConsultationUnreadCount();
+          }}
+          currentUserId={user.id}
+        />
       )}
+
 
       {/* Todo Floating Button */}
       <button
@@ -4403,6 +4463,7 @@ function TeacherTodoPanel({
   const [formPriority, setFormPriority] = useState<"high" | "medium" | "low">("medium");
   const [formDueDate, setFormDueDate] = useState("");
   const [formBusy, setFormBusy] = useState(false);
+  const [formError, setFormError] = useState("");
 
   const now = new Date();
 
@@ -4418,6 +4479,7 @@ function TeacherTodoPanel({
   function openAddForm() {
     setEditingTodo(null);
     setFormTitle(""); setFormDesc(""); setFormPriority("medium"); setFormDueDate("");
+    setFormError("");
     setShowForm(true);
   }
 
@@ -4427,24 +4489,43 @@ function TeacherTodoPanel({
     setFormDesc(todo.description ?? "");
     setFormPriority(todo.priority);
     setFormDueDate(todo.dueDate ? todo.dueDate.slice(0, 16) : "");
+    setFormError("");
     setShowForm(true);
   }
 
   async function handleSubmitForm(e: React.FormEvent) {
     e.preventDefault();
-    if (!formTitle.trim()) return;
+    if (!formTitle.trim()) {
+      setFormError("Judul tugas wajib diisi.");
+      return;
+    }
     setFormBusy(true);
+    setFormError("");
     try {
-      const body = { title: formTitle, description: formDesc, priority: formPriority, dueDate: formDueDate || undefined };
+      const dueDate = formDueDate ? new Date(formDueDate).toISOString() : undefined;
+      const body = {
+        title: formTitle.trim(),
+        description: formDesc.trim() || undefined,
+        priority: formPriority,
+        dueDate
+      };
       if (editingTodo) {
-        const result = await api<{ todo: TeacherTodo }>(`/api/teacher/todos/${editingTodo.id}`, { method: "PATCH", body: JSON.stringify(body) });
+        const result = await api<{ todo: TeacherTodo }>(`/api/teacher/todos/${editingTodo.id}`, {
+          method: "PATCH",
+          body: JSON.stringify(body)
+        });
         onTodosChange(todos.map(t => t.id === editingTodo.id ? result.todo : t));
       } else {
-        const result = await api<{ todo: TeacherTodo }>("/api/teacher/todos", { method: "POST", body: JSON.stringify(body) });
+        const result = await api<{ todo: TeacherTodo }>("/api/teacher/todos", {
+          method: "POST",
+          body: JSON.stringify(body)
+        });
         onTodosChange([result.todo, ...todos]);
       }
       setShowForm(false);
-    } catch {}
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Gagal menyimpan tugas.");
+    }
     setFormBusy(false);
   }
 
@@ -4452,7 +4533,9 @@ function TeacherTodoPanel({
     try {
       const result = await api<{ todo: TeacherTodo }>(`/api/teacher/todos/${todo.id}`, { method: "PATCH", body: JSON.stringify({ isCompleted: !todo.isCompleted }) });
       onTodosChange(todos.map(t => t.id === todo.id ? result.todo : t));
-    } catch {}
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Gagal memperbarui status tugas.");
+    }
   }
 
   async function deleteTodo(todo: TeacherTodo) {
@@ -4460,7 +4543,9 @@ function TeacherTodoPanel({
     try {
       await api(`/api/teacher/todos/${todo.id}`, { method: "DELETE" });
       onTodosChange(todos.filter(t => t.id !== todo.id));
-    } catch {}
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Gagal menghapus tugas.");
+    }
   }
 
   const priorityConfig = {
@@ -4609,6 +4694,11 @@ function TeacherTodoPanel({
               </button>
             </div>
             <form onSubmit={handleSubmitForm} className="flex flex-col gap-4 p-5 flex-1 overflow-y-auto">
+              {formError ? (
+                <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200">
+                  {formError}
+                </div>
+              ) : null}
               <label className="flex flex-col gap-1.5">
                 <span className="text-xs font-bold text-white/60 uppercase tracking-wider">Judul Tugas *</span>
                 <input
