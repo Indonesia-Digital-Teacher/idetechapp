@@ -157,7 +157,7 @@ app.post("/logout", async (c) => {
 });
 
 function googleRedirectUri(req: any) {
-  if (process.env.GOOGLE_REDIRECT_URI && process.env.NODE_ENV !== "production") {
+  if (process.env.GOOGLE_REDIRECT_URI) {
     return process.env.GOOGLE_REDIRECT_URI;
   }
 
