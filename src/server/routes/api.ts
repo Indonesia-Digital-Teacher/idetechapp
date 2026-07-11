@@ -976,6 +976,8 @@ function parseTeacherTodoDueDate(input: unknown): Date | null {
 function serializeTeacherTodo(todo: {
   id: string;
   userId: string;
+  classId: string | null;
+  category: string | null;
   title: string;
   description: string | null;
   priority: "high" | "medium" | "low";
@@ -994,7 +996,14 @@ function serializeTeacherTodo(todo: {
 
 app.post("/teacher/todos", requireRole(["teacher", "admin"]), async (c) => {
   const user = c.get("authUser");
-  const body = await c.req.json<{ title: string; description?: string; priority?: "high" | "medium" | "low"; dueDate?: string }>();
+  const body = await c.req.json<{ 
+    title: string; 
+    description?: string; 
+    priority?: "high" | "medium" | "low"; 
+    dueDate?: string;
+    classId?: string;
+    category?: string;
+  }>();
 
   if (!body.title?.trim()) {
     return c.json({ message: "Judul tugas wajib diisi." }, 400);
@@ -1011,6 +1020,8 @@ app.post("/teacher/todos", requireRole(["teacher", "admin"]), async (c) => {
     const todo = {
       id,
       userId: user.id,
+      classId: body.classId || null,
+      category: body.category?.trim() || null,
       title: body.title.trim(),
       description: body.description?.trim() || null,
       priority: body.priority ?? "medium",
@@ -1037,7 +1048,15 @@ app.patch("/teacher/todos/:id", requireRole(["teacher", "admin"]), async (c) => 
   const user = c.get("authUser");
   const id = c.req.param("id");
   if (!id) return c.json({ message: "ID tidak valid." }, 400);
-  const body = await c.req.json<{ title?: string; description?: string; priority?: "high" | "medium" | "low"; isCompleted?: boolean; dueDate?: string | null }>();
+  const body = await c.req.json<{ 
+    title?: string; 
+    description?: string; 
+    priority?: "high" | "medium" | "low"; 
+    isCompleted?: boolean; 
+    dueDate?: string | null;
+    classId?: string | null;
+    category?: string | null;
+  }>();
 
   const [existing] = await db.select().from(teacherTodos).where(and(eq(teacherTodos.id, id), eq(teacherTodos.userId, user.id))).limit(1);
   if (!existing) return c.json({ message: "Tugas tidak ditemukan." }, 404);
@@ -1047,6 +1066,8 @@ app.patch("/teacher/todos/:id", requireRole(["teacher", "admin"]), async (c) => 
   if (body.description !== undefined) updates.description = body.description?.trim() || null;
   if (body.priority !== undefined) updates.priority = body.priority;
   if (body.isCompleted !== undefined) updates.isCompleted = body.isCompleted;
+  if (body.classId !== undefined) updates.classId = body.classId || null;
+  if (body.category !== undefined) updates.category = body.category || null;
   if ("dueDate" in body) {
     if (body.dueDate === null) {
       updates.dueDate = null;
@@ -1067,7 +1088,9 @@ app.patch("/teacher/todos/:id", requireRole(["teacher", "admin"]), async (c) => 
         ...updates,
         updatedAt: (updates.updatedAt ?? new Date()).toISOString(),
         createdAt: existing.createdAt.toISOString(),
-        dueDate: updates.dueDate ? updates.dueDate.toISOString() : updates.dueDate === null ? null : existing.dueDate ? existing.dueDate.toISOString() : null
+        dueDate: updates.dueDate ? updates.dueDate.toISOString() : updates.dueDate === null ? null : existing.dueDate ? existing.dueDate.toISOString() : null,
+        classId: updates.classId !== undefined ? updates.classId : existing.classId,
+        category: updates.category !== undefined ? updates.category : existing.category
       }
     });
   } catch (error) {
@@ -1091,6 +1114,418 @@ app.delete("/teacher/todos/:id", requireRole(["teacher", "admin"]), async (c) =>
 
   await db.delete(teacherTodos).where(eq(teacherTodos.id, id));
   return c.json({ ok: true });
+});
+
+app.post("/teacher/todos/suggest", requireRole(["teacher", "admin"]), async (c) => {
+  const user = c.get("authUser");
+
+  try {
+    const teacherClasses = await db
+      .select()
+      .from(classes)
+      .where(eq(classes.teacherUserId, user.id));
+
+    const teacherMaterials = await db
+      .select()
+      .from(materials)
+      .where(eq(materials.teacherUserId, user.id))
+      .orderBy(desc(materials.createdAt))
+      .limit(5);
+
+    const cybraUrl = process.env.CYBRA_API_URL || "https://asisten.ferilee.gurumuda.eu.org";
+    const prompt = `Anda adalah Asisten AI pendidik untuk platform IdeTech.
+Tugas Anda adalah menganalisis profil dan data guru berikut ini, lalu memberikan 3 sampai 5 saran tugas (To-Do List) yang sangat relevan, spesifik, dan siap aksi untuk guru ini.
+
+Data Guru:
+- Daftar Kelas Aktif: ${JSON.stringify(teacherClasses.map(c => ({ id: c.id, nama: c.name, mapel: c.subject, grade: c.grade, jumlahSiswa: c.students })))}
+- Materi Terbaru di IdeStudio: ${JSON.stringify(teacherMaterials.map(m => ({ judul: m.title, tipe: m.type })))}
+
+Tugas yang disarankan harus bervariasi, misalnya:
+- Administrasi pembelajaran (membuat atau meninjau RPP untuk kelas/materi tertentu).
+- Aktivitas mengajar (menyiapkan media ajar/konten interaktif di IdeStudio).
+- Penilaian/Grading (menilai tugas/kuis atau memberikan feedback).
+- Lainnya (seperti menjadwalkan konsolidasi dengan orang tua).
+
+Pastikan Anda menyertakan ID kelas yang sesuai dari daftar kelas aktif jika tugas tersebut spesifik untuk kelas tertentu.
+
+Format keluaran HARUS berupa array JSON murni, jangan sertakan tag pembungkus markdown seperti \`\`\`json di awal/akhir respons, langsung saja berikan array objek JSON dengan struktur persis seperti contoh berikut:
+[
+  {
+    "title": "Buat materi interaktif Trigonometri",
+    "description": "Siapkan slide dan video penjelasan trigonometri untuk diunggah di IdeStudio kelas Matematika 10A.",
+    "priority": "high",
+    "category": "teaching",
+    "classId": "id-kelas-matematika-10a"
+  }
+]
+
+Ingat: hanya kembalikan array JSON murni saja agar bisa diparse dengan JSON.parse!`;
+
+    const aiRes = await fetch(`${cybraUrl}/api/integration/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: prompt, history: [] })
+    });
+
+    if (!aiRes.ok) {
+      throw new Error(`AI Service returned status ${aiRes.status}`);
+    }
+
+    const aiData = await aiRes.json();
+    let suggestions = [];
+    if (aiData.reply) {
+      let replyText = aiData.reply.trim();
+      if (replyText.startsWith("```")) {
+        replyText = replyText.replace(/^```json\s*/, "").replace(/^```\s*/, "").replace(/\s*```$/, "");
+      }
+      suggestions = JSON.parse(replyText);
+    }
+
+    return c.json({ suggestions });
+  } catch (error) {
+    console.error("Failed to suggest teacher todos:", error);
+    const fallback = [
+      {
+        title: "Tinjau RPP Mingguan",
+        description: "Evaluasi dan sesuaikan modul ajar / RPP untuk kelas yang akan berlangsung minggu ini.",
+        priority: "medium",
+        category: "rpp",
+        classId: null
+      },
+      {
+        title: "Periksa Progres Siswa di Radar Pintar",
+        description: "Buka menu Radar Pintar untuk mendeteksi siswa yang mengalami perlambatan belajar.",
+        priority: "high",
+        category: "grading",
+        classId: null
+      },
+      {
+        title: "Unggah Materi di IdeStudio",
+        description: "Tambahkan materi bacaan baru atau kuis tantangan di kelas untuk meningkatkan engagement siswa.",
+        priority: "medium",
+        category: "teaching",
+        classId: null
+      }
+    ];
+    return c.json({ suggestions: fallback });
+  }
+});
+
+function getSmartFallbackMeetings(capaianPembelajaran: string, totalCount: number) {
+  const cpLower = capaianPembelajaran.toLowerCase();
+  
+  const isMath = cpLower.includes("eksponen") || 
+                 cpLower.includes("akar") || 
+                 cpLower.includes("barisan") || 
+                 cpLower.includes("deret") || 
+                 cpLower.includes("aljabar") || 
+                 cpLower.includes("matematika") || 
+                 cpLower.includes("fungsi") || 
+                 cpLower.includes("persamaan linear") || 
+                 cpLower.includes("kuadrat");
+                 
+  if (isMath) {
+    const mathTopics = [
+      {
+        unit: "Bab 1: Eksponen dan Bentuk Akar",
+        title: "Definisi Eksponen & Sifat Perkalian Perpangkatan",
+        description: "Mempelajari konsep dasar eksponen serta sifat perkalian dan pembagian perpangkatan.",
+        elemen: "Bilangan",
+        category: "teaching"
+      },
+      {
+        unit: "Bab 1: Eksponen dan Bentuk Akar",
+        title: "Pangkat Nol, Negatif, & Konsep Pangkat Pecahan",
+        description: "Mengeksplorasi pangkat nol, pangkat negatif, dan penyelesaian bentuk pangkat pecahan.",
+        elemen: "Bilangan",
+        category: "teaching"
+      },
+      {
+        unit: "Bab 1: Eksponen dan Bentuk Akar",
+        title: "Hubungan Eksponen dengan Bentuk Akar & Merasionalkan Penyebut",
+        description: "Mempelajari bentuk akar, hubungan dengan eksponen, dan cara merasionalkan penyebut.",
+        elemen: "Bilangan",
+        category: "teaching"
+      },
+      {
+        unit: "Bab 2: Barisan dan Deret",
+        title: "Konsep Barisan Aritmetika & Penentuan Suku ke-n",
+        description: "Mempelajari pola bilangan, konsep barisan aritmetika, dan menghitung rumus suku ke-n.",
+        elemen: "Bilangan",
+        category: "teaching"
+      },
+      {
+        unit: "Bab 2: Barisan dan Deret",
+        title: "Konsep Barisan Geometri & Pemodelan Masalah Bakteri/Virus",
+        description: "Mempelajari barisan geometri dan memodelkan masalah pembelahan sel/pertumbuhan virus.",
+        elemen: "Bilangan",
+        category: "teaching"
+      },
+      {
+        unit: "Bab 2: Barisan dan Deret",
+        title: "Deret Aritmetika, Deret Geometri, & Bunga Tunggal/Majemuk",
+        description: "Menerapkan konsep deret aritmetika/geometri pada simulasi bunga bank dan pertumbuhan.",
+        elemen: "Bilangan",
+        category: "teaching"
+      },
+      {
+        unit: "Review & PTS",
+        title: "Evaluasi Mandiri & Review Setengah Semester",
+        description: "Melakukan pembahasan soal latihan, evaluasi mandiri, dan projek simulasi tabungan.",
+        elemen: "-",
+        category: "rpp"
+      },
+      {
+        unit: "Review & PTS",
+        title: "Penilaian Tengah Semester (PTS)",
+        description: "Melaksanakan asesmen sumatif tengah semester untuk menguji kompetensi eksponen dan barisan.",
+        elemen: "-",
+        category: "grading"
+      },
+      {
+        unit: "Bab 4: Sistem Persamaan & Pertidaksamaan Linear",
+        title: "Memodelkan Sistem Persamaan Linear Tiga Variabel (SPLTV)",
+        description: "Memahami cara membuat model matematika dari masalah kontekstual ke bentuk SPLTV.",
+        elemen: "Aljabar & Fungsi",
+        category: "teaching"
+      },
+      {
+        unit: "Bab 4: Sistem Persamaan & Pertidaksamaan Linear",
+        title: "Penyelesaian SPLTV dengan Metode Eliminasi & Substitusi",
+        description: "Mempelajari metode eliminasi dan substitusi untuk menentukan himpunan penyelesaian SPLTV.",
+        elemen: "Aljabar & Fungsi",
+        category: "teaching"
+      },
+      {
+        unit: "Bab 4: Sistem Persamaan & Pertidaksamaan Linear",
+        title: "Sistem Pertidaksamaan Linear Dua Variabel (SPtLDV) & Grafik",
+        description: "Menggambar daerah penyelesaian SPtLDV pada grafik kartesius dan menganalisis daerah bersih.",
+        elemen: "Aljabar & Fungsi",
+        category: "teaching"
+      },
+      {
+        unit: "Bab 5: Persamaan dan Fungsi Kuadrat",
+        title: "Menyelesaikan Persamaan Kuadrat dengan Faktorisasi & ABC",
+        description: "Mempelajari metode faktorisasi, melengkapkan kuadrat sempurna, dan rumus ABC.",
+        elemen: "Aljabar & Fungsi",
+        category: "teaching"
+      },
+      {
+        unit: "Bab 5: Persamaan dan Fungsi Kuadrat",
+        title: "Karakteristik Fungsi Kuadrat & Aplikasi Gerak Parabola",
+        description: "Menentukan titik puncak, sumbu simetri, dan memodelkan masalah fisika gerak parabola.",
+        elemen: "Aljabar & Fungsi",
+        category: "teaching"
+      },
+      {
+        unit: "Review & Akhir Semester",
+        title: "Refleksi Akhir Semester, Review Konsep, & PAS",
+        description: "Melakukan refleksi akhir semester ganjil, penguatan konsep aljabar, dan Penilaian Akhir Semester.",
+        elemen: "-",
+        category: "grading"
+      }
+    ];
+
+    return Array.from({ length: totalCount }).map((_, idx) => {
+      const step = mathTopics.length / totalCount;
+      const topicIdx = Math.min(Math.floor(idx * step), mathTopics.length - 1);
+      const baseTopic = mathTopics[topicIdx];
+      return {
+        meetingNumber: idx + 1,
+        unit: baseTopic.unit,
+        title: `Pertemuan ${idx + 1}: ${baseTopic.title}`,
+        description: baseTopic.description,
+        elemen: baseTopic.elemen,
+        priority: "medium" as const,
+        category: baseTopic.category
+      };
+    });
+  }
+
+  const generalTopics = [
+    { unit: "Orientasi", title: "Pengenalan dan Orientasi Pembelajaran", description: "Orientasi kelas, penyampaian tujuan pembelajaran, dan asesmen awal non-kognitif.", elemen: "Umum", category: "teaching" },
+    { unit: "Unit 1: Konsep Dasar", title: "Eksplorasi Konsep Dasar", description: "Menggali konsep dasar materi sesuai capaian pembelajaran melalui diskusi interaktif.", elemen: "Konsep", category: "teaching" },
+    { unit: "Unit 1: Konsep Dasar", title: "Analisis dan Studi Kasus Kontekstual", description: "Menghubungkan teori dasar dengan studi kasus atau masalah nyata di sekitar siswa.", elemen: "Konsep", category: "teaching" },
+    { unit: "Unit 1: Konsep Dasar", title: "Diskusi Kelompok dan Kolaborasi Kelas", description: "Siswa bekerja dalam kelompok untuk memecahkan lembar kerja yang diberikan guru.", elemen: "Kolaborasi", category: "teaching" },
+    { unit: "Review & PTS", title: "Review Tengah Semester", description: "Mengulang kembali materi-materi penting yang telah dipelajari selama setengah semester.", elemen: "-", category: "rpp" },
+    { unit: "Review & PTS", title: "Penilaian Tengah Semester (PTS)", description: "Mengukur pemahaman siswa melalui penilaian tertulis atau penilaian kinerja.", elemen: "-", category: "grading" },
+    { unit: "Unit 2: Aplikasi Projek", title: "Penerapan Konsep pada Projek Kreatif", description: "Membuat rencana atau draf projek kelompok yang relevan dengan topik bahasan.", elemen: "Aplikasi", category: "teaching" },
+    { unit: "Unit 2: Aplikasi Projek", title: "Pendalaman Materi dan Penugasan Mandiri", description: "Membahas kesulitan siswa dan memberikan latihan tambahan untuk penguatan mandiri.", elemen: "Aplikasi", category: "teaching" },
+    { unit: "Unit 2: Aplikasi Projek", title: "Presentasi Projek dan Umpan Balik Rekan", description: "Setiap kelompok mempresentasikan hasil projek dan mendapatkan feedback dari rekan kelas.", elemen: "Kolaborasi", category: "teaching" },
+    { unit: "Review & PAS", title: "Review Akhir Semester & Penguatan Konsep", description: "Melakukan rangkuman materi seluruh semester dan sesi tanya jawab persiapan ujian.", elemen: "-", category: "rpp" },
+    { unit: "Review & PAS", title: "Refleksi Akhir Semester & Evaluasi Hasil", description: "Melaksanakan asesmen akhir semester (PAS) dan merefleksikan proses belajar mengajar.", elemen: "-", category: "grading" }
+  ];
+
+  return Array.from({ length: totalCount }).map((_, idx) => {
+    const step = generalTopics.length / totalCount;
+    const topicIdx = Math.min(Math.floor(idx * step), generalTopics.length - 1);
+    const baseTopic = generalTopics[topicIdx];
+    return {
+      meetingNumber: idx + 1,
+      unit: baseTopic.unit,
+      title: `Pertemuan ${idx + 1}: ${baseTopic.title}`,
+      description: baseTopic.description,
+      elemen: baseTopic.elemen,
+      priority: "medium" as const,
+      category: baseTopic.category
+    };
+  });
+}
+
+app.post("/teacher/todos/semester-plan", requireRole(["teacher", "admin"]), async (c) => {
+  const user = c.get("authUser");
+  const body = await c.req.json<{
+    capaianPembelajaran: string;
+    teachingDays: number[];
+    startDate: string;
+    endDate: string;
+    maxMeetings?: number;
+    classId?: string | null;
+  }>();
+
+  if (!body.capaianPembelajaran?.trim()) {
+    return c.json({ message: "Capaian Pembelajaran wajib diisi." }, 400);
+  }
+  if (!body.teachingDays || !Array.isArray(body.teachingDays) || body.teachingDays.length === 0) {
+    return c.json({ message: "Pilih minimal satu hari mengajar." }, 400);
+  }
+  if (!body.startDate || !body.endDate) {
+    return c.json({ message: "Tanggal awal dan akhir semester wajib diisi." }, 400);
+  }
+
+  const dates: string[] = [];
+  try {
+    let current = new Date(body.startDate);
+    const end = new Date(body.endDate);
+    if (!isNaN(current.getTime()) && !isNaN(end.getTime()) && current <= end) {
+      while (current <= end) {
+        const day = current.getDay();
+        if (body.teachingDays.includes(day)) {
+          dates.push(current.toISOString().split("T")[0]);
+          if (body.maxMeetings && dates.length >= body.maxMeetings) {
+            break;
+          }
+        }
+        current.setDate(current.getDate() + 1);
+      }
+    }
+  } catch (err) {
+    return c.json({ message: "Format tanggal tidak valid." }, 400);
+  }
+
+  if (dates.length === 0) {
+    return c.json({ message: "Tidak ada hari mengajar yang cocok dalam rentang tanggal tersebut." }, 400);
+  }
+
+  try {
+    const prompt = `Anda adalah Asisten AI pendidik untuk platform IdeTech.
+Tugas Anda adalah merancang program semester (rincian materi pembelajaran per pertemuan) berdasarkan Capaian Pembelajaran (CP) berikut ini.
+
+Capaian Pembelajaran (CP):
+"${body.capaianPembelajaran}"
+
+Rencana semester ini harus dibagi menjadi tepat ${dates.length} pertemuan/topik materi pembelajaran secara berurutan.
+
+Berikut adalah contoh pembagian materi berdasarkan Capaian Pembelajaran (diambil dari Matematika Fase E sebagai contoh pembagian):
+- Unit/Bab: Eksponen dan Bentuk Akar
+  * Pertemuan 1 - 4: Definisi Eksponen, Sifat-sifat perkalian, pembagian, dan perpangkatan eksponen. (Elemen: Bilangan)
+  * Pertemuan 5 - 7: Pangkat nol, pangkat negatif, dan konsep pangkat pecahan. (Elemen: Bilangan)
+  * Pertemuan 8 - 10: Hubungan eksponen dengan bentuk akar dan teknik merasionalkan penyebut. (Elemen: Bilangan)
+- Unit/Bab: Barisan dan Deret
+  * Pertemuan 11 - 13: Konsep Barisan Aritmetika dan penentuan suku ke-n. (Elemen: Bilangan)
+  * Pertemuan 14 - 16: Konsep Barisan Geometri dan pemodelan masalah pembelahan bakteri/virus. (Elemen: Bilangan)
+  * Pertemuan 17 - 20: Deret Aritmetika, Deret Geometri, dan aplikasi pada Bunga Tunggal & Majemuk. (Elemen: Bilangan)
+- Review & Evaluasi Tengah Semester
+  * Pertemuan 21 - 24: Evaluasi Mandiri, Projek kontekstual, dan PTS.
+- Unit/Bab: Sistem Persamaan & Pertidaksamaan Linear
+  * Pertemuan 25 - 27: Memodelkan masalah ke dalam Sistem Persamaan Linear Tiga Variabel (SPLTV). (Elemen: Aljabar & Fungsi)
+  * Pertemuan 28 - 30: Penyelesaian SPLTV dengan metode eliminasi dan substitusi. (Elemen: Aljabar & Fungsi)
+  * Pertemuan 31 - 34: Sistem Pertidaksamaan Linear Dua Variabel (SPtLDV) dan penentuan daerah penyelesaian grafik. (Elemen: Aljabar & Fungsi)
+- Unit/Bab: Persamaan dan Fungsi Kuadrat
+  * Pertemuan 35 - 38: Menyelesaikan Persamaan Kuadrat (Faktorisasi, Kuadrat Sempurna, Rumus ABC). (Elemen: Aljabar & Fungsi)
+  * Pertemuan 39 - 42: Karakteristik Fungsi Kuadrat (titik puncak, sumbu simetri) dan aplikasi gerak parabola. (Elemen: Aljabar & Fungsi)
+- Review & Akhir Semester
+  * Pertemuan 43 - 44: Refleksi akhir semester ganjil dan penguatan konsep.
+
+Petunjuk Utama untuk Anda:
+1. Pahami CP yang diinput di atas. Analisis elemen-elemen dan topik bahasan di dalamnya.
+2. Pecah CP tersebut menjadi bab/unit dan sub-topik materi ajar yang konkret dan berurutan dari dasar ke tingkat lebih lanjut.
+3. Distribusikan bab/unit dan sub-topik tersebut secara merata ke dalam tepat ${dates.length} pertemuan. Sebagai contoh, jika suatu bab besar membutuhkan waktu lebih lama, bab tersebut bisa dipecah menjadi beberapa sub-topik untuk beberapa pertemuan berurutan (misal: Pertemuan 1-3 membahas konsep A, Pertemuan 4-6 membahas konsep B).
+4. Jangan menuliskan judul pertemuan yang generik (misalnya: hindari menggunakan judul yang sama berulang-ulang seperti "Pembahasan Capaian Pembelajaran" untuk semua pertemuan). Judul tiap pertemuan harus spesifik menggambarkan topik bahasan/materi pelajaran yang diajarkan pada pertemuan tersebut (contoh: "Pertemuan 1: Konsep Dasar Eksponen dan Sifat Perkalian").
+5. Buat deskripsi pertemuan yang informatif yang menjelaskan sub-topik ajar atau aktivitas belajar yang akan dilakukan pada pertemuan tersebut.
+6. Masukkan juga sesi Review, PTS, atau PAS di tengah atau akhir semester secara proporsional sesuai jumlah pertemuan yang ada.
+7. Tentukan nama Bab/Unit ("unit") dan Elemen Kurikulum ("elemen") yang sesuai untuk masing-masing pertemuan (misalnya unit: "Bab 1: Eksponen dan Bentuk Akar", elemen: "Bilangan").
+
+Format keluaran HARUS berupa array JSON murni, jangan sertakan tag pembungkus markdown seperti \`\`\`json di awal/akhir respons, langsung saja berikan array objek JSON dengan struktur persis seperti contoh berikut:
+[
+  {
+    "meetingNumber": 1,
+    "unit": "Bab 1: Eksponen dan Bentuk Akar",
+    "title": "Pertemuan 1: Definisi Eksponen dan Sifat Perkalian",
+    "description": "Membahas konsep dasar eksponen beserta sifat perkalian dan pembagian perpangkatan.",
+    "elemen": "Bilangan",
+    "priority": "medium",
+    "category": "teaching"
+  }
+]
+`;
+
+    const cybraUrl = process.env.CYBRA_API_URL || "https://asisten.ferilee.gurumuda.eu.org";
+    const aiRes = await fetch(`${cybraUrl}/api/integration/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: prompt, history: [] })
+    });
+
+    let meetings = [];
+    if (aiRes.ok) {
+      const aiData = await aiRes.json();
+      if (aiData.reply) {
+        let replyText = aiData.reply.trim();
+        if (replyText.startsWith("```")) {
+          replyText = replyText.replace(/^```json\s*/, "").replace(/^```\s*/, "").replace(/\s*```$/, "");
+        }
+        try {
+          meetings = JSON.parse(replyText);
+        } catch (e) {
+          console.error("Failed to parse AI semester response:", e);
+        }
+      }
+    }
+
+    if (!meetings || !Array.isArray(meetings) || meetings.length === 0) {
+      meetings = getSmartFallbackMeetings(body.capaianPembelajaran, dates.length);
+    }
+
+    const finalMeetings = meetings.slice(0, dates.length).map((m: any, idx: number) => {
+      const dateStr = dates[idx] || dates[dates.length - 1];
+      return {
+        title: m.title || `Pertemuan ${idx + 1}`,
+        description: m.description || "",
+        priority: m.priority || "medium",
+        category: m.category || "teaching",
+        dueDate: dateStr,
+        classId: body.classId || null,
+        unit: m.unit || "",
+        elemen: m.elemen || ""
+      };
+    });
+
+    return c.json({ meetings: finalMeetings });
+  } catch (error) {
+    console.error("Failed to generate semester plan:", error);
+    const fallbackMeetings = getSmartFallbackMeetings(body.capaianPembelajaran, dates.length).map((m, idx) => ({
+      title: m.title,
+      description: m.description,
+      priority: m.priority,
+      category: m.category,
+      dueDate: dates[idx] || dates[dates.length - 1],
+      classId: body.classId || null,
+      unit: m.unit || "",
+      elemen: m.elemen || ""
+    }));
+    return c.json({ meetings: fallbackMeetings });
+  }
 });
 
 // ─── Teacher Materials ────────────────────────────────────────────────────────
@@ -1690,7 +2125,7 @@ app.post("/teacher/chat", requireRole(["teacher", "admin"]), requirePermission("
   if (!body.message) return c.json({ message: "Pesan tidak boleh kosong." }, 400);
 
   try {
-    const cybraUrl = process.env.CYBRA_API_URL || "https://cybrabot.ferilee.gurumuda.eu.org";
+    const cybraUrl = process.env.CYBRA_API_URL || "https://asisten.ferilee.gurumuda.eu.org";
     const response = await fetch(`${cybraUrl}/api/integration/chat`, {
       method: "POST",
       headers: { 
@@ -1772,7 +2207,7 @@ app.post("/teacher/generate-ai", requireRole(["teacher", "admin"]), requirePermi
   }
 
   try {
-    const cybraUrl = process.env.CYBRA_API_URL || "https://cybrabot.ferilee.gurumuda.eu.org";
+    const cybraUrl = process.env.CYBRA_API_URL || "https://asisten.ferilee.gurumuda.eu.org";
     const response = await fetch(`${cybraUrl}/api/integration/chat`, {
       method: "POST",
       headers: { 
@@ -3897,7 +4332,7 @@ app.post("/admin/blogs/generate", requireRole(["admin"]), requirePermission("blo
 Artikel harus memiliki judul utama (H1), pendahuluan yang menarik, 2-3 poin pembahasan (H2/H3), dan penutup. Gaya bahasa usahakan santai tapi profesional, cocok untuk audiens guru dan orang tua. Jangan sertakan tag markdown \`\`\`markdown di awal/akhir respons, langsung saja berikan teksnya.`;
 
   try {
-    const cybraUrl = process.env.CYBRA_API_URL || "https://cybrabot.ferilee.gurumuda.eu.org";
+    const cybraUrl = process.env.CYBRA_API_URL || "https://asisten.ferilee.gurumuda.eu.org";
     const response = await fetch(`${cybraUrl}/api/integration/chat`, {
       method: "POST",
       headers: { 

@@ -462,6 +462,8 @@ export const consultationMessages = mysqlTable("consultation_messages", {
 export const teacherTodos = mysqlTable("teacher_todos", {
   id: pk(),
   userId: fk("user_id").references(() => users.id, { onDelete: "cascade" }),
+  classId: optionalFk("class_id").references(() => classes.id, { onDelete: "set null" }),
+  category: varchar("category", { length: 100 }),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
   priority: mysqlEnum("priority", ["high", "medium", "low"]).notNull().default("medium"),

@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeAll, beforeEach, afterEach, spyOn } from "bun:test";
+import { describe, expect, test, beforeAll, afterAll, beforeEach, afterEach, spyOn } from "bun:test";
 import { eq, inArray } from "drizzle-orm";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import app from "./api";
@@ -1667,6 +1667,154 @@ describeIfDb("Backend API Endpoints", () => {
           const json = await res.json();
           expect(json.message).toContain("Nomor WA tidak valid");
         });
+    });
+
+    describe("Teacher Todos suggest", () => {
+      let originalFetch: typeof globalThis.fetch;
+
+      beforeAll(() => {
+        originalFetch = globalThis.fetch;
+      });
+
+      afterAll(() => {
+        globalThis.fetch = originalFetch;
+      });
+
+      test("Harus mengembalikan saran tugas untuk guru dengan mock sukses", async () => {
+        globalThis.fetch = (async () => {
+          return new Response(JSON.stringify({
+            reply: JSON.stringify([
+              {
+                title: "Mock AI Task",
+                description: "Mock AI Description",
+                priority: "high",
+                category: "teaching",
+                classId: null
+              }
+            ])
+          }), { headers: { "content-type": "application/json" } });
+        }) as any;
+
+        const { token } = await createUserWithPermissions("teacher", []);
+        const res = await requestWithToken(token, "/teacher/todos/suggest", "POST");
+        expect(res.status).toBe(200);
+        const json = await res.json();
+        expect(json.suggestions).toBeDefined();
+        expect(json.suggestions[0].title).toBe("Mock AI Task");
+      });
+
+      test("Harus mengembalikan saran fallback jika fetch melempar error", async () => {
+        globalThis.fetch = (async () => {
+          throw new Error("Network error simulation");
+        }) as any;
+
+        const { token } = await createUserWithPermissions("teacher", []);
+        const res = await requestWithToken(token, "/teacher/todos/suggest", "POST");
+        expect(res.status).toBe(200);
+        const json = await res.json();
+        expect(json.suggestions).toBeDefined();
+      });
+    });
+
+    describe("Teacher Todos semester-plan", () => {
+      let originalFetch: typeof globalThis.fetch;
+
+      beforeAll(() => {
+        originalFetch = globalThis.fetch;
+      });
+
+      afterAll(() => {
+        globalThis.fetch = originalFetch;
+      });
+
+      test("Harus mengembalikan 400 jika Capaian Pembelajaran kosong", async () => {
+        const { token } = await createUserWithPermissions("teacher", []);
+        const res = await requestWithToken(token, "/teacher/todos/semester-plan", "POST", {
+          capaianPembelajaran: "",
+          teachingDays: [2],
+          startDate: "2026-07-14",
+          endDate: "2026-12-11"
+        });
+        expect(res.status).toBe(400);
+        const json = await res.json();
+        expect(json.message).toContain("Capaian Pembelajaran wajib diisi");
+      });
+
+      test("Harus mengembalikan 400 jika hari mengajar kosong", async () => {
+        const { token } = await createUserWithPermissions("teacher", []);
+        const res = await requestWithToken(token, "/teacher/todos/semester-plan", "POST", {
+          capaianPembelajaran: "Siswa mengerti aljabar",
+          teachingDays: [],
+          startDate: "2026-07-14",
+          endDate: "2026-12-11"
+        });
+        expect(res.status).toBe(400);
+        const json = await res.json();
+        expect(json.message).toContain("Pilih minimal satu hari mengajar");
+      });
+
+      test("Harus berhasil mengembalikan rencana pertemuan dengan tanggal terhitung (mock sukses)", async () => {
+        globalThis.fetch = (async () => {
+          return new Response(JSON.stringify({
+            reply: JSON.stringify([
+              {
+                title: "Pertemuan 1: Dasar Aljabar",
+                description: "Pengenalan variabel",
+                priority: "high",
+                category: "teaching"
+              },
+              {
+                title: "Pertemuan 2: Persamaan Linear",
+                description: "Penyelesaian persamaan linear satu variabel",
+                priority: "medium",
+                category: "teaching"
+              }
+            ])
+          }), { headers: { "content-type": "application/json" } });
+        }) as any;
+
+        const { token } = await createUserWithPermissions("teacher", []);
+        // Start date: 2026-07-14 (Tuesday), End date: 2026-07-23 (Thursday). Teaching days: 2 (Tuesday), 4 (Thursday)
+        // Expected dates: 2026-07-14 (Tue), 2026-07-16 (Thu), 2026-07-21 (Tue), 2026-07-23 (Thu) -> 4 dates
+        const res = await requestWithToken(token, "/teacher/todos/semester-plan", "POST", {
+          capaianPembelajaran: "Menguasai dasar aljabar",
+          teachingDays: [2, 4],
+          startDate: "2026-07-14",
+          endDate: "2026-07-23",
+          maxMeetings: 2 // cap at 2 meetings
+        });
+
+        expect(res.status).toBe(200);
+        const json = await res.json();
+        expect(json.meetings).toBeDefined();
+        expect(json.meetings).toHaveLength(2);
+        expect(json.meetings[0].title).toBe("Pertemuan 1: Dasar Aljabar");
+        expect(json.meetings[0].dueDate).toBe("2026-07-14");
+        expect(json.meetings[1].title).toBe("Pertemuan 2: Persamaan Linear");
+        expect(json.meetings[1].dueDate).toBe("2026-07-16");
+      });
+
+      test("Harus menggunakan fallback jika fetch melempar error", async () => {
+        globalThis.fetch = (async () => {
+          throw new Error("Network failure simulation");
+        }) as any;
+
+        const { token } = await createUserWithPermissions("teacher", []);
+        const res = await requestWithToken(token, "/teacher/todos/semester-plan", "POST", {
+          capaianPembelajaran: "Menguasai dasar aljabar",
+          teachingDays: [2],
+          startDate: "2026-07-14",
+          endDate: "2026-07-25" // July 14 (Tue), July 21 (Tue) -> 2 dates
+        });
+
+        expect(res.status).toBe(200);
+        const json = await res.json();
+        expect(json.meetings).toBeDefined();
+        expect(json.meetings).toHaveLength(2);
+        expect(json.meetings[0].title).toContain("Pertemuan 1");
+        expect(json.meetings[0].dueDate).toBe("2026-07-14");
+        expect(json.meetings[1].dueDate).toBe("2026-07-21");
+      });
     });
   });
 });

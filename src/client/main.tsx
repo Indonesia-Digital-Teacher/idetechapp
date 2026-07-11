@@ -4,6 +4,7 @@ import { registerSW } from "virtual:pwa-register";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkMath from "remark-math";
+import remarkGfm from "remark-gfm";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import ReactPlayer from "react-player/lazy";
@@ -92,6 +93,7 @@ import {
   ClipboardList,
   GripVertical,
   Edit3,
+  XCircle,
 } from "lucide-react";
 import { Button, Card, SecondaryButton, Select, StatusPill } from "./components/ui";
 import "./styles.css";
@@ -222,6 +224,8 @@ type TeacherIdeQuest = {
 type TeacherTodo = {
   id: string;
   userId: string;
+  classId: string | null;
+  category: string | null;
   title: string;
   description: string | null;
   priority: "high" | "medium" | "low";
@@ -644,6 +648,10 @@ function App() {
   const [welcomeQuotes, setWelcomeQuotes] = useState<WelcomeQuote[]>([]);
   const [showWelcomeGreeting, setShowWelcomeGreeting] = useState(false);
   const [welcomeAiQuota, setWelcomeAiQuota] = useState<{ limit: number; used: number; remaining: number } | null>(null);
+  const [globalAlert, setGlobalAlert] = useState<{
+    message: string;
+    type: "success" | "error" | "info";
+  } | null>(null);
 
   async function loadSession() {
     setLoading(true);
@@ -716,6 +724,28 @@ function App() {
       setError(err.message);
       setLoading(false);
     });
+
+    window.alert = (message?: any) => {
+      const msgStr = String(message ?? "");
+      let type: "success" | "error" | "info" = "info";
+      const msgLower = msgStr.toLowerCase();
+      if (
+        msgLower.includes("berhasil") ||
+        msgLower.includes("sukses") ||
+        msgLower.includes("disalin")
+      ) {
+        type = "success";
+      } else if (
+        msgLower.includes("gagal") ||
+        msgLower.includes("salah") ||
+        msgLower.includes("error") ||
+        msgLower.includes("terjadi kesalahan") ||
+        msgLower.includes("koneksi")
+      ) {
+        type = "error";
+      }
+      setGlobalAlert({ message: msgStr, type });
+    };
   }, []);
 
   async function loginDemo(email: string) {
@@ -961,6 +991,146 @@ function App() {
           onDeleteAdminClass={deleteAdminClass}
         />
       )}
+
+      {globalAlert && (() => {
+        const role = user?.activeRole;
+        if (role === "student") {
+          return (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="bg-[#2b2b2b] rounded-[32px] p-2 shadow-[0_12px_0_#1a1a1a,0_25px_30px_rgba(0,0,0,0.5)] border-2 border-[#1a1a1a] max-w-sm w-full animate-in zoom-in-95 duration-200">
+                <div className="bg-[#3a3a3a] rounded-[24px] p-6 flex flex-col items-center text-center gap-4">
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center border-2 shadow-[0_4px_0_var(--shadow-color)] ${
+                    globalAlert.type === 'success' 
+                      ? 'bg-gradient-to-b from-[#22c55e] to-[#15803d] border-green-200 text-white [--shadow-color:#166534]' 
+                      : globalAlert.type === 'error' 
+                      ? 'bg-gradient-to-b from-[#ef4444] to-[#b91c1c] border-red-200 text-white [--shadow-color:#991b1b]' 
+                      : 'bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] border-blue-200 text-white [--shadow-color:#1e40af]'
+                  }`}>
+                    {globalAlert.type === 'success' ? <CheckCircle2 className="w-8 h-8" /> :
+                     globalAlert.type === 'error' ? <XCircle className="w-8 h-8" /> :
+                     <AlertCircle className="w-8 h-8" />}
+                  </div>
+                  <div className="w-full">
+                    <h3 className="text-xl font-black text-white drop-shadow-[0_2px_0_#1a1a1a] tracking-wide">
+                      {globalAlert.type === 'success' ? 'Berhasil' :
+                       globalAlert.type === 'error' ? 'Gagal' : 'Informasi'}
+                    </h3>
+                    <div className="bg-[#222] border border-white/5 rounded-[20px] p-4 mt-3 shadow-inner w-full">
+                      <p className="text-sm text-slate-200 font-bold leading-relaxed whitespace-pre-line">{globalAlert.message}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setGlobalAlert(null)}
+                    className="w-full py-3.5 mt-2 bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-yellow-950 font-black rounded-xl border-2 border-yellow-200 shadow-[0_4px_0_#977500] hover:scale-[1.02] active:scale-[0.98] active:translate-y-[2px] active:shadow-[0_2px_0_#977500] transition-all cursor-pointer"
+                  >
+                    Tutup
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        } else if (role === "teacher") {
+          return (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="bg-[#0c1844] border-2 border-cyan-500/30 p-6 rounded-[36px] shadow-[0_0_30px_rgba(6,25,120,0.6),inset_0_1px_0_rgba(255,255,255,0.1)] max-w-sm w-full animate-in zoom-in-95 duration-200 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full -mr-10 -mt-10 blur-3xl pointer-events-none"></div>
+                <div className="flex flex-col items-center text-center gap-4 relative z-10">
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center border ${
+                    globalAlert.type === 'success' 
+                      ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]' 
+                      : globalAlert.type === 'error' 
+                      ? 'bg-rose-500/10 border-rose-400/30 text-rose-400 shadow-[0_0_15px_rgba(251,113,133,0.3)]' 
+                      : 'bg-cyan-500/10 border-cyan-400/30 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.3)]'
+                  }`}>
+                    {globalAlert.type === 'success' ? <CheckCircle2 className="w-8 h-8" /> :
+                     globalAlert.type === 'error' ? <XCircle className="w-8 h-8" /> :
+                     <AlertCircle className="w-8 h-8" />}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-white tracking-wide">
+                      {globalAlert.type === 'success' ? 'Berhasil' :
+                       globalAlert.type === 'error' ? 'Gagal' : 'Informasi'}
+                    </h3>
+                    <p className="text-sm text-cyan-100/80 mt-2 font-medium whitespace-pre-line leading-relaxed">{globalAlert.message}</p>
+                  </div>
+                  <button 
+                    onClick={() => setGlobalAlert(null)}
+                    className="w-full py-3.5 mt-2 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-white font-black rounded-xl border border-yellow-300/30 shadow-[0_4px_14px_rgba(245,166,0,0.3)] transition-all active:scale-[0.98] cursor-pointer"
+                  >
+                    Tutup
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        } else if (role === "parent") {
+          return (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+              <div className="bg-[#09090b] border border-white/10 p-6 rounded-3xl shadow-[0_20px_40px_rgba(0,0,0,0.8)] max-w-sm w-full animate-in zoom-in-95 duration-200 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full -mr-8 -mt-8 blur-2xl pointer-events-none"></div>
+                <div className="flex flex-col items-center text-center gap-4 relative z-10">
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center border ${
+                    globalAlert.type === 'success' 
+                      ? 'bg-[#10b981]/10 border-[#10b981]/30 text-[#34d399] shadow-[0_0_15px_rgba(16,185,129,0.15)]' 
+                      : globalAlert.type === 'error' 
+                      ? 'bg-[#f43f5e]/10 border-[#f43f5e]/30 text-[#fb7185] shadow-[0_0_15px_rgba(244,63,94,0.15)]' 
+                      : 'bg-[#3b82f6]/10 border-[#3b82f6]/30 text-[#60a5fa] shadow-[0_0_15px_rgba(59,130,246,0.15)]'
+                  }`}>
+                    {globalAlert.type === 'success' ? <CheckCircle2 className="w-8 h-8" /> :
+                     globalAlert.type === 'error' ? <XCircle className="w-8 h-8" /> :
+                     <AlertCircle className="w-8 h-8" />}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-extrabold text-white">
+                      {globalAlert.type === 'success' ? 'Berhasil' :
+                       globalAlert.type === 'error' ? 'Gagal' : 'Informasi'}
+                    </h3>
+                    <p className="text-sm text-slate-300 mt-2 font-medium whitespace-pre-line leading-relaxed">{globalAlert.message}</p>
+                  </div>
+                  <button 
+                    onClick={() => setGlobalAlert(null)}
+                    className="w-full py-3.5 mt-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold rounded-xl shadow-[0_4px_14px_rgba(59,130,246,0.2)] transition-all active:scale-[0.98] cursor-pointer"
+                  >
+                    Tutup
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        } else {
+          // Default / admin role styling
+          return (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="bg-[#1c1c2e] border border-white/10 p-6 rounded-2xl shadow-2xl max-w-sm w-full animate-in zoom-in-95 duration-200">
+                <div className="flex flex-col items-center text-center gap-4">
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
+                    globalAlert.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' :
+                    globalAlert.type === 'error' ? 'bg-rose-500/20 text-rose-400' :
+                    'bg-blue-500/20 text-blue-400'
+                  }`}>
+                    {globalAlert.type === 'success' ? <CheckCircle2 className="w-8 h-8" /> :
+                     globalAlert.type === 'error' ? <XCircle className="w-8 h-8" /> :
+                     <AlertCircle className="w-8 h-8" />}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">
+                      {globalAlert.type === 'success' ? 'Berhasil' :
+                       globalAlert.type === 'error' ? 'Gagal' : 'Informasi'}
+                    </h3>
+                    <p className="text-sm text-slate-300 mt-1 whitespace-pre-line leading-relaxed">{globalAlert.message}</p>
+                  </div>
+                  <button 
+                    onClick={() => setGlobalAlert(null)}
+                    className="w-full py-3 mt-2 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-all active:scale-[0.98] cursor-pointer"
+                  >
+                    Tutup
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        }
+      })()}
     </>
   );
 }
@@ -2520,7 +2690,7 @@ function StudentContentModal({
             <small>{(selectedTask as any).type || 'IdeQuest'}</small>
             <h3>{selectedTask.title}</h3>
             <div className="text-justify whitespace-pre-wrap text-[15px] leading-relaxed prose prose-sm max-w-none text-slate-700">
-              <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex, rehypeRaw]}>
+              <ReactMarkdown remarkPlugins={[remarkMath, remarkGfm]} rehypePlugins={[rehypeKatex, rehypeRaw]}>
                 {(selectedTask as any).description || (selectedTask as any).mission}
               </ReactMarkdown>
             </div>
@@ -2540,7 +2710,7 @@ function StudentContentModal({
                       }
                     }}
                   >
-                    <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex, rehypeRaw]}>{(selectedTask as any).content}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkMath, remarkGfm]} rehypePlugins={[rehypeKatex, rehypeRaw]}>{(selectedTask as any).content}</ReactMarkdown>
                   </div>
                 )}
                 {(selectedTask as any).type === 'video' && (
@@ -2605,7 +2775,7 @@ function StudentContentModal({
                                  <div className="font-medium text-slate-700 mb-3 flex items-start gap-2">
                                    <span className="text-slate-400">{i+1}.</span>
                                    <div className="prose prose-sm prose-blue max-w-none prose-p:my-0 flex-1">
-                                     <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex, rehypeRaw]}>{q.soal}</ReactMarkdown>
+                                     <ReactMarkdown remarkPlugins={[remarkMath, remarkGfm]} rehypePlugins={[rehypeKatex, rehypeRaw]}>{q.soal}</ReactMarkdown>
                                    </div>
                                  </div>
                                  <input 
@@ -2627,7 +2797,7 @@ function StudentContentModal({
                                         <div className="mt-2 p-2 bg-white/60 rounded text-slate-600 text-xs border border-slate-200/50">
                                           <strong className="block mb-1">Pembahasan:</strong> 
                                           <div className="prose prose-sm prose-blue max-w-none prose-p:my-0">
-                                            <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex, rehypeRaw]}>{q.pembahasan}</ReactMarkdown>
+                                            <ReactMarkdown remarkPlugins={[remarkMath, remarkGfm]} rehypePlugins={[rehypeKatex, rehypeRaw]}>{q.pembahasan}</ReactMarkdown>
                                           </div>
                                         </div>
                                       )}
@@ -3577,7 +3747,7 @@ function DianyssaWidget({ onClose }: { onClose: () => void }) {
                   m.content
                 ) : (
                   <div className="prose prose-sm prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-black/50 prose-pre:border prose-pre:border-slate-700 prose-pre:text-xs text-slate-200 overflow-x-auto">
-                    <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex, rehypeRaw]}>{m.content}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkMath, remarkGfm]} rehypePlugins={[rehypeKatex, rehypeRaw]}>{m.content}</ReactMarkdown>
                   </div>
                 )}
               </div>
@@ -4334,7 +4504,7 @@ function TeacherSpaceDashboard({
             </h3>
             <div className="prose prose-sm prose-invert prose-p:text-[rgba(226,245,255,0.76)] prose-li:text-[rgba(226,245,255,0.76)] prose-strong:text-amber-400 overflow-y-auto max-h-[60vh] pr-2">
               {guideModal === "quest" && (
-                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex, rehypeRaw]}>
+                <ReactMarkdown remarkPlugins={[remarkMath, remarkGfm]} rehypePlugins={[rehypeKatex, rehypeRaw]}>
                   {`
 **Membuat Kelas:**
 1. Masukkan nama kelas, mata pelajaran, dan jenjang.
@@ -4349,7 +4519,7 @@ function TeacherSpaceDashboard({
                 </ReactMarkdown>
               )}
               {guideModal === "studio" && (
-                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex, rehypeRaw]}>
+                <ReactMarkdown remarkPlugins={[remarkMath, remarkGfm]} rehypePlugins={[rehypeKatex, rehypeRaw]}>
                   {`
 **Membuat Materi:**
 1. Pilih tab 'Materi' dan buat materi baru.
@@ -4364,7 +4534,7 @@ function TeacherSpaceDashboard({
                 </ReactMarkdown>
               )}
               {guideModal === "rank" && (
-                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex, rehypeRaw]}>
+                <ReactMarkdown remarkPlugins={[remarkMath, remarkGfm]} rehypePlugins={[rehypeKatex, rehypeRaw]}>
                   {`
 **Radar Pintar:**
 Fitur ini menganalisis semua aktivitas siswa di kelas Anda:
@@ -4434,6 +4604,7 @@ Fitur ini menganalisis semua aktivitas siswa di kelas Anda:
       {/* Todo Panel Sidebar */}
       <TeacherTodoPanel
         todos={todos}
+        classes={teacherClasses}
         isOpen={showTodoPanel}
         onClose={() => setShowTodoPanel(false)}
         onTodosChange={setTodos}
@@ -4444,11 +4615,13 @@ Fitur ini menganalisis semua aktivitas siswa di kelas Anda:
 
 function TeacherTodoPanel({
   todos,
+  classes,
   isOpen,
   onClose,
   onTodosChange
 }: {
   todos: TeacherTodo[];
+  classes: TeacherClass[];
   isOpen: boolean;
   onClose: () => void;
   onTodosChange: (todos: TeacherTodo[]) => void;
@@ -4456,29 +4629,299 @@ function TeacherTodoPanel({
   const [search, setSearch] = useState("");
   const [filterPriority, setFilterPriority] = useState<"all" | "high" | "medium" | "low">("all");
   const [filterStatus, setFilterStatus] = useState<"active" | "done" | "all">("active");
+  const [filterCategory, setFilterCategory] = useState<"all" | "rpp" | "grading" | "teaching" | "other">("all");
+  const [filterClass, setFilterClass] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"dueDate" | "priority" | "createdAt">("priority");
+  
+  // AI Suggestions state
+  const [showAiSuggestions, setShowAiSuggestions] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<any[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [suggestError, setSuggestError] = useState("");
+
+  // Semester Plan Generator state
+  const [showSemesterGen, setShowSemesterGen] = useState(false);
+  const [genCp, setGenCp] = useState("");
+  const [genDays, setGenDays] = useState<number[]>([]);
+  const [genStartDate, setGenStartDate] = useState("2026-07-13");
+  const [genEndDate, setGenEndDate] = useState("2026-12-11");
+  const [genMaxMeetings, setGenMaxMeetings] = useState("");
+  const [genClassId, setGenClassId] = useState("");
+  const [loadingSemester, setLoadingSemester] = useState(false);
+  const [semesterError, setSemesterError] = useState("");
+  const [generatedMeetings, setGeneratedMeetings] = useState<any[]>([]);
+  const [showSemesterPreview, setShowSemesterPreview] = useState(false);
+
+  async function generateSemesterPlan() {
+    setLoadingSemester(true);
+    setSemesterError("");
+    try {
+      const res = await api<{ meetings: any[] }>("/api/teacher/todos/semester-plan", {
+        method: "POST",
+        body: JSON.stringify({
+          capaianPembelajaran: genCp,
+          teachingDays: genDays,
+          startDate: genStartDate,
+          endDate: genEndDate,
+          maxMeetings: genMaxMeetings ? parseInt(genMaxMeetings, 10) : undefined,
+          classId: genClassId || null
+        })
+      });
+      setGeneratedMeetings(res.meetings || []);
+      setShowSemesterPreview(true);
+      setShowSemesterGen(false);
+    } catch (err) {
+      setSemesterError(err instanceof Error ? err.message : "Gagal membuat program semester.");
+    } finally {
+      setLoadingSemester(false);
+    }
+  }
+
+  async function applySemesterPlan() {
+    setLoadingSemester(true);
+    setSemesterError("");
+    try {
+      const savedTodos: TeacherTodo[] = [];
+      for (const m of generatedMeetings) {
+        const res = await api<{ todo: TeacherTodo }>("/api/teacher/todos", {
+          method: "POST",
+          body: JSON.stringify({
+            title: m.title,
+            description: m.description,
+            priority: m.priority,
+            dueDate: m.dueDate,
+            classId: m.classId || null,
+            category: m.category || "teaching"
+          })
+        });
+        if (res.todo) {
+          savedTodos.push(res.todo);
+        }
+      }
+      onTodosChange([...todos, ...savedTodos]);
+      setShowSemesterPreview(false);
+      setGeneratedMeetings([]);
+    } catch (err) {
+      setSemesterError(err instanceof Error ? err.message : "Gagal menyimpan rincian tugas.");
+    } finally {
+      setLoadingSemester(false);
+    }
+  }
+
+  const exportToPDF = () => {
+    if (!generatedMeetings || generatedMeetings.length === 0) return;
+
+    const currentYear = new Date().getFullYear();
+    const rowsHtml = generatedMeetings.map((m, idx) => {
+      const cleanTopic = m.title.replace(/^Pertemuan\s+\d+:\s*/i, "");
+      const unitText = m.unit || "-";
+      const elemenText = m.elemen || "-";
+      const meetingNum = m.meetingNumber || (idx + 1);
+
+      return `
+        <tr>
+          <td style="border: 1px solid #e2e8f0; padding: 8px 12px; vertical-align: top;">${unitText}</td>
+          <td style="border: 1px solid #e2e8f0; padding: 8px 12px; vertical-align: top; text-align: center;">${meetingNum}</td>
+          <td style="border: 1px solid #e2e8f0; padding: 8px 12px; vertical-align: top;">
+            <div style="font-weight: 600; color: #0f172a; margin-bottom: 2px;">${cleanTopic}</div>
+            <div style="font-size: 9px; color: #64748b;">${m.description}</div>
+          </td>
+          <td style="border: 1px solid #e2e8f0; padding: 8px 12px; vertical-align: top;">${elemenText}</td>
+        </tr>
+      `;
+    }).join("");
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Gagal membuka jendela cetak. Pastikan pop-up diperbolehkan di browser Anda.");
+      return;
+    }
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Program Semester - Dianyssa</title>
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 20mm 20mm 30mm 20mm;
+            }
+            body {
+              font-family: 'Inter', sans-serif;
+              color: #1e293b;
+              margin: 0;
+              padding: 0;
+              font-size: 11px;
+              line-height: 1.5;
+            }
+            tr {
+              page-break-inside: avoid;
+            }
+            .header {
+              margin-bottom: 24px;
+              border-bottom: 2px solid #e2e8f0;
+              padding-bottom: 12px;
+            }
+            .header h1 {
+              font-size: 18px;
+              font-weight: 800;
+              margin: 0 0 4px 0;
+              color: #0f172a;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .header p {
+              font-size: 10px;
+              color: #64748b;
+              margin: 0;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 30px;
+            }
+            th {
+              background-color: #f1f5f9;
+              color: #334155;
+              font-weight: 600;
+              text-transform: uppercase;
+              font-size: 9px;
+              letter-spacing: 0.5px;
+              padding: 8px 12px;
+              border: 1px solid #cbd5e1;
+            }
+            .footer {
+              position: fixed;
+              bottom: 0px;
+              left: 0;
+              right: 0;
+              text-align: center;
+              font-size: 9px;
+              color: #94a3b8;
+              padding: 10px 0;
+              border-top: 1px solid #f1f5f9;
+              background-color: white;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Program Semester</h1>
+            <p>Dibuat secara otomatis berdasarkan Capaian Pembelajaran & Rentang Tanggal Mengajar</p>
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 25%;">Unit / Bab</th>
+                <th style="width: 10%;">Pertemuan</th>
+                <th style="width: 50%;">Topik Bahasan</th>
+                <th style="width: 15%;">Elemen</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+          
+          <div class="footer">
+            Dibuat dengan ❤️ oleh Dianyssa ${currentYear}
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(function() {
+                window.close();
+              }, 100);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   const [showForm, setShowForm] = useState(false);
   const [editingTodo, setEditingTodo] = useState<TeacherTodo | null>(null);
   const [formTitle, setFormTitle] = useState("");
   const [formDesc, setFormDesc] = useState("");
   const [formPriority, setFormPriority] = useState<"high" | "medium" | "low">("medium");
   const [formDueDate, setFormDueDate] = useState("");
+  const [formClassId, setFormClassId] = useState("");
+  const [formCategory, setFormCategory] = useState("other");
   const [formBusy, setFormBusy] = useState(false);
   const [formError, setFormError] = useState("");
 
   const now = new Date();
 
-  const filtered = todos.filter((t) => {
-    const matchSearch = !search || t.title.toLowerCase().includes(search.toLowerCase()) || (t.description?.toLowerCase().includes(search.toLowerCase()) ?? false);
-    const matchPriority = filterPriority === "all" || t.priority === filterPriority;
-    const matchStatus = filterStatus === "all" || (filterStatus === "active" ? !t.isCompleted : t.isCompleted);
-    return matchSearch && matchPriority && matchStatus;
-  });
+  const priorityWeight = { high: 3, medium: 2, low: 1 };
+
+  const sortedAndFiltered = [...todos]
+    .filter((t) => {
+      const matchSearch = !search || t.title.toLowerCase().includes(search.toLowerCase()) || (t.description?.toLowerCase().includes(search.toLowerCase()) ?? false);
+      const matchPriority = filterPriority === "all" || t.priority === filterPriority;
+      const matchStatus = filterStatus === "all" || (filterStatus === "active" ? !t.isCompleted : t.isCompleted);
+      const matchCategory = filterCategory === "all" || t.category === filterCategory;
+      const matchClass = filterClass === "all" || t.classId === filterClass;
+      return matchSearch && matchPriority && matchStatus && matchCategory && matchClass;
+    })
+    .sort((a, b) => {
+      if (sortBy === "dueDate") {
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+      }
+      if (sortBy === "priority") {
+        return priorityWeight[b.priority] - priorityWeight[a.priority];
+      }
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
 
   const overdueCount = todos.filter(t => !t.isCompleted && t.dueDate && new Date(t.dueDate) < now).length;
 
+  async function loadAiSuggestions() {
+    setLoadingSuggestions(true);
+    setSuggestError("");
+    try {
+      const res = await api<{ suggestions: any[] }>("/api/teacher/todos/suggest", { method: "POST" });
+      setAiSuggestions(res.suggestions || []);
+      setShowAiSuggestions(true);
+    } catch (err) {
+      setSuggestError("Gagal memuat rekomendasi AI.");
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  }
+
+  async function addSuggestedTodo(suggested: { title: string; description: string; priority: "high" | "medium" | "low"; category: string; classId: string | null }) {
+    try {
+      const res = await api<{ todo: TeacherTodo }>("/api/teacher/todos", {
+        method: "POST",
+        body: JSON.stringify({
+          title: suggested.title,
+          description: suggested.description,
+          priority: suggested.priority,
+          category: suggested.category,
+          classId: suggested.classId || undefined
+        })
+      });
+      onTodosChange([res.todo, ...todos]);
+      setAiSuggestions(prev => prev.filter(s => s.title !== suggested.title));
+    } catch (err) {
+      alert("Gagal menambahkan tugas saran.");
+    }
+  }
+
   function openAddForm() {
     setEditingTodo(null);
-    setFormTitle(""); setFormDesc(""); setFormPriority("medium"); setFormDueDate("");
+    setFormTitle(""); 
+    setFormDesc(""); 
+    setFormPriority("medium"); 
+    setFormDueDate("");
+    setFormClassId("");
+    setFormCategory("other");
     setFormError("");
     setShowForm(true);
   }
@@ -4489,6 +4932,8 @@ function TeacherTodoPanel({
     setFormDesc(todo.description ?? "");
     setFormPriority(todo.priority);
     setFormDueDate(todo.dueDate ? todo.dueDate.slice(0, 16) : "");
+    setFormClassId(todo.classId ?? "");
+    setFormCategory(todo.category ?? "other");
     setFormError("");
     setShowForm(true);
   }
@@ -4502,12 +4947,14 @@ function TeacherTodoPanel({
     setFormBusy(true);
     setFormError("");
     try {
-      const dueDate = formDueDate ? new Date(formDueDate).toISOString() : undefined;
+      const dueDate = formDueDate ? new Date(formDueDate).toISOString() : null;
       const body = {
         title: formTitle.trim(),
-        description: formDesc.trim() || undefined,
+        description: formDesc.trim() || null,
         priority: formPriority,
-        dueDate
+        dueDate,
+        classId: formClassId || null,
+        category: formCategory
       };
       if (editingTodo) {
         const result = await api<{ todo: TeacherTodo }>(`/api/teacher/todos/${editingTodo.id}`, {
@@ -4554,6 +5001,13 @@ function TeacherTodoPanel({
     low: { label: "Rendah", color: "text-blue-400", bg: "bg-blue-500/10 border-blue-500/25", dot: "bg-blue-400" }
   };
 
+  const categoryConfig: Record<string, { label: string; bg: string; color: string }> = {
+    rpp: { label: "📚 RPP", bg: "bg-purple-500/10 border-purple-500/20", color: "text-purple-400" },
+    grading: { label: "📝 Nilai", bg: "bg-rose-500/10 border-rose-500/20", color: "text-rose-400" },
+    teaching: { label: "💻 Mengajar", bg: "bg-cyan-500/10 border-cyan-500/20", color: "text-cyan-400" },
+    other: { label: "⚙️ Lainnya", bg: "bg-slate-500/10 border-slate-500/20", color: "text-slate-400" }
+  };
+
   function getDueDateLabel(dueDate: string | null): { label: string; className: string } | null {
     if (!dueDate) return null;
     const due = new Date(dueDate);
@@ -4592,8 +5046,42 @@ function TeacherTodoPanel({
           </button>
         </div>
 
+        {/* Stats & Progress */}
+        <div className="px-5 py-4 border-b border-white/5 bg-white/5 space-y-3">
+          <div>
+            <div className="flex justify-between items-center text-[10px] font-bold text-white/50 mb-1.5 uppercase tracking-wider">
+              <span>Progres Selesai</span>
+              <span>{todos.filter(t => t.isCompleted).length} / {todos.length}</span>
+            </div>
+            <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all duration-500" 
+                style={{ width: `${todos.length > 0 ? (todos.filter(t => t.isCompleted).length / todos.length) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={loadAiSuggestions}
+              disabled={loadingSuggestions}
+              className="flex items-center justify-center gap-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/35 text-indigo-300 hover:text-indigo-200 text-[10px] font-bold py-2 px-1 rounded-xl transition-all shadow-md active:scale-98"
+            >
+              <Sparkles className={`w-3 h-3 ${loadingSuggestions ? 'animate-spin' : ''}`} />
+              {loadingSuggestions ? 'Analisis...' : 'Saran AI Harian'}
+            </button>
+            <button
+              onClick={() => setShowSemesterGen(true)}
+              className="flex items-center justify-center gap-1.5 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/35 text-violet-300 hover:text-violet-200 text-[10px] font-bold py-2 px-1 rounded-xl transition-all shadow-md active:scale-98"
+            >
+              <Calendar className="w-3 h-3 text-violet-400" />
+              Program Semester
+            </button>
+          </div>
+        </div>
+
         {/* Search & Filters */}
-        <div className="todo-panel__filters">
+        <div className="todo-panel__filters px-5 py-3 border-b border-white/5 space-y-2">
+          {/* Search Input */}
           <div className="flex items-center gap-2 bg-white/5 rounded-xl px-3 py-2 border border-white/10">
             <Search className="w-4 h-4 text-white/40 shrink-0" />
             <input
@@ -4601,43 +5089,88 @@ function TeacherTodoPanel({
               placeholder="Cari tugas..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="bg-transparent border-none outline-none text-sm text-white placeholder-white/40 w-full"
+              className="bg-transparent border-none outline-none text-xs text-white placeholder-white/40 w-full"
             />
           </div>
-          <div className="flex gap-2 mt-3">
-            <div className="flex gap-1 bg-white/5 rounded-lg p-1 border border-white/10 flex-1">
+
+          {/* Quick Filters */}
+          <div className="flex gap-2">
+            {/* Status Filter */}
+            <div className="flex bg-white/5 rounded-lg p-0.5 border border-white/10 flex-1">
               {(["active","done","all"] as const).map(s => (
-                <button key={s} onClick={() => setFilterStatus(s)} className={`flex-1 text-[10px] font-bold py-1 rounded-md transition-colors ${filterStatus === s ? 'bg-indigo-500 text-white' : 'text-white/50 hover:text-white/80'}`}>
+                <button key={s} onClick={() => setFilterStatus(s)} className={`flex-1 text-[9px] font-bold py-1 rounded transition-colors ${filterStatus === s ? 'bg-indigo-500 text-white' : 'text-white/50 hover:text-white/80'}`}>
                   {s === "active" ? "Aktif" : s === "done" ? "Selesai" : "Semua"}
                 </button>
               ))}
             </div>
+            {/* Sort Select */}
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as any)}
+              className="bg-white/5 border border-white/10 rounded-lg text-[10px] text-white/70 px-1.5 py-1 outline-none cursor-pointer"
+            >
+              <option value="priority">🔥 Prioritas</option>
+              <option value="dueDate">📅 Tenggat</option>
+              <option value="createdAt">🆕 Terbaru</option>
+            </select>
+          </div>
+
+          {/* Advanced Dropdowns */}
+          <div className="grid grid-cols-3 gap-1.5">
+            {/* Priority */}
             <select
               value={filterPriority}
               onChange={e => setFilterPriority(e.target.value as any)}
-              className="bg-white/5 border border-white/10 rounded-lg text-[11px] text-white/70 px-2 outline-none cursor-pointer"
+              className="bg-white/5 border border-white/10 rounded-lg text-[9px] text-white/70 p-1 outline-none cursor-pointer"
             >
-              <option value="all">Semua</option>
+              <option value="all">Prioritas</option>
               <option value="high">🔴 Tinggi</option>
               <option value="medium">🟡 Sedang</option>
               <option value="low">🔵 Rendah</option>
+            </select>
+
+            {/* Category */}
+            <select
+              value={filterCategory}
+              onChange={e => setFilterCategory(e.target.value as any)}
+              className="bg-white/5 border border-white/10 rounded-lg text-[9px] text-white/70 p-1 outline-none cursor-pointer"
+            >
+              <option value="all">Kategori</option>
+              <option value="rpp">📚 RPP</option>
+              <option value="grading">📝 Nilai</option>
+              <option value="teaching">💻 Mengajar</option>
+              <option value="other">⚙️ Lainnya</option>
+            </select>
+
+            {/* Class */}
+            <select
+              value={filterClass}
+              onChange={e => setFilterClass(e.target.value)}
+              className="bg-white/5 border border-white/10 rounded-lg text-[9px] text-white/70 p-1 outline-none cursor-pointer max-w-full truncate"
+            >
+              <option value="all">Kelas: Semua</option>
+              {classes.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
             </select>
           </div>
         </div>
 
         {/* Todo List */}
         <div className="todo-panel__list flex-1 overflow-y-auto">
-          {filtered.length === 0 && (
+          {sortedAndFiltered.length === 0 && (
             <div className="flex flex-col items-center justify-center py-14 text-center px-4">
               <CheckSquare className="w-10 h-10 text-white/15 mb-3" />
-              <p className="text-white/40 text-sm font-medium">
+              <p className="text-white/40 text-xs font-medium">
                 {todos.length === 0 ? "Belum ada tugas. Tambahkan yang pertama!" : "Tidak ada tugas yang cocok."}
               </p>
             </div>
           )}
-          {filtered.map(todo => {
+          {sortedAndFiltered.map(todo => {
             const pc = priorityConfig[todo.priority];
+            const cat = categoryConfig[todo.category ?? "other"] || categoryConfig.other;
             const dueMeta = getDueDateLabel(todo.dueDate);
+            const targetClass = classes.find(c => c.id === todo.classId);
             return (
               <div key={todo.id} className={`todo-item ${todo.isCompleted ? 'is-done' : ''} ${!todo.isCompleted && todo.dueDate && new Date(todo.dueDate) < now ? 'is-overdue' : ''}`}>
                 <button
@@ -4651,12 +5184,20 @@ function TeacherTodoPanel({
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-bold leading-tight ${todo.isCompleted ? 'line-through text-white/35' : 'text-white'}`}>{todo.title}</p>
                   {todo.description && <p className="text-[11px] text-white/45 mt-0.5 leading-relaxed line-clamp-2">{todo.description}</p>}
-                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                    <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${pc.bg} ${pc.color}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${pc.dot}`} />
+                  <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                    <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${pc.bg} ${pc.color}`}>
+                      <span className={`w-1 h-1 rounded-full ${pc.dot}`} />
                       {pc.label}
                     </span>
-                    {dueMeta && <span className={`text-[10px] ${dueMeta.className}`}>{dueMeta.label}</span>}
+                    <span className={`inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${cat.bg} ${cat.color}`}>
+                      {cat.label}
+                    </span>
+                    {targetClass && (
+                      <span className="inline-flex items-center text-[9px] font-medium text-slate-400 bg-slate-500/10 px-1.5 py-0.5 rounded-full border border-slate-500/20 max-w-[120px] truncate">
+                        🏫 {targetClass.name}
+                      </span>
+                    )}
+                    {dueMeta && <span className={`text-[9px] ${dueMeta.className}`}>{dueMeta.label}</span>}
                   </div>
                 </div>
                 <div className="flex flex-col gap-1 shrink-0">
@@ -4684,7 +5225,335 @@ function TeacherTodoPanel({
           </button>
         </div>
 
+        {/* AI Suggestions Overlay View */}
+        {showAiSuggestions && (
+          <div className="absolute inset-0 z-10 flex flex-col bg-[#0f1628]/95 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="flex items-center justify-between p-5 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-indigo-400" />
+                <h3 className="text-white font-black text-base">Rekomendasi AI</h3>
+              </div>
+              <button onClick={() => setShowAiSuggestions(false)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center">
+                <X className="w-4 h-4 text-white" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              <p className="text-[11px] text-white/60 leading-relaxed">
+                Asisten AI menganalisis profil dan modul ajar Anda untuk menyarankan tugas berikut:
+              </p>
+              {aiSuggestions.length === 0 ? (
+                <div className="text-center py-10 text-white/40 text-xs">
+                  Semua saran telah ditambahkan atau tidak ada saran baru.
+                </div>
+              ) : (
+                aiSuggestions.map((s, idx) => {
+                  const pc = priorityConfig[s.priority as "high"|"medium"|"low"] || priorityConfig.medium;
+                  const cat = categoryConfig[s.category] || categoryConfig.other;
+                  const targetClass = classes.find(c => c.id === s.classId);
+                  return (
+                    <div key={idx} className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col gap-2 relative group hover:border-indigo-500/30 transition-all">
+                      <div className="flex justify-between items-start gap-2">
+                        <h4 className="text-xs font-bold text-white leading-snug">{s.title}</h4>
+                        <button
+                          onClick={() => addSuggestedTodo(s)}
+                          className="shrink-0 text-[10px] font-black bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1 rounded-lg transition-all"
+                        >
+                          Tambah
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-white/50 leading-relaxed">{s.description}</p>
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${pc.bg} ${pc.color}`}>
+                          {pc.label}
+                        </span>
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${cat.bg} ${cat.color}`}>
+                          {cat.label}
+                        </span>
+                        {targetClass && (
+                          <span className="text-[9px] font-medium text-slate-400 bg-slate-500/10 px-1.5 py-0.5 rounded-full border border-slate-500/20">
+                            🏫 {targetClass.name}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Add/Edit Form Modal */}
+        {showSemesterGen && (
+          <div className="absolute inset-0 z-10 flex flex-col bg-[#0f1628]/95 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="flex items-center justify-between p-5 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-violet-400" />
+                <h3 className="text-white font-black text-base">Generator Semester</h3>
+              </div>
+              <button onClick={() => setShowSemesterGen(false)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center">
+                <X className="w-4 h-4 text-white" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-4 p-5 flex-1 overflow-y-auto">
+              {semesterError ? (
+                <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200 animate-pulse">
+                  {semesterError}
+                </div>
+              ) : null}
+              
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-black text-white/50 uppercase tracking-wider">Capaian Pembelajaran (CP) *</span>
+                <textarea
+                  value={genCp}
+                  onChange={e => setGenCp(e.target.value)}
+                  placeholder="Tempel kompetensi atau capaian pembelajaran kelas di sini..."
+                  rows={4}
+                  className="todo-form-input py-2 resize-none text-xs"
+                  required
+                />
+              </label>
+
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-black text-white/50 uppercase tracking-wider">Hari Mengajar *</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { label: "Senin", val: 1 },
+                    { label: "Selasa", val: 2 },
+                    { label: "Rabu", val: 3 },
+                    { label: "Kamis", val: 4 },
+                    { label: "Jumat", val: 5 }
+                  ].map(d => {
+                    const isSelected = genDays.includes(d.val);
+                    return (
+                      <button
+                        key={d.val}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setGenDays(genDays.filter(x => x !== d.val));
+                          } else {
+                            setGenDays([...genDays, d.val].sort());
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all ${
+                          isSelected
+                            ? "bg-violet-600 border-violet-500 text-white shadow-md shadow-violet-500/20"
+                            : "bg-white/5 border-white/10 text-white/60 hover:text-white"
+                        }`}
+                      >
+                        {d.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-black text-white/50 uppercase tracking-wider">Tanggal Mulai *</span>
+                  <input
+                    type="date"
+                    value={genStartDate}
+                    onChange={e => setGenStartDate(e.target.value)}
+                    className="todo-form-input text-xs"
+                    required
+                  />
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-black text-white/50 uppercase tracking-wider">Tanggal Selesai *</span>
+                  <input
+                    type="date"
+                    value={genEndDate}
+                    onChange={e => setGenEndDate(e.target.value)}
+                    className="todo-form-input text-xs"
+                    required
+                  />
+                </label>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-black text-white/50 uppercase tracking-wider">Maks Pertemuan</span>
+                  <input
+                    type="number"
+                    value={genMaxMeetings}
+                    onChange={e => setGenMaxMeetings(e.target.value)}
+                    placeholder="Contoh: 16"
+                    className="todo-form-input text-xs"
+                  />
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-black text-white/50 uppercase tracking-wider">Kelas</span>
+                  <select
+                    value={genClassId}
+                    onChange={e => setGenClassId(e.target.value)}
+                    className="todo-form-input text-xs cursor-pointer"
+                  >
+                    <option value="">(Umum / Tanpa Kelas)</option>
+                    {classes.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <button
+                type="button"
+                onClick={generateSemesterPlan}
+                disabled={loadingSemester || !genCp.trim() || genDays.length === 0}
+                className="w-full mt-2 flex items-center justify-center gap-2 bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-400 hover:to-indigo-500 text-white font-bold rounded-xl py-3 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
+              >
+                {loadingSemester ? (
+                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                ) : (
+                  <Sparkles className="w-4 h-4 text-violet-200" />
+                )}
+                {loadingSemester ? 'Memproses Rencana AI...' : 'Rencanakan Pembelajaran'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showSemesterPreview && (
+          <div className="absolute inset-0 z-10 flex flex-col bg-[#0f1628]/95 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="flex items-center justify-between p-5 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-violet-400" />
+                <h3 className="text-white font-black text-base">Pratinjau Jadwal</h3>
+              </div>
+              <button 
+                onClick={() => {
+                  setShowSemesterPreview(false);
+                  setShowSemesterGen(true);
+                }} 
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center"
+              >
+                <X className="w-4 h-4 text-white" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              <p className="text-[11px] text-white/60 leading-relaxed">
+                Tinjau jadwal materi semester hasil pembagian AI berikut. Anda dapat menyesuaikan secara langsung sebelum menyimpan:
+              </p>
+              {generatedMeetings.map((m, idx) => {
+                const targetClass = classes.find(c => c.id === m.classId);
+                const dateLabel = new Date(m.dueDate).toLocaleDateString("id-ID", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric"
+                });
+                return (
+                  <div key={idx} className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col gap-2 hover:border-violet-500/30 transition-all">
+                    <div className="flex flex-col gap-1">
+                      <div className="text-[9px] font-black text-violet-400 uppercase tracking-widest">
+                        📆 {dateLabel}
+                      </div>
+                      <input
+                        type="text"
+                        value={m.title}
+                        onChange={e => {
+                          const updated = [...generatedMeetings];
+                          updated[idx].title = e.target.value;
+                          setGeneratedMeetings(updated);
+                        }}
+                        className="bg-transparent border-none p-0 text-xs font-bold text-white outline-none focus:ring-1 focus:ring-violet-500/50 rounded px-1 -mx-1"
+                      />
+                    </div>
+                    <textarea
+                      value={m.description}
+                      onChange={e => {
+                        const updated = [...generatedMeetings];
+                        updated[idx].description = e.target.value;
+                        setGeneratedMeetings(updated);
+                      }}
+                      rows={2}
+                      className="bg-transparent border-none p-0 text-[10px] text-white/60 leading-relaxed outline-none focus:ring-1 focus:ring-violet-500/50 rounded px-1 -mx-1 resize-none"
+                    />
+                    <div className="flex items-center justify-between gap-1.5 mt-1 flex-wrap">
+                      <div className="flex items-center gap-1.5">
+                        <select
+                          value={m.priority}
+                          onChange={e => {
+                            const updated = [...generatedMeetings];
+                            updated[idx].priority = e.target.value;
+                            setGeneratedMeetings(updated);
+                          }}
+                          className="bg-white/5 border border-white/10 rounded text-[9px] text-white/70 p-0.5 outline-none cursor-pointer"
+                        >
+                          <option value="high">🔴 Tinggi</option>
+                          <option value="medium">🟡 Sedang</option>
+                          <option value="low">🔵 Rendah</option>
+                        </select>
+                        <select
+                          value={m.category}
+                          onChange={e => {
+                            const updated = [...generatedMeetings];
+                            updated[idx].category = e.target.value;
+                            setGeneratedMeetings(updated);
+                          }}
+                          className="bg-white/5 border border-white/10 rounded text-[9px] text-white/70 p-0.5 outline-none cursor-pointer"
+                        >
+                          <option value="teaching">💻 Mengajar</option>
+                          <option value="rpp">📚 RPP</option>
+                          <option value="grading">📝 Nilai</option>
+                          <option value="other">⚙️ Lainnya</option>
+                        </select>
+                      </div>
+                      <input
+                        type="date"
+                        value={m.dueDate}
+                        onChange={e => {
+                          const updated = [...generatedMeetings];
+                          updated[idx].dueDate = e.target.value;
+                          setGeneratedMeetings(updated);
+                        }}
+                        className="bg-white/5 border border-white/10 rounded text-[9px] text-white/70 px-1 py-0.5 outline-none cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="p-5 border-t border-white/10 flex gap-2">
+              <button
+                onClick={() => {
+                  setShowSemesterPreview(false);
+                  setShowSemesterGen(true);
+                }}
+                className="flex-1 md:flex-initial bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl p-2.5 md:px-4 text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={exportToPDF}
+                className="flex-1 md:flex-initial bg-violet-600/30 hover:bg-violet-600/50 text-violet-200 border border-violet-500/30 font-bold rounded-xl p-2.5 md:px-4 text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={applySemesterPlan}
+                disabled={loadingSemester}
+                className="flex-[3] md:flex-[2] bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-400 hover:to-indigo-500 text-white font-bold rounded-xl py-2.5 text-xs transition-all shadow-lg active:scale-95 flex items-center justify-center gap-1.5"
+              >
+                {loadingSemester ? (
+                  <svg className="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                )}
+                {loadingSemester ? 'Menyimpan...' : 'Terapkan ke To-Do List'}
+              </button>
+            </div>
+          </div>
+        )}
+        
         {showForm && (
           <div className="absolute inset-0 z-10 flex flex-col bg-[#0f1628]/95 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="flex items-center justify-between p-5 border-b border-white/10">
@@ -4716,10 +5585,43 @@ function TeacherTodoPanel({
                   value={formDesc}
                   onChange={e => setFormDesc(e.target.value)}
                   placeholder="Detail tambahan tentang tugas ini..."
-                  rows={3}
+                  rows={2}
                   className="todo-form-input resize-none"
                 />
               </label>
+
+              <div className="grid grid-cols-2 gap-3">
+                {/* Category Selection */}
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs font-bold text-white/60 uppercase tracking-wider">Kategori</span>
+                  <select
+                    value={formCategory}
+                    onChange={e => setFormCategory(e.target.value)}
+                    className="todo-form-input appearance-none cursor-pointer"
+                  >
+                    <option value="other">⚙️ Lainnya</option>
+                    <option value="rpp">📚 RPP / Modul</option>
+                    <option value="grading">📝 Penilaian</option>
+                    <option value="teaching">💻 Pengajaran</option>
+                  </select>
+                </label>
+
+                {/* Class Association */}
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs font-bold text-white/60 uppercase tracking-wider">Hubungkan Kelas</span>
+                  <select
+                    value={formClassId}
+                    onChange={e => setFormClassId(e.target.value)}
+                    className="todo-form-input appearance-none cursor-pointer max-w-full truncate"
+                  >
+                    <option value="">Tidak ada</option>
+                    {classes.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
               <div>
                 <span className="text-xs font-bold text-white/60 uppercase tracking-wider block mb-2">Prioritas</span>
                 <div className="flex gap-2">
@@ -4733,6 +5635,7 @@ function TeacherTodoPanel({
                   })}
                 </div>
               </div>
+
               <label className="flex flex-col gap-1.5">
                 <span className="text-xs font-bold text-white/60 uppercase tracking-wider">Tenggat Waktu (opsional)</span>
                 <input
@@ -4742,6 +5645,7 @@ function TeacherTodoPanel({
                   className="todo-form-input"
                 />
               </label>
+              
               <button type="submit" disabled={formBusy || !formTitle.trim()} className="mt-auto bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-400 hover:to-indigo-500 text-white font-black rounded-xl py-3 transition-all disabled:opacity-50 shadow-lg shadow-indigo-500/20">
                 {formBusy ? "Menyimpan..." : editingTodo ? "Perbarui Tugas" : "Simpan Tugas"}
               </button>
@@ -6735,7 +7639,7 @@ function LoginScreen({
               Dipublikasikan oleh Tim IdeTech
             </p>
             <div className="prose prose-slate max-w-none prose-img:rounded-2xl prose-img:shadow-sm prose-headings:text-slate-800 prose-a:text-blue-600 hover:prose-a:text-blue-700 prose-h1:text-3xl prose-h2:text-2xl prose-h2:mt-10 prose-p:leading-relaxed">
-              <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeKatex]} remarkPlugins={[remarkMath]}>{readingBlog.content}</ReactMarkdown>
+              <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeKatex]} remarkPlugins={[remarkMath, remarkGfm]}>{readingBlog.content}</ReactMarkdown>
             </div>
           </section>
         )}
@@ -8905,19 +9809,26 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
       )}
 
       {alertMsg && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#1c1c2e] border border-white/10 p-6 rounded-2xl shadow-2xl max-w-sm w-full animate-in zoom-in-95 duration-200">
-            <div className="flex flex-col items-center text-center gap-4">
-              <div className={`w-16 h-16 rounded-full flex items-center justify-center ${alertMsg.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
-                {alertMsg.type === 'success' ? <CheckCircle2 className="w-8 h-8" /> : <Frown className="w-8 h-8" />}
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#0c1844] border-2 border-cyan-500/30 p-6 rounded-[36px] shadow-[0_0_30px_rgba(6,25,120,0.6),inset_0_1px_0_rgba(255,255,255,0.1)] max-w-sm w-full animate-in zoom-in-95 duration-200 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full -mr-10 -mt-10 blur-3xl pointer-events-none"></div>
+            <div className="flex flex-col items-center text-center gap-4 relative z-10">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center border ${
+                alertMsg.type === 'success' 
+                  ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]' 
+                  : 'bg-rose-500/10 border-rose-400/30 text-rose-400 shadow-[0_0_15px_rgba(251,113,133,0.3)]'
+              }`}>
+                {alertMsg.type === 'success' ? <CheckCircle2 className="w-8 h-8" /> : <XCircle className="w-8 h-8" />}
               </div>
               <div>
-                <h3 className="text-lg font-bold text-white">{alertMsg.type === 'success' ? 'Berhasil' : 'Gagal'}</h3>
-                <p className="text-sm text-slate-300 mt-1">{alertMsg.text}</p>
+                <h3 className="text-xl font-black text-white tracking-wide">
+                  {alertMsg.type === 'success' ? 'Berhasil' : 'Gagal'}
+                </h3>
+                <p className="text-sm text-cyan-100/80 mt-2 font-medium whitespace-pre-line leading-relaxed">{alertMsg.text}</p>
               </div>
               <button 
                 onClick={closeAlert}
-                className="w-full py-3 mt-2 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-colors"
+                className="w-full py-3.5 mt-2 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-white font-black rounded-xl border border-yellow-300/30 shadow-[0_4px_14px_rgba(245,166,0,0.3)] transition-all active:scale-[0.98] cursor-pointer"
               >
                 Tutup
               </button>
@@ -8991,7 +9902,7 @@ function TeacherChatWidget({ isOpen, onClose }: { isOpen: boolean; onClose: () =
       setQuotaInfo({ remaining: quotaCheck.remaining, resetAt: quotaCheck.resetAt, limit: quotaCheck.limit || 5 });
 
       const history = messages.slice(1).map((m) => ({ role: m.role === "bot" ? "assistant" : "user", content: m.text }));
-      const response = await fetch("https://cybrabot.ferilee.gurumuda.eu.org/api/integration/chat", {
+      const response = await fetch("https://asisten.ferilee.gurumuda.eu.org/api/integration/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userMessage, history })
@@ -9032,7 +9943,7 @@ function TeacherChatWidget({ isOpen, onClose }: { isOpen: boolean; onClose: () =
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 shadow-sm ${m.role === "user" ? "bg-blue-600 text-white rounded-br-sm" : "bg-white/10 text-slate-200 border border-white/5 rounded-bl-sm prose prose-invert prose-sm max-w-none"}`}>
-              {m.role === "user" ? m.text : <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{m.text}</ReactMarkdown>}
+              {m.role === "user" ? m.text : <ReactMarkdown remarkPlugins={[remarkMath, remarkGfm]} rehypePlugins={[rehypeKatex]}>{m.text}</ReactMarkdown>}
             </div>
           </div>
         ))}

@@ -20,9 +20,9 @@
     "driver.js": "^1.6.0",
     "drizzle-orm": "^0.38.4",
     "hono": "^4.6.15",
-    "mysql2": "^3.11.0",
     "katex": "^0.17.0",
     "lucide-react": "^0.468.0",
+    "mysql2": "^3.11.0",
     "nanoid": "^5.0.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -30,6 +30,7 @@
     "react-player": "^2.16.0",
     "rehype-katex": "^7.0.1",
     "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7"

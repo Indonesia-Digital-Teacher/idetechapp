@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Sparkles, BookOpen, Clock, Users, ChevronRight, FileText, Download, ChevronUp, ChevronDown, Share2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
+import remarkGfm from 'remark-gfm';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 
@@ -301,7 +302,7 @@ Formatlah menggunakan Markdown dengan struktur yang rapi (Informasi Umum, Kompon
                 </div>
                 <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
                   <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm prose prose-sm md:prose-base prose-blue max-w-none prose-headings:font-black prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-p:text-slate-600 prose-li:text-slate-600">
-                    <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex, rehypeRaw]}>
+                    <ReactMarkdown remarkPlugins={[remarkMath, remarkGfm]} rehypePlugins={[rehypeKatex, rehypeRaw]}>
                       {result}
                     </ReactMarkdown>
                   </div>
@@ -314,3 +315,4 @@ Formatlah menggunakan Markdown dengan struktur yang rapi (Informasi Umum, Kompon
     </div>
   );
 }
+
