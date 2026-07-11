@@ -952,6 +952,7 @@ function App() {
           user={user}
           quotes={welcomeQuotes}
           aiQuota={welcomeAiQuota}
+          adminContact={adminContact}
           onClose={() => {
             const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
             localStorage.setItem(`idetech_greeting_${user.id}_${today}`, "1");
@@ -10658,11 +10659,13 @@ function WelcomeGreetingModal({
   user,
   quotes,
   aiQuota,
+  adminContact = "6281234567890",
   onClose
 }: {
   user: AuthUser;
   quotes: WelcomeQuote[];
-  aiQuota: { limit: number; used: number; remaining: number } | null;
+  aiQuota: { limit: number; used: number; remaining: number; resetAt?: string } | null;
+  adminContact?: string;
   onClose: () => void;
 }) {
   const role = user.activeRole as "teacher" | "student" | "parent";
@@ -10831,25 +10834,37 @@ function WelcomeGreetingModal({
 
           {/* AI Quota Information for Teachers/Admins */}
           {role === "teacher" && aiQuota && (
-            <div className="bg-indigo-950/40 border border-indigo-500/20 rounded-2xl p-4 mb-6 text-center welcome-quote-fade">
-              <div className="flex items-center justify-center gap-2 mb-1.5">
+            <div className="bg-indigo-950/40 border border-indigo-500/20 rounded-2xl p-4 mb-6 text-center welcome-quote-fade flex flex-col gap-2">
+              <div className="flex items-center justify-center gap-2">
                 <span className="text-indigo-400">⚡</span>
                 <h4 className="text-xs font-extrabold tracking-wider uppercase text-indigo-300">
                   Kuota AI Generator Anda
                 </h4>
               </div>
               <p className="text-2xl font-black text-white">
-                {aiQuota.remaining} <span className="text-xs font-normal text-slate-400">dari {aiQuota.limit} tersedia hari ini</span>
+                {aiQuota.remaining} <span className="text-xs font-normal text-slate-400">dari {aiQuota.limit} tersedia</span>
               </p>
               {aiQuota.limit === 3 ? (
-                <p className="text-[10px] mt-1.5 text-indigo-300 bg-indigo-500/10 py-1.5 px-2 rounded-lg border border-indigo-500/20 inline-block">
+                <p className="text-[10px] text-indigo-300 bg-indigo-500/10 py-1.5 px-2 rounded-lg border border-indigo-500/20 inline-block self-center">
                   🎉 Hari Pertama: Kuota Ekstra 3x untuk Eksplorasi!
                 </p>
+              ) : aiQuota.resetAt ? (
+                <p className="text-[10px] text-indigo-300 bg-indigo-500/10 py-1.5 px-2 rounded-lg border border-indigo-500/20 inline-block self-center">
+                  🔄 Direset otomatis pada pukul {new Date(aiQuota.resetAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                </p>
               ) : (
-                <p className="text-[10px] mt-1.5 text-slate-400">
-                  Kuota harian direset otomatis setiap pukul 06:00 WIB.
+                <p className="text-[10px] text-slate-400">
+                  Kuota direset otomatis setiap 3 jam.
                 </p>
               )}
+              <a
+                href={`https://wa.me/${adminContact}?text=Halo%20Admin%20IdeTech%2C%20saya%20ingin%20membeli%20tambahan%20kuota%20AI%20Generator.`}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors flex items-center justify-center gap-1"
+              >
+                💬 Hubungi Admin jika ingin mendapatkan kuota tambahan (berbayar)
+              </a>
             </div>
           )}
 

@@ -35,7 +35,7 @@ import {
 import type { RoleName } from "../db/schema";
 import { type AppEnv, authRequired, requirePermission, requireRole } from "../lib/auth";
 import { writeActivityLog } from "../lib/activity";
-import { getChatQuotaConfig, getAiGenerationQuotaConfig } from "../lib/settings";
+import { getChatQuotaConfig, getAiGenerationQuotaConfig, getGeneralSettings } from "../lib/settings";
 import { getS3Config } from "../lib/storage";
 import { dashboardCatalog, permissionCatalog, roleCatalog, studentQuestCatalog } from "../lib/catalog";
 import authRoutes from "./auth";
@@ -607,55 +607,108 @@ app.delete("/admin/announcements/:id", requireRole(["admin"]), async (c) => {
   return c.json({ ok: true });
 });
 
+// --- AI GENERATION QUOTAS HELPERS ---
+
+async function getAiQuotaStatus(userId: string, email: string) {
+  const now = new Date();
+  const windowMs = 3 * 60 * 60 * 1000; // 3 hours
+
+  const [dbUser] = await db
+    .select({ createdAt: users.createdAt })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  const userCreatedAt = dbUser?.createdAt ?? new Date();
+  const isFirst24Hours = now.getTime() - userCreatedAt.getTime() < 24 * 60 * 60 * 1000;
+
+  const { defaultLimit, overrides } = await getAiGenerationQuotaConfig();
+  const limit = isFirst24Hours 
+    ? 3 
+    : (overrides[email] !== undefined ? overrides[email] : defaultLimit);
+
+  const [quota] = await db.select().from(aiGenerationQuotas).where(eq(aiGenerationQuotas.userId, userId)).limit(1);
+
+  let used = 0;
+  let resetAt = new Date(now.getTime() + windowMs).toISOString();
+
+  if (quota) {
+    const isExpired = now.getTime() - quota.lastResetAt.getTime() > windowMs;
+    if (!isExpired) {
+      used = quota.generationsCount;
+      resetAt = new Date(quota.lastResetAt.getTime() + windowMs).toISOString();
+    }
+  }
+
+  return {
+    limit,
+    used,
+    remaining: Math.max(0, limit - used),
+    resetAt
+  };
+}
+
+async function checkAndConsumeAiQuota(userId: string, email: string): Promise<{ allowed: boolean; message?: string }> {
+  const now = new Date();
+  const windowMs = 3 * 60 * 60 * 1000; // 3 hours
+  const status = await getAiQuotaStatus(userId, email);
+  const generalSettings = await getGeneralSettings();
+  const adminContactWa = generalSettings.adminContactWa || "6281234567890";
+
+  if (status.remaining <= 0) {
+    const nextReset = new Date(status.resetAt);
+    const diffMs = nextReset.getTime() - now.getTime();
+    const hoursLeft = Math.max(0.1, diffMs / (60 * 60 * 1000));
+    const nextResetMsg = hoursLeft >= 1 
+      ? `dalam ${Math.ceil(hoursLeft)} jam` 
+      : `dalam ${Math.ceil(hoursLeft * 60)} menit`;
+    return {
+      allowed: false,
+      message: `Kuota untuk Generate AI (RPP/Materi/Quest/Program Semester) sudah habis. Maksimal ${status.limit} kali per 3 jam. Silakan coba lagi ${nextResetMsg}. Hubungi Admin jika ingin mendapatkan kuota tambahan (berbayar): https://wa.me/${adminContactWa}?text=Halo%20Admin%20IdeTech%2C%20saya%20ingin%20membeli%20tambahan%20kuota%20AI%20Generator.`
+    };
+  }
+
+  const [quota] = await db.select().from(aiGenerationQuotas).where(eq(aiGenerationQuotas.userId, userId)).limit(1);
+
+  if (!quota) {
+    await db.insert(aiGenerationQuotas).values({
+      id: `aig_${nanoid(12)}`,
+      userId: userId,
+      generationsCount: 1,
+      lastResetAt: now,
+      updatedAt: now
+    });
+  } else {
+    const isExpired = now.getTime() - quota.lastResetAt.getTime() > windowMs;
+    if (isExpired) {
+      await db.update(aiGenerationQuotas).set({
+        generationsCount: 1,
+        lastResetAt: now,
+        updatedAt: now
+      }).where(eq(aiGenerationQuotas.id, quota.id));
+    } else {
+      await db.update(aiGenerationQuotas).set({
+        generationsCount: quota.generationsCount + 1,
+        updatedAt: now
+      }).where(eq(aiGenerationQuotas.id, quota.id));
+    }
+  }
+
+  return { allowed: true };
+}
+
 // --- WELCOME QUOTES ENDPOINTS ---
 
 // Public: fetch active quotes per role (called on client after login)
 app.get("/welcome-quotes", authRequired, async (c) => {
   const user = c.get("authUser");
-  const { getWelcomeQuotesConfig, getAiGenerationQuotaConfig } = await import("../lib/settings");
+  const { getWelcomeQuotesConfig } = await import("../lib/settings");
   const config = await getWelcomeQuotesConfig();
 
   let aiQuota = null;
 
   if (user.activeRole === "teacher" || user.activeRole === "admin") {
-    const now = new Date();
-    
-    // Calculate most recent 06:00 AM
-    const last06 = new Date(now);
-    if (now.getHours() < 6) {
-      last06.setDate(last06.getDate() - 1);
-    }
-    last06.setHours(6, 0, 0, 0);
-
-    const [dbUser] = await db
-      .select({ createdAt: users.createdAt })
-      .from(users)
-      .where(eq(users.id, user.id))
-      .limit(1);
-
-    const userCreatedAt = dbUser?.createdAt ?? new Date();
-    const isFirst24Hours = now.getTime() - userCreatedAt.getTime() < 24 * 60 * 60 * 1000;
-
-    const { defaultLimit, overrides } = await getAiGenerationQuotaConfig();
-    const limit = isFirst24Hours 
-      ? 3 
-      : (overrides[user.email] !== undefined ? overrides[user.email] : defaultLimit);
-
-    let [quota] = await db.select().from(aiGenerationQuotas).where(eq(aiGenerationQuotas.userId, user.id)).limit(1);
-
-    let used = 0;
-    if (quota) {
-      const isExpired = quota.lastResetAt.getTime() < last06.getTime();
-      if (!isExpired) {
-        used = quota.generationsCount;
-      }
-    }
-
-    aiQuota = {
-      limit,
-      used,
-      remaining: Math.max(0, limit - used)
-    };
+    aiQuota = await getAiQuotaStatus(user.id, user.email);
   }
 
   return c.json({ quotes: config.quotes, aiQuota });
@@ -1391,6 +1444,12 @@ app.post("/teacher/todos/semester-plan", requireRole(["teacher", "admin"]), asyn
   }
   if (!body.startDate || !body.endDate) {
     return c.json({ message: "Tanggal awal dan akhir semester wajib diisi." }, 400);
+  }
+
+  // Quota check/consume for semester plan
+  const quotaCheck = await checkAndConsumeAiQuota(user.id, user.email);
+  if (!quotaCheck.allowed) {
+    return c.json({ message: quotaCheck.message }, 429);
   }
 
   const dates: string[] = [];
@@ -2154,56 +2213,9 @@ app.post("/teacher/generate-ai", requireRole(["teacher", "admin"]), requirePermi
   const body = (await c.req.json().catch(() => ({}))) as { prompt: string };
   if (!body.prompt) return c.json({ message: "Prompt tidak boleh kosong." }, 400);
 
-  const now = new Date();
-  
-  // Calculate most recent 06:00 AM
-  const last06 = new Date(now);
-  if (now.getHours() < 6) {
-    last06.setDate(last06.getDate() - 1);
-  }
-  last06.setHours(6, 0, 0, 0);
-
-  const [dbUser] = await db
-    .select({ createdAt: users.createdAt })
-    .from(users)
-    .where(eq(users.id, user.id))
-    .limit(1);
-
-  const userCreatedAt = dbUser?.createdAt ?? new Date();
-  const isFirst24Hours = now.getTime() - userCreatedAt.getTime() < 24 * 60 * 60 * 1000;
-
-  const { defaultLimit, overrides } = await getAiGenerationQuotaConfig();
-  const limit = isFirst24Hours 
-    ? 3 
-    : (overrides[user.email] !== undefined ? overrides[user.email] : defaultLimit);
-
-  let [quota] = await db.select().from(aiGenerationQuotas).where(eq(aiGenerationQuotas.userId, user.id)).limit(1);
-
-  if (!quota) {
-    await db.insert(aiGenerationQuotas).values({
-      id: `aig_${nanoid(12)}`,
-      userId: user.id,
-      generationsCount: 1,
-      lastResetAt: now,
-      updatedAt: now
-    });
-  } else {
-    const isExpired = quota.lastResetAt.getTime() < last06.getTime();
-    if (isExpired) {
-      await db.update(aiGenerationQuotas).set({
-        generationsCount: 1,
-        lastResetAt: now,
-        updatedAt: now
-      }).where(eq(aiGenerationQuotas.id, quota.id));
-    } else {
-      if (quota.generationsCount >= limit) {
-        return c.json({ message: `Kuota harian untuk Generate AI (RPP/Materi/Quest) sudah habis. Maksimal ${limit} kali per hari.` }, 429);
-      }
-      await db.update(aiGenerationQuotas).set({
-        generationsCount: quota.generationsCount + 1,
-        updatedAt: now
-      }).where(eq(aiGenerationQuotas.id, quota.id));
-    }
+  const quotaCheck = await checkAndConsumeAiQuota(user.id, user.email);
+  if (!quotaCheck.allowed) {
+    return c.json({ message: quotaCheck.message }, 429);
   }
 
   try {
