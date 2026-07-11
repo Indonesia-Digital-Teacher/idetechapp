@@ -3065,6 +3065,44 @@ app.get("/student/indicators", requireRole(["student"]), async (c) => {
       return ta - tb;
     })[0];
 
+  let leaderboard: Array<{ name: string; avatarUrl: string | null; points: number; isMe: boolean }> = [];
+  if (activeClass) {
+    const studentsInClass = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        avatarUrl: users.avatarUrl,
+        welcomeBonusClaimed: users.welcomeBonusClaimed,
+      })
+      .from(classStudents)
+      .innerJoin(users, eq(classStudents.studentUserId, users.id))
+      .where(eq(classStudents.classId, activeClass.id));
+
+    const studentIds = studentsInClass.map((s) => s.id);
+    if (studentIds.length > 0) {
+      const allQuestProgress = await db
+        .select({
+          studentUserId: studentQuestProgress.studentUserId,
+          earnedPoints: studentQuestProgress.earnedPoints,
+        })
+        .from(studentQuestProgress)
+        .where(inArray(studentQuestProgress.studentUserId, studentIds));
+
+      leaderboard = studentsInClass.map((s) => {
+        const studentProgress = allQuestProgress.filter((p) => p.studentUserId === s.id);
+        const basePoints = studentProgress.reduce((sum, p) => sum + p.earnedPoints, 0);
+        const total = basePoints + (s.welcomeBonusClaimed ? 100 : 0);
+        return {
+          name: s.name,
+          avatarUrl: s.avatarUrl,
+          points: total,
+          isMe: s.id === user.id
+        };
+      });
+      leaderboard.sort((a, b) => b.points - a.points);
+    }
+  }
+
   return c.json({
     left: [
       {
@@ -3135,7 +3173,8 @@ app.get("/student/indicators", requireRole(["student"]), async (c) => {
         earnedBadges,
         classesJoined: classIds.length
       }
-    }
+    },
+    leaderboard
   });
 });
 

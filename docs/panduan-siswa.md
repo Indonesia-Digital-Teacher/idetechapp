@@ -58,4 +58,9 @@ Selain HP dan Koin, kamu juga bisa mengoleksi **Lencana (Badges)**.
 - Lencana diberikan oleh sistem atau secara khusus oleh guru ketika kamu menyelesaikan petualangan yang sulit atau mendapatkan nilai sempurna.
 - Lencana yang kamu miliki akan dipajang di profil akunmu agar bisa dilihat oleh teman-temanmu.
 
+## 6. Kotak Dialog ala Game RPG (Notifikasi)
+Selama berpetualang di IdeTech, jika kamu mendapatkan pesan penting atau peringatan, pesan tersebut akan muncul dalam kotak dialog kustom bermodel kartu **Game RPG 3D** dengan tombol aksi berwarna kuning/emas. Ini dirancang khusus agar suasana belajarmu tetap terasa seru seperti bermain game!
+
+---
+
 **Selamat Berpetualang! Jadilah yang terbaik dan kumpulkan koin sebanyak mungkin!**

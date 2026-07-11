@@ -53,6 +53,11 @@ Anak Anda menggunakan IdeTech dengan sistem gamifikasi (seperti permainan). Anda
 
 Jika Anda melihat catatan jurnal dari guru yang memerlukan diskusi lebih lanjut, sistem IdeTech memungkinkan Anda membalas atau mengatur jadwal komunikasi (*tergantung pengaturan aktif dari sekolah*).
 
+## 6. Dialog Informasi Terpadu (Notifikasi)
+Apabila sistem menampilkan pesan petunjuk, pemberitahuan, atau peringatan penting di layar Anda, pesan tersebut akan disajikan dalam bentuk kotak dialog kustom dengan desain modern yang elegan (latar belakang gelap, efek blur kaca buram lembut, serta tombol biru/indigo) untuk kenyamanan membaca Anda.
+
+---
+
 Kami harap fitur transparansi dari IdeTech ini dapat memperkuat kolaborasi Anda dengan para guru dalam mengawal potensi maksimal putra/putri kita bersama. 
 
 *Jika Anda memiliki kendala teknis (seperti nama anak tidak muncul), silakan hubungi bagian Tata Usaha atau Admin sistem di sekolah Anda.*

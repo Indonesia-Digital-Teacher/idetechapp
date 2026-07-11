@@ -54,6 +54,12 @@ IdeTech mempermudah beban administrasi Anda melalui fitur AI pembuat RPP.
 5. **Review & Edit**: Anda dapat membaca, menambah, atau mengubah *draft* tersebut sesuai gaya mengajar Anda.
 6. **Simpan & Publikasikan**: Jika sudah sesuai, Anda bisa menyimpannya secara pribadi, menugaskannya langsung ke kelas Anda (sebagai *Actionable RPP*), atau membagikannya ke komunitas melalui fitur **Bank Ide** agar guru lain bisa menggunakan RPP Anda.
 
+### 💡 Aturan Kuota Pemakaian AI
+Untuk menjaga keadilan akses dan efisiensi, penggunaan fitur AI Generator (pembuatan RPP, Materi di IdeStudio, Misi di IdeQuest, serta Program Semester) diatur dengan sistem kuota:
+- **Batas Kuota**: Kuota reguler adalah **1 kali pembuatan setiap 3 jam** (direset otomatis secara berkala setiap 3 jam).
+- **Info Kuota**: Sisa kuota dan waktu reset berikutnya dapat dilihat pada panel **"Kuota AI Generator Anda"** di halaman dashboard utama Anda.
+- **Kuota Tambahan**: Jika Anda membutuhkan batas pemakaian tambahan sebelum masa reset 3 jam habis, Anda dapat mengeklik tautan **Hubungi Admin** untuk melakukan pembelian kuota ekstra (berbayar) via WhatsApp.
+
 ---
 
 ## 5. Membuat Materi Interaktif (IdeStudio)
@@ -109,4 +115,4 @@ IdeTech menghubungkan Anda dengan orang tua siswa secara transparan dan mulus.
 ---
 
 **Selamat Mengajar!**
-Jika Anda menemui kendala teknis, jangan ragu untuk menghubungi Admin Sistem sekolah Anda. Terus eksplorasi fitur IdeTech untuk menciptakan pengalaman belajar yang menyenangkan.
+Jika Anda menemui kendala teknis, jangan ragu untuk menghubungi Admin Sistem sekolah Anda. Sebagai informasi, jika Anda menerima pemberitahuan atau peringatan dalam kotak dialog bertema gelap futuristik dengan aksen biru/amber (cosmic theme), itu adalah sistem notifikasi terintegrasi kustom IdeTech yang disesuaikan khusus untuk kenyamanan ruang kerja Guru.

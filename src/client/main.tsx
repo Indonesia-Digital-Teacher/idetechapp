@@ -377,6 +377,13 @@ type StudentIndicator = {
   connected: boolean;
 };
 
+type StudentLeaderboardItem = {
+  name: string;
+  avatarUrl: string | null;
+  points: number;
+  isMe: boolean;
+};
+
 type StudentIndicatorResponse = {
   left: StudentIndicator[];
   right: StudentIndicator[];
@@ -395,6 +402,7 @@ type StudentIndicatorResponse = {
       classesJoined: number;
     };
   };
+  leaderboard?: StudentLeaderboardItem[];
 };
 
 const roleFeatures: Record<RoleName, RoleFeature[]> = {
@@ -1817,6 +1825,7 @@ function StudentCompactDashboard({
           onJoinClass={joinStudentClass}
           selectedClassId={selectedClassId}
           onSelectClass={setSelectedClassId}
+          leaderboard={indicators?.leaderboard ?? []}
         />
       ) : null}
 
@@ -2111,7 +2120,7 @@ function StudentProfileModal({
               </div>
 
               {/* 3D Level Badge */}
-              <div className="relative flex flex-col items-center justify-start pt-2 pb-5 px-2 w-[72px] shrink-0 transform rotate-3" 
+              <div className="relative flex flex-col items-center justify-start pt-2 pb-5 px-2 w-[72px] h-[84px] shrink-0 transform rotate-3" 
                    style={{ 
                      background: '#ffd500', 
                      clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% 85%, 0 100%)',
@@ -2165,37 +2174,49 @@ function StudentProfileModal({
   );
 }
 
-function LeagueLeaderboard({ user, points }: { user: AuthUser, points: number }) {
+function LeagueLeaderboard({
+  user,
+  points,
+  leaderboard = []
+}: {
+  user: AuthUser;
+  points: number;
+  leaderboard?: StudentLeaderboardItem[];
+}) {
   const userName = user.name;
   const userAvatar = user.avatarUrl ?? `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(user.name)}`;
 
-  const mockOthers = [
-    { name: "Budi S.", avatar: "https://api.dicebear.com/9.x/initials/svg?seed=Budi", points: points + 150 },
-    { name: "Aisyah N.", avatar: "https://api.dicebear.com/9.x/initials/svg?seed=Aisyah", points: points + 50 },
-    { name: userName, avatar: userAvatar, points: points, isMe: true },
-    { name: "Siti M.", avatar: "https://api.dicebear.com/9.x/initials/svg?seed=Siti", points: Math.max(0, points - 80) },
-    { name: "Reza P.", avatar: "https://api.dicebear.com/9.x/initials/svg?seed=Reza", points: Math.max(0, points - 120) }
-  ];
-  const sorted = [...mockOthers].sort((a, b) => b.points - a.points);
+  const displayList = leaderboard && leaderboard.length > 0
+    ? leaderboard.map(u => ({
+        name: u.name,
+        avatar: u.avatarUrl ?? `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(u.name)}`,
+        points: u.points,
+        isMe: u.isMe
+      }))
+    : [
+        { name: userName, avatar: userAvatar, points: points, isMe: true }
+      ];
+
+  const sorted = [...displayList].sort((a, b) => b.points - a.points);
   const myRank = sorted.findIndex(u => u.isMe) + 1;
 
   return (
     <div className="bg-slate-900 rounded-3xl p-6 text-white mb-8 relative overflow-hidden shadow-2xl shadow-indigo-500/20">
       <div className="absolute -top-24 -right-24 w-64 h-64 bg-indigo-500 rounded-full blur-3xl opacity-20"></div>
       
-      <div className="flex items-center justify-between mb-6 relative z-10">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 relative z-10">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-700 to-amber-900 flex items-center justify-center shadow-lg border-2 border-amber-600/50">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-700 to-amber-900 flex items-center justify-center shadow-lg border-2 border-amber-600/50 shrink-0">
             <Trophy className="w-8 h-8 text-amber-400" />
           </div>
           <div>
-            <h3 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-amber-500">Liga Perunggu</h3>
-            <p className="text-slate-400 text-sm font-medium">Musim 1 • Berakhir dalam 3 hari</p>
+            <h3 className="text-xl sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-amber-500">Liga Perunggu</h3>
+            <p className="text-slate-400 text-xs sm:text-sm font-medium">Musim 1 • Berakhir dalam 3 hari</p>
           </div>
         </div>
-        <div className="text-right">
-          <p className="text-sm text-slate-400 font-medium">Peringkatmu</p>
-          <p className="text-3xl font-black text-white">#{myRank}</p>
+        <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start bg-slate-800/40 sm:bg-transparent p-3 sm:p-0 rounded-2xl border border-slate-700/30 sm:border-0 shrink-0">
+          <p className="text-xs sm:text-sm text-slate-400 font-medium">Peringkatmu</p>
+          <p className="text-2xl sm:text-3xl font-black text-white ml-2 sm:ml-0">#{myRank}</p>
         </div>
       </div>
 
@@ -2234,7 +2255,8 @@ function StudentContentModal({
   onCompleteQuest,
   onJoinClass,
   selectedClassId,
-  onSelectClass
+  onSelectClass,
+  leaderboard = []
 }: {
   user: AuthUser;
   active: Exclude<MobileNavId, "profile">;
@@ -2251,6 +2273,7 @@ function StudentContentModal({
   onJoinClass: (classCode: string) => void;
   selectedClassId: string | null;
   onSelectClass: (id: string | null) => void;
+  leaderboard?: StudentLeaderboardItem[];
 }) {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [classCode, setClassCode] = useState("");
@@ -2493,7 +2516,7 @@ function StudentContentModal({
 
             {rankTab === "league" ? (
               <>
-                <LeagueLeaderboard user={user} points={meta?.totalPoints ?? 0} />
+                <LeagueLeaderboard user={user} points={meta?.totalPoints ?? 0} leaderboard={leaderboard} />
                 <div className="grid grid-cols-3 gap-2 mt-4 mb-2">
                   <div className="bg-[#333] border-b-[4px] border-[#1a1a1a] rounded-xl p-3 flex flex-col items-center justify-center shadow-inner">
                     <strong className="text-white text-2xl font-black drop-shadow-md">{meta?.totalPoints ?? 0}</strong>
