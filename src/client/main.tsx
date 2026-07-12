@@ -1789,14 +1789,14 @@ function StudentCompactDashboard({
 
           <div className="student-compact-center">
             <div className="flex flex-col items-center justify-center pt-8">
-              <img 
-                src="/karaktergame3d.webp" 
-                alt="Karakter Utama" 
+              <img
+                src="/karaktergame3d.webp"
+                alt="Karakter Utama"
                 className="w-56 h-56 object-contain drop-shadow-2xl animate-bounce"
                 style={{ animationDuration: '3s' }}
               />
               <div className="game-island__gate mt-[-20px] relative z-10">
-                <span>{activeMenu === "map" ? (indicators?.meta.chapter ?? content.badge) : content.badge}</span>
+                <span className="block max-w-[220px] truncate" title={user.name}>{user.name}</span>
               </div>
             </div>
           </div>
@@ -1816,7 +1816,7 @@ function StudentCompactDashboard({
             <strong>{indicators?.meta.chapterProgress ?? content.progress}</strong>
           </button>
           <button className="game-level-button" type="button" onClick={handleOpenLevel}>
-            {indicators?.meta.levelButton ?? content.button}
+            Pertemuan {(indicators?.meta.levelButton ?? content.button).replace(/[^0-9]/g, "") || "1"}
           </button>
         </section>
       </section>
@@ -10928,88 +10928,88 @@ function WelcomeGreetingModal({
 
       {/* Modal card */}
       <div
-        className={`relative w-full max-w-md welcome-greeting-card bg-gradient-to-br ${roleConfig.cardBg} border border-white/10 rounded-3xl shadow-2xl overflow-hidden`}
+        className={`relative w-full max-w-md welcome-greeting-card bg-gradient-to-br ${roleConfig.cardBg} border border-white/10 rounded-2xl md:rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col`}
         style={{ boxShadow: `0 0 80px ${roleConfig.glow}, 0 25px 50px rgba(0,0,0,0.6)` }}
       >
         {/* Gradient top bar */}
-        <div className={`h-1.5 w-full bg-gradient-to-r ${roleConfig.accent}`} />
+        <div className={`h-1.5 w-full bg-gradient-to-r ${roleConfig.accent} flex-shrink-0`} />
 
-        <div className="p-7">
+        <div className="p-5 md:p-7 overflow-y-auto flex-1 scrollbar-thin">
           {/* Close button */}
           <button
             onClick={onClose}
-            className="absolute top-5 right-5 text-slate-400 hover:text-white transition-colors p-1.5 rounded-full hover:bg-white/10"
+            className="absolute top-3 right-3 md:top-5 md:right-5 text-slate-400 hover:text-white transition-colors p-1.5 rounded-full hover:bg-white/10 z-10"
             aria-label="Tutup"
           >
             <X className="w-5 h-5" />
           </button>
 
           {/* Emoji + greeting */}
-          <div className="flex flex-col items-center text-center mb-6">
+          <div className="flex flex-col items-center text-center mb-4 md:mb-6">
             <div
-              className="text-6xl mb-4 welcome-emoji-bounce"
+              className="text-4xl md:text-6xl mb-2 md:mb-4 welcome-emoji-bounce"
               role="img"
               aria-label="emoji"
             >
               {roleConfig.emoji}
             </div>
 
-            <span className={`text-xs font-bold px-3 py-1 rounded-full mb-3 ${roleConfig.badgeColor}`}>
+            <span className={`text-[11px] md:text-xs font-bold px-3 py-1 rounded-full mb-2 md:mb-3 ${roleConfig.badgeColor}`}>
               {roleConfig.badge}
             </span>
 
-            <h2 className="text-2xl font-black text-white mb-1 welcome-title-slide">
+            <h2 className="text-xl md:text-2xl font-black text-white mb-1 welcome-title-slide">
               {greeting},
             </h2>
-            <h1 className={`text-3xl font-black bg-gradient-to-r ${roleConfig.accent} bg-clip-text text-transparent welcome-name-slide`}>
+            <h1 className={`text-2xl md:text-3xl font-black bg-gradient-to-r ${roleConfig.accent} bg-clip-text text-transparent welcome-name-slide leading-tight`}>
               {displayName}!
             </h1>
 
             {/* Tanggal */}
-            <div className="flex items-center gap-2 mt-3 text-slate-400 text-sm">
-              <Calendar className="w-4 h-4" />
+            <div className="flex items-center gap-2 mt-2 md:mt-3 text-slate-400 text-xs md:text-sm">
+              <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4" />
               <span>{dayStr}</span>
             </div>
           </div>
 
           {/* Divider */}
-          <div className={`h-px w-full bg-gradient-to-r ${roleConfig.accent} opacity-30 mb-5`} />
+          <div className={`h-px w-full bg-gradient-to-r ${roleConfig.accent} opacity-30 mb-3 md:mb-5`} />
 
           {/* Quote */}
           {quote ? (
-            <div className="bg-white/5 rounded-2xl p-4 mb-6 text-center border border-white/8 welcome-quote-fade">
-              <p className="text-slate-200 text-sm leading-relaxed italic">
+            <div className="bg-white/5 rounded-xl md:rounded-2xl p-3 md:p-4 mb-4 md:mb-6 text-center border border-white/8 welcome-quote-fade">
+              <p className="text-slate-200 text-xs md:text-sm leading-relaxed italic line-clamp-2">
                 &ldquo;{quote.text}&rdquo;
               </p>
               {quote.author && (
-                <p className={`text-xs mt-2 font-semibold bg-gradient-to-r ${roleConfig.accent} bg-clip-text text-transparent`}>
+                <p className={`text-[11px] md:text-xs mt-1.5 md:mt-2 font-semibold bg-gradient-to-r ${roleConfig.accent} bg-clip-text text-transparent`}>
                   — {quote.author}
                 </p>
               )}
             </div>
           ) : (
-            <div className="mb-6" />
+            <div className="mb-4 md:mb-6" />
           )}
 
           {/* AI Quota Information for Teachers/Admins */}
           {role === "teacher" && aiQuota && (
-            <div className="bg-indigo-950/40 border border-indigo-500/20 rounded-2xl p-4 mb-6 text-center welcome-quote-fade flex flex-col gap-2">
-              <div className="flex items-center justify-center gap-2">
-                <span className="text-indigo-400">⚡</span>
-                <h4 className="text-xs font-extrabold tracking-wider uppercase text-indigo-300">
+            <div className="bg-indigo-950/40 border border-indigo-500/20 rounded-xl md:rounded-2xl p-3 md:p-4 mb-4 md:mb-6 text-center welcome-quote-fade flex flex-col gap-1.5 md:gap-2">
+              <div className="flex items-center justify-center gap-1.5 md:gap-2">
+                <span className="text-indigo-400 text-sm md:text-base">⚡</span>
+                <h4 className="text-[10px] md:text-xs font-extrabold tracking-wider uppercase text-indigo-300">
                   Kuota AI Generator Anda
                 </h4>
               </div>
-              <p className="text-2xl font-black text-white">
-                {aiQuota.remaining} <span className="text-xs font-normal text-slate-400">dari {aiQuota.limit} tersedia</span>
+              <p className="text-xl md:text-2xl font-black text-white">
+                {aiQuota.remaining} <span className="text-[11px] md:text-xs font-normal text-slate-400">dari {aiQuota.limit} tersedia</span>
               </p>
               {aiQuota.limit === 3 ? (
-                <p className="text-[10px] text-indigo-300 bg-indigo-500/10 py-1.5 px-2 rounded-lg border border-indigo-500/20 inline-block self-center">
+                <p className="text-[10px] text-indigo-300 bg-indigo-500/10 py-1 px-2 rounded-lg border border-indigo-500/20 inline-block self-center">
                   🎉 Hari Pertama: Kuota Ekstra 3x untuk Eksplorasi!
                 </p>
               ) : aiQuota.resetAt ? (
-                <p className="text-[10px] text-indigo-300 bg-indigo-500/10 py-1.5 px-2 rounded-lg border border-indigo-500/20 inline-block self-center">
-                  🔄 Direset otomatis pada pukul {new Date(aiQuota.resetAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                <p className="text-[10px] text-indigo-300 bg-indigo-500/10 py-1 px-2 rounded-lg border border-indigo-500/20 inline-block self-center">
+                  🔄 Reset otomatis pukul {new Date(aiQuota.resetAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
                 </p>
               ) : (
                 <p className="text-[10px] text-slate-400">
@@ -11020,57 +11020,57 @@ function WelcomeGreetingModal({
                 href={`https://wa.me/${adminContact}?text=Halo%20Admin%20IdeTech%2C%20saya%20ingin%20membeli%20tambahan%20kuota%20AI%20Generator.`}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors flex items-center justify-center gap-1"
+                className="text-[10px] md:text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors flex items-center justify-center gap-1"
               >
-                💬 Hubungi Admin jika ingin mendapatkan kuota tambahan (berbayar)
+                💬 Hubungi Admin untuk kuota tambahan (berbayar)
               </a>
             </div>
           )}
 
           {role === "teacher" && !teacherHasClasses && (
-            <div className="mb-6 p-4 bg-white/[0.03] border border-dashed border-amber-400/30 rounded-2xl">
-              <h4 className="text-xs font-extrabold tracking-wider uppercase text-amber-300 mb-3">
+            <div className="mb-4 md:mb-6 p-3 md:p-4 bg-white/[0.03] border border-dashed border-amber-400/30 rounded-xl md:rounded-2xl">
+              <h4 className="text-[11px] md:text-xs font-extrabold tracking-wider uppercase text-amber-300 mb-2 md:mb-3">
                 🎯 Mulai dari sini, Guru!
               </h4>
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-1.5 md:gap-2">
                 <a
                   href="#"
                   onClick={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent("idetech:open-semester")); onClose(); }}
-                  className="flex items-center gap-2 px-3 py-2 bg-white/[0.04] hover:bg-amber-400/10 rounded-xl border border-white/5 hover:border-amber-400/30 transition-all text-xs"
+                  className="flex items-center gap-2 px-2.5 md:px-3 py-1.5 md:py-2 bg-white/[0.04] hover:bg-amber-400/10 rounded-lg md:rounded-xl border border-white/5 hover:border-amber-400/30 transition-all text-[11px] md:text-xs"
                 >
-                  <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px]">1</span>
+                  <span className="w-5 h-5 md:w-6 md:h-6 flex items-center justify-center rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px] flex-shrink-0">1</span>
                   <span className="flex-1 text-slate-200 font-medium">Buat Program Semester</span>
                   <span className="text-amber-300">→</span>
                 </a>
                 <a
                   href="#"
                   onClick={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent("idetech:open-rpp")); onClose(); }}
-                  className="flex items-center gap-2 px-3 py-2 bg-white/[0.04] hover:bg-amber-400/10 rounded-xl border border-white/5 hover:border-amber-400/30 transition-all text-xs"
+                  className="flex items-center gap-2 px-2.5 md:px-3 py-1.5 md:py-2 bg-white/[0.04] hover:bg-amber-400/10 rounded-lg md:rounded-xl border border-white/5 hover:border-amber-400/30 transition-all text-[11px] md:text-xs"
                 >
-                  <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px]">2</span>
+                  <span className="w-5 h-5 md:w-6 md:h-6 flex items-center justify-center rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px] flex-shrink-0">2</span>
                   <span className="flex-1 text-slate-200 font-medium">Buat RPP per Pertemuan</span>
                   <span className="text-amber-300">→</span>
                 </a>
                 <a
                   href="#"
                   onClick={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent("idetech:open-ide-studio")); onClose(); }}
-                  className="flex items-center gap-2 px-3 py-2 bg-white/[0.04] hover:bg-amber-400/10 rounded-xl border border-white/5 hover:border-amber-400/30 transition-all text-xs"
+                  className="flex items-center gap-2 px-2.5 md:px-3 py-1.5 md:py-2 bg-white/[0.04] hover:bg-amber-400/10 rounded-lg md:rounded-xl border border-white/5 hover:border-amber-400/30 transition-all text-[11px] md:text-xs"
                 >
-                  <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px]">3</span>
+                  <span className="w-5 h-5 md:w-6 md:h-6 flex items-center justify-center rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px] flex-shrink-0">3</span>
                   <span className="flex-1 text-slate-200 font-medium">Buat Materi Pembelajaran (IdeStudio)</span>
                   <span className="text-amber-300">→</span>
                 </a>
                 <a
                   href="#"
                   onClick={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent("idetech:open-ide-quest")); onClose(); }}
-                  className="flex items-center gap-2 px-3 py-2 bg-white/[0.04] hover:bg-amber-400/10 rounded-xl border border-white/5 hover:border-amber-400/30 transition-all text-xs"
+                  className="flex items-center gap-2 px-2.5 md:px-3 py-1.5 md:py-2 bg-white/[0.04] hover:bg-amber-400/10 rounded-lg md:rounded-xl border border-white/5 hover:border-amber-400/30 transition-all text-[11px] md:text-xs"
                 >
-                  <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px]">4</span>
+                  <span className="w-5 h-5 md:w-6 md:h-6 flex items-center justify-center rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px] flex-shrink-0">4</span>
                   <span className="flex-1 text-slate-200 font-medium">Buat IdeQuest (Kuis/Tugas Belajar)</span>
                   <span className="text-amber-300">→</span>
                 </a>
               </div>
-              <p className="text-[10px] text-slate-500 mt-2 text-center">
+              <p className="text-[10px] text-slate-500 mt-1.5 md:mt-2 text-center">
                 Ikuti langkah-langkah ini untuk memulai pengajaran!
               </p>
             </div>
@@ -11080,7 +11080,7 @@ function WelcomeGreetingModal({
           <button
             id="welcome-greeting-start-btn"
             onClick={onClose}
-            className={`w-full py-3.5 px-6 rounded-2xl font-bold text-white text-base bg-gradient-to-r ${roleConfig.btnGradient} transition-all shadow-lg hover:shadow-xl active:scale-95 welcome-btn-pulse`}
+            className={`w-full py-3 md:py-3.5 px-6 rounded-xl md:rounded-2xl font-bold text-white text-sm md:text-base bg-gradient-to-r ${roleConfig.btnGradient} transition-all shadow-lg hover:shadow-xl active:scale-95 welcome-btn-pulse`}
           >
             {roleConfig.btnText} →
           </button>
