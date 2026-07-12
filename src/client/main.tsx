@@ -657,6 +657,7 @@ function App() {
   const [welcomeQuotes, setWelcomeQuotes] = useState<WelcomeQuote[]>([]);
   const [showWelcomeGreeting, setShowWelcomeGreeting] = useState(false);
   const [welcomeAiQuota, setWelcomeAiQuota] = useState<{ limit: number; used: number; remaining: number } | null>(null);
+  const [teacherHasClasses, setTeacherHasClasses] = useState<boolean | null>(null);
   const [globalAlert, setGlobalAlert] = useState<{
     message: string;
     type: "success" | "error" | "info";
@@ -710,6 +711,17 @@ function App() {
         }
         setShowWelcomeGreeting(true);
       }
+    }
+
+    if (payload.user.activeRole === "teacher") {
+      try {
+        const classPayload = await api<{ classes: { id: string }[] }>("/api/teacher/classes");
+        setTeacherHasClasses((classPayload.classes || []).length > 0);
+      } catch {
+        setTeacherHasClasses(true);
+      }
+    } else {
+      setTeacherHasClasses(true);
     }
 
     if (payload.user.activeRole === "admin") {
@@ -967,6 +979,7 @@ function App() {
             localStorage.setItem(`idetech_greeting_${user.id}_${today}`, "1");
             setShowWelcomeGreeting(false);
           }}
+          teacherHasClasses={teacherHasClasses ?? true}
         />
       )}
       {user.activeRole === "student" ? (
