@@ -152,11 +152,11 @@ Formatlah menggunakan Markdown dengan struktur yang rapi (Informasi Umum, Kompon
                   <select 
                     value={form.subjectId}
                     onChange={e => setForm({...form, subjectId: e.target.value})}
-                    className="w-full px-4 py-3 bg-white/10 border border-blue-400/30 rounded-xl text-white focus:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all text-sm font-medium appearance-none"
+                    className="w-full px-4 py-3 bg-white/15 border border-blue-300/40 rounded-xl text-white focus:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all text-sm font-medium appearance-none"
                   >
-                    <option value="" className="text-slate-800">-- Pilih Mapel --</option>
+                    <option value="" className="text-slate-800 bg-white">-- Pilih Mapel --</option>
                     {subjects.map(s => (
-                      <option key={s.id} value={s.id} className="text-slate-800">{s.name}</option>
+                      <option key={s.id} value={s.id} className="text-slate-800 bg-white">{s.name}</option>
                     ))}
                   </select>
                 </div>
@@ -188,10 +188,10 @@ Formatlah menggunakan Markdown dengan struktur yang rapi (Informasi Umum, Kompon
                     <select 
                       value={form.grade}
                       onChange={e => setForm({...form, grade: e.target.value})}
-                      className="w-full pl-10 pr-4 py-3 bg-white/10 border border-blue-400/30 rounded-xl text-white focus:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all text-sm font-medium appearance-none"
+                      className="w-full pl-10 pr-4 py-3 bg-white/15 border border-blue-300/40 rounded-xl text-white focus:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all text-sm font-medium appearance-none"
                     >
                       {[...Array(12)].map((_, i) => (
-                        <option key={i+1} value={i+1} className="text-slate-800">Kelas {i+1}</option>
+                        <option key={i+1} value={i+1} className="text-slate-800 bg-white">Kelas {i+1}</option>
                       ))}
                     </select>
                   </div>
@@ -205,12 +205,12 @@ Formatlah menggunakan Markdown dengan struktur yang rapi (Informasi Umum, Kompon
                     <select 
                       value={form.duration}
                       onChange={e => setForm({...form, duration: e.target.value})}
-                      className="w-full pl-10 pr-4 py-3 bg-white/10 border border-blue-400/30 rounded-xl text-white focus:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all text-sm font-medium appearance-none"
+                      className="w-full pl-10 pr-4 py-3 bg-white/15 border border-blue-300/40 rounded-xl text-white focus:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all text-sm font-medium appearance-none"
                     >
-                      <option value="1x45 Menit" className="text-slate-800">1x45 Menit</option>
-                      <option value="2x45 Menit" className="text-slate-800">2x45 Menit</option>
-                      <option value="3x45 Menit" className="text-slate-800">3x45 Menit</option>
-                      <option value="2 Kali Pertemuan" className="text-slate-800">2 Pertemuan</option>
+                      <option value="1x45 Menit" className="text-slate-800 bg-white">1x45 Menit</option>
+                      <option value="2x45 Menit" className="text-slate-800 bg-white">2x45 Menit</option>
+                      <option value="3x45 Menit" className="text-slate-800 bg-white">3x45 Menit</option>
+                      <option value="2 Kali Pertemuan" className="text-slate-800 bg-white">2 Pertemuan</option>
                     </select>
                   </div>
                 </div>
@@ -221,13 +221,13 @@ Formatlah menggunakan Markdown dengan struktur yang rapi (Informasi Umum, Kompon
                 <select 
                   value={form.model}
                   onChange={e => setForm({...form, model: e.target.value})}
-                  className="w-full px-4 py-3 bg-white/10 border border-blue-400/30 rounded-xl text-white focus:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all text-sm font-medium appearance-none"
+                  className="w-full px-4 py-3 bg-white/15 border border-blue-300/40 rounded-xl text-white focus:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all text-sm font-medium appearance-none"
                 >
-                  <option value="Project Based Learning" className="text-slate-800">Project Based Learning (PjBL)</option>
-                  <option value="Problem Based Learning" className="text-slate-800">Problem Based Learning (PBL)</option>
-                  <option value="Discovery Learning" className="text-slate-800">Discovery Learning</option>
-                  <option value="Inquiry Learning" className="text-slate-800">Inquiry Learning</option>
-                  <option value="Tatap Muka Biasa" className="text-slate-800">Tatap Muka Konvensional</option>
+                  <option value="Project Based Learning" className="text-slate-800 bg-white">Project Based Learning (PjBL)</option>
+                  <option value="Problem Based Learning" className="text-slate-800 bg-white">Problem Based Learning (PBL)</option>
+                  <option value="Discovery Learning" className="text-slate-800 bg-white">Discovery Learning</option>
+                  <option value="Inquiry Learning" className="text-slate-800 bg-white">Inquiry Learning</option>
+                  <option value="Tatap Muka Biasa" className="text-slate-800 bg-white">Tatap Muka Konvensional</option>
                 </select>
               </div>
 

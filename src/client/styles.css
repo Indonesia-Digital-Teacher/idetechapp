@@ -6849,8 +6849,8 @@ select {
 
 .todo-form-input {
   width: 100%;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 12px;
   padding: 10px 14px;
   color: #ffffff;
@@ -6860,10 +6860,22 @@ select {
 }
 
 .todo-form-input::placeholder {
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .todo-form-input:focus {
-  border-color: rgba(99, 102, 241, 0.6);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.7);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+}
+
+/* Force select elements to display selected value in light color */
+select.todo-form-input,
+select.todo-form-input option {
+  color: #ffffff;
+  background-color: #1e293b;
+}
+
+select.todo-form-input option {
+  background-color: #1e293b;
+  color: #ffffff;
 }
