@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { MessageSquare, X, Send, ChevronRight, UserCircle2, Loader2 } from "lucide-react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { MessageSquare, X, Send, ChevronRight, UserCircle2, Loader2, Plus, ArrowLeft } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ChatMessage {
@@ -16,6 +16,22 @@ interface Thread {
   status: "open" | "closed";
   parentName: string;
   parentId?: string;
+}
+
+interface ParentOption {
+  parentUserId: string;
+  parentName: string;
+  parentEmail: string;
+  relationship: string;
+}
+
+interface StudentOption {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+  classId: string;
+  parents: ParentOption[];
 }
 
 // ─── Typing Indicator Component ───────────────────────────────────────────────
@@ -58,6 +74,17 @@ export function TeacherConsultationModal({
   const [busy, setBusy] = useState(true);
   const [replyBusy, setReplyBusy] = useState(false);
 
+  // New consultation form state
+  const [showNewConsultation, setShowNewConsultation] = useState(false);
+  const [students, setStudents] = useState<StudentOption[]>([]);
+  const [studentsLoading, setStudentsLoading] = useState(false);
+  const [selectedStudentId, setSelectedStudentId] = useState("");
+  const [selectedParentId, setSelectedParentId] = useState("");
+  const [newTopic, setNewTopic] = useState("");
+  const [newMessage, setNewMessage] = useState("");
+  const [createBusy, setCreateBusy] = useState(false);
+  const [createError, setCreateError] = useState("");
+
   // Real-time state
   const [isParentOnline, setIsParentOnline] = useState(false);
   const [isParentTyping, setIsParentTyping] = useState(false);
@@ -77,6 +104,37 @@ export function TeacherConsultationModal({
         setBusy(false);
       });
   }, []);
+
+  // Load students for new consultation
+  useEffect(() => {
+    if (!showNewConsultation) return;
+    setStudentsLoading(true);
+    fetch("/api/teacher/consultations/students", { credentials: "include" })
+      .then(res => res.json())
+      .then(data => {
+        setStudents(data.students || []);
+        setStudentsLoading(false);
+      })
+      .catch(() => {
+        setStudents([]);
+        setStudentsLoading(false);
+      });
+  }, [showNewConsultation]);
+
+  const selectedStudent = useMemo(() => students.find(s => s.id === selectedStudentId), [students, selectedStudentId]);
+  const selectedParent = useMemo(() => selectedStudent?.parents.find((p: ParentOption) => p.parentUserId === selectedParentId), [selectedStudent, selectedParentId]);
+
+  useEffect(() => {
+    if (selectedStudent && selectedStudent.parents.length === 1) {
+      setSelectedParentId(selectedStudent.parents[0].parentUserId);
+    }
+  }, [selectedStudent]);
+
+  useEffect(() => {
+    if (selectedStudent && !newMessage) {
+      setNewMessage(`Halo Bapak/Ibu, saya ingin berdiskusi terkait ${selectedStudent.name}. `);
+    }
+  }, [selectedStudent]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -237,6 +295,61 @@ export function TeacherConsultationModal({
     setMessages([]);
   };
 
+  const resetNewConsultation = () => {
+    setShowNewConsultation(false);
+    setSelectedStudentId("");
+    setSelectedParentId("");
+    setNewTopic("");
+    setNewMessage("");
+    setCreateError("");
+  };
+
+  const handleCreateThread = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStudentId || !selectedParentId || !newTopic.trim() || !newMessage.trim()) return;
+
+    setCreateBusy(true);
+    setCreateError("");
+
+    try {
+      const res = await fetch("/api/teacher/consultations", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: selectedStudentId,
+          parentId: selectedParentId,
+          topic: newTopic.trim(),
+          content: newMessage.trim()
+        })
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        if (res.status === 409 && data.threadId) {
+          setActiveThreadId(data.threadId);
+          resetNewConsultation();
+        } else {
+          setCreateError(data.message || "Gagal membuat konsultasi.");
+        }
+        setCreateBusy(false);
+        return;
+      }
+
+      const newThread: Thread = data.thread;
+      if (newThread) {
+        setThreads(prev => [newThread, ...prev]);
+        setActiveThreadId(newThread.id);
+      }
+      resetNewConsultation();
+      setCreateBusy(false);
+    } catch {
+      setCreateError("Gagal membuat konsultasi.");
+      setCreateBusy(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md">
       <div className="bg-[#0b1b4f]/95 border border-[rgba(125,211,252,0.25)] rounded-3xl w-full max-w-md overflow-hidden shadow-2xl shadow-blue-950/40 flex flex-col h-[80vh] text-white">
@@ -249,16 +362,131 @@ export function TeacherConsultationModal({
                 <MessageSquare size={20} className="text-amber-400" />
                 Kotak Konsultasi Orang Tua
               </h3>
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-[rgba(5,29,83,0.6)] text-[rgba(226,245,255,0.76)] hover:text-white border border-transparent hover:border-[rgba(125,211,252,0.22)] rounded-full transition-colors"
-              >
-                <X size={18} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowNewConsultation(true)}
+                  className="flex items-center gap-1.5 text-[11px] font-bold bg-amber-500 hover:bg-amber-600 text-[#07133b] px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  <Plus size={14} />
+                  Baru
+                </button>
+                <button
+                  onClick={onClose}
+                  className="p-2 hover:bg-[rgba(5,29,83,0.6)] text-[rgba(226,245,255,0.76)] hover:text-white border border-transparent hover:border-[rgba(125,211,252,0.22)] rounded-full transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 bg-[#07133b]/40">
-              {busy ? (
+              {showNewConsultation ? (
+                <form onSubmit={handleCreateThread} className="flex flex-col gap-4">
+                  <button
+                    type="button"
+                    onClick={resetNewConsultation}
+                    className="self-start flex items-center gap-1 text-[11px] font-medium text-[rgba(226,245,255,0.7)] hover:text-white transition-colors"
+                  >
+                    <ArrowLeft size={14} />
+                    Kembali ke daftar
+                  </button>
+
+                  {createError && (
+                    <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200">
+                      {createError}
+                    </div>
+                  )}
+
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-[10px] font-black text-[rgba(226,245,255,0.6)] uppercase tracking-wider">Murid *</span>
+                    <select
+                      value={selectedStudentId}
+                      onChange={e => {
+                        setSelectedStudentId(e.target.value);
+                        setSelectedParentId("");
+                      }}
+                      className="w-full bg-[rgba(5,29,83,0.6)] border border-[rgba(125,211,252,0.22)] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-400/50"
+                      disabled={studentsLoading || createBusy}
+                      required
+                    >
+                      <option value="">{studentsLoading ? "Memuat murid..." : "Pilih murid"}</option>
+                      {students.map(s => (
+                        <option key={s.id} value={s.id}>{s.name} ({s.email})</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {selectedStudent && selectedStudent.parents.length > 1 && (
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-[10px] font-black text-[rgba(226,245,255,0.6)] uppercase tracking-wider">Orang Tua *</span>
+                      <select
+                        value={selectedParentId}
+                        onChange={e => setSelectedParentId(e.target.value)}
+                        className="w-full bg-[rgba(5,29,83,0.6)] border border-[rgba(125,211,252,0.22)] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-400/50"
+                        disabled={createBusy}
+                        required
+                      >
+                        <option value="">Pilih orang tua</option>
+                        {selectedStudent.parents.map((p: ParentOption) => (
+                          <option key={p.parentUserId} value={p.parentUserId}>
+                            {p.parentName} ({p.relationship})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+
+                  {selectedStudent && selectedStudent.parents.length === 0 && (
+                    <p className="text-xs text-amber-300 bg-amber-400/10 border border-amber-400/20 rounded-lg px-3 py-2">
+                      Murid ini belum memiliki orang tua yang terhubung.
+                    </p>
+                  )}
+
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-[10px] font-black text-[rgba(226,245,255,0.6)] uppercase tracking-wider">Topik *</span>
+                    <input
+                      type="text"
+                      value={newTopic}
+                      onChange={e => setNewTopic(e.target.value)}
+                      placeholder="Contoh: Perkembangan Akademik Bulan Juli"
+                      className="w-full bg-[rgba(5,29,83,0.6)] border border-[rgba(125,211,252,0.22)] rounded-xl px-4 py-2.5 text-sm text-white placeholder-[rgba(226,245,255,0.4)] focus:outline-none focus:ring-2 focus:ring-amber-400/50"
+                      disabled={createBusy}
+                      required
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-[10px] font-black text-[rgba(226,245,255,0.6)] uppercase tracking-wider">Pesan Pertama *</span>
+                    <textarea
+                      value={newMessage}
+                      onChange={e => setNewMessage(e.target.value)}
+                      placeholder="Halo Bapak/Ibu, saya ingin berdiskusi terkait..."
+                      rows={5}
+                      className="w-full bg-[rgba(5,29,83,0.6)] border border-[rgba(125,211,252,0.22)] rounded-xl px-4 py-2.5 text-sm text-white placeholder-[rgba(226,245,255,0.4)] focus:outline-none focus:ring-2 focus:ring-amber-400/50 resize-none"
+                      disabled={createBusy}
+                      required
+                    />
+                    {selectedStudent && (
+                      <span className="text-[10px] text-[rgba(226,245,255,0.5)]">
+                        Nama anak akan disebutkan otomatis di awal pesan: &quot;Halo Bapak/Ibu, saya ingin berdiskusi terkait {selectedStudent.name}.&quot;
+                      </span>
+                    )}
+                  </label>
+
+                  <button
+                    type="submit"
+                    disabled={createBusy || !selectedStudentId || !selectedParentId || !newTopic.trim() || !newMessage.trim()}
+                    className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-600 text-[#07133b] font-bold rounded-xl py-2.5 transition-colors"
+                  >
+                    {createBusy ? (
+                      <Loader2 size={18} className="animate-spin" />
+                    ) : (
+                      <Send size={18} />
+                    )}
+                    {createBusy ? "Membuat Konsultasi..." : "Mulai Konsultasi"}
+                  </button>
+                </form>
+              ) : busy ? (
                 <div className="flex justify-center p-10">
                   <Loader2 className="animate-spin text-amber-400" />
                 </div>
@@ -293,6 +521,13 @@ export function TeacherConsultationModal({
                 <div className="flex flex-col items-center justify-center p-10 text-[rgba(226,245,255,0.6)] h-full">
                   <MessageSquare size={32} className="mb-3 text-amber-400/50" />
                   <p className="text-sm font-medium">Belum ada konsultasi.</p>
+                  <button
+                    onClick={() => setShowNewConsultation(true)}
+                    className="mt-4 flex items-center gap-1.5 text-[11px] font-bold bg-[rgba(5,29,83,0.6)] hover:bg-[rgba(5,29,83,0.8)] text-amber-300 border border-amber-400/30 px-4 py-2 rounded-lg transition-colors"
+                  >
+                    <Plus size={14} />
+                    Mulai Konsultasi Baru
+                  </button>
                 </div>
               )}
             </div>

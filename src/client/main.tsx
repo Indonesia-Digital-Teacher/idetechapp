@@ -13,6 +13,7 @@ import "driver.js/dist/driver.css";
 import { ParentFriendlyDashboard } from "./ParentFriendlyDashboard";
 import { TeacherRPPGenerator } from "./components/TeacherRPPGenerator";
 import { TeacherConsultationModal } from "./components/TeacherConsultationModal";
+import { CP_DATA, Fase, getKkaCp, JURUSAN_SMK, MapelOption, SubOption } from "./data/cpData";
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: Error | null}> {
   constructor(props: {children: React.ReactNode}) { super(props); this.state = { hasError: false, error: null }; }
   static getDerivedStateFromError(error: Error) { return { hasError: true, error }; }
@@ -3921,6 +3922,17 @@ function TeacherSpaceDashboard({
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    const openSemester = () => setShowTodoPanel(true);
+    const openRpp = () => setShowRppGenerator(true);
+    window.addEventListener("idetech:open-semester", openSemester);
+    window.addEventListener("idetech:open-rpp", openRpp);
+    return () => {
+      window.removeEventListener("idetech:open-semester", openSemester);
+      window.removeEventListener("idetech:open-rpp", openRpp);
+    };
+  }, []);
+
   const [showRppGenerator, setShowRppGenerator] = useState(false);
   const [classForm, setClassForm] = useState({
     name: "",
@@ -4665,6 +4677,10 @@ function TeacherTodoPanel({
 
   // Semester Plan Generator state
   const [showSemesterGen, setShowSemesterGen] = useState(false);
+  const [genFase, setGenFase] = useState<Fase>("E");
+  const [genMapel, setGenMapel] = useState("");
+  const [genSubOption, setGenSubOption] = useState("");
+  const [genJurusan, setGenJurusan] = useState("");
   const [genCp, setGenCp] = useState("");
   const [genDays, setGenDays] = useState<number[]>([]);
   const [genStartDate, setGenStartDate] = useState("2026-07-13");
@@ -4675,6 +4691,30 @@ function TeacherTodoPanel({
   const [semesterError, setSemesterError] = useState("");
   const [generatedMeetings, setGeneratedMeetings] = useState<any[]>([]);
   const [showSemesterPreview, setShowSemesterPreview] = useState(false);
+
+  const availableMapel = useMemo(() => CP_DATA[genFase] || [], [genFase]);
+  const selectedMapel = useMemo<MapelOption | undefined>(() => availableMapel.find(m => m.value === genMapel), [availableMapel, genMapel]);
+
+  useEffect(() => {
+    if (!selectedMapel) {
+      setGenCp("");
+      return;
+    }
+    if (selectedMapel.requiresJurusan) {
+      if (genJurusan) {
+        setGenCp(getKkaCp(genFase, genJurusan));
+      } else {
+        setGenCp("");
+      }
+      return;
+    }
+    if (selectedMapel.subOptions) {
+      const sub = selectedMapel.subOptions.find((s: SubOption) => s.value === genSubOption);
+      setGenCp(sub ? sub.cp : "");
+      return;
+    }
+    setGenCp(selectedMapel.cp || "");
+  }, [genFase, selectedMapel, genSubOption, genJurusan]);
 
   async function generateSemesterPlan() {
     setLoadingSemester(true);
@@ -5326,13 +5366,81 @@ function TeacherTodoPanel({
                 </div>
               ) : null}
               
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-black text-white/50 uppercase tracking-wider">Fase *</span>
+                  <select
+                    value={genFase}
+                    onChange={e => {
+                      setGenFase(e.target.value as Fase);
+                      setGenMapel("");
+                      setGenSubOption("");
+                      setGenJurusan("");
+                    }}
+                    className="todo-form-input text-xs cursor-pointer"
+                  >
+                    <option value="E">Fase E (Kelas X)</option>
+                    <option value="F">Fase F (Kelas XI - XII/XIII)</option>
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-black text-white/50 uppercase tracking-wider">Mata Pelajaran *</span>
+                  <select
+                    value={genMapel}
+                    onChange={e => {
+                      setGenMapel(e.target.value);
+                      setGenSubOption("");
+                      setGenJurusan("");
+                    }}
+                    className="todo-form-input text-xs cursor-pointer"
+                  >
+                    <option value="">Pilih mata pelajaran</option>
+                    {availableMapel.map(m => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              {selectedMapel?.subOptions && (
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-black text-white/50 uppercase tracking-wider">{selectedMapel.subLabel} *</span>
+                  <select
+                    value={genSubOption}
+                    onChange={e => setGenSubOption(e.target.value)}
+                    className="todo-form-input text-xs cursor-pointer"
+                  >
+                    <option value="">Pilih {selectedMapel.subLabel?.toLowerCase()}</option>
+                    {selectedMapel.subOptions.map(s => (
+                      <option key={s.value} value={s.value}>{s.label}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              {selectedMapel?.requiresJurusan && (
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-black text-white/50 uppercase tracking-wider">{selectedMapel.subLabel} *</span>
+                  <select
+                    value={genJurusan}
+                    onChange={e => setGenJurusan(e.target.value)}
+                    className="todo-form-input text-xs cursor-pointer"
+                  >
+                    <option value="">Pilih jurusan</option>
+                    {JURUSAN_SMK.map(j => (
+                      <option key={j.value} value={j.value}>{j.label}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
               <label className="flex flex-col gap-1.5">
                 <span className="text-[10px] font-black text-white/50 uppercase tracking-wider">Capaian Pembelajaran (CP) *</span>
                 <textarea
                   value={genCp}
                   onChange={e => setGenCp(e.target.value)}
-                  placeholder="Tempel kompetensi atau capaian pembelajaran kelas di sini..."
-                  rows={4}
+                  placeholder="Pilih fase dan mata pelajaran untuk mengisi CP secara otomatis. Anda tetap dapat mengedit isian ini."
+                  rows={5}
                   className="todo-form-input py-2 resize-none text-xs"
                   required
                 />
@@ -10151,6 +10259,7 @@ type StudentProgressReport = {
   studentEmail: string;
   avatarUrl: string | null;
   className: string;
+  joinedAt: string | null;
   materials: { id: string; title: string; type: string; progress: number; completedAt: string | null; dueDate: string | null; isLate: boolean }[];
   quests: { 
     id: string; 
@@ -10359,67 +10468,71 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
             Reset Filter
           </button>
         </div>
-      ) : currentMode === "report" ? (
-        <div className="overflow-x-auto mt-6 bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] rounded-xl shadow-sm">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-[rgba(5,29,83,0.6)] border-b border-[rgba(125,211,252,0.22)] text-[rgba(226,245,255,0.76)] text-[10px] sm:text-xs uppercase tracking-wider">
-                <th className="p-3 sm:p-4 font-bold">Nama Siswa</th>
-                <th className="p-3 sm:p-4 font-bold hidden sm:table-cell">Kelas</th>
-                <th className="p-3 sm:p-4 font-bold text-center">Materi Selesai</th>
-                <th className="p-3 sm:p-4 font-bold text-center">Quest Selesai</th>
-                <th className="p-3 sm:p-4 font-bold text-center">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[rgba(125,211,252,0.1)]">
-              {filteredData.map(student => {
-                const matCompleted = student.materials.filter(m => m.progress >= 100).length;
-                const questCompleted = student.quests.filter(q => q.progress >= 100).length;
-                return (
-                  <tr key={`${student.studentId}-${student.classId}`} className="hover:bg-white/5 transition-colors">
-                    <td className="p-3 sm:p-4">
-                      <div className="flex items-center gap-3">
-                        {student.avatarUrl ? (
-                          <img src={student.avatarUrl} className="w-8 h-8 rounded-full object-cover border border-white/20" alt="" />
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 flex items-center justify-center font-bold text-xs shrink-0">
-                            {student.studentName[0].toUpperCase()}
-                          </div>
-                        )}
-                        <div>
-                          <div className="font-bold text-white text-sm leading-tight">{student.studentName}</div>
-                          <div className="text-xs text-[rgba(226,245,255,0.76)] hidden sm:block">{student.studentEmail}</div>
-                        </div>
+      ) : currentMode === "radar" ? (
+        <div className="mt-6 flex flex-col gap-4 animate-in fade-in slide-in-from-top-2">
+          {filteredData.map(student => {
+            const allItems = [
+              ...student.materials.map(m => ({ ...m, kind: 'Materi' as const, icon: '📖' })),
+              ...student.quests.map(q => ({ ...q, kind: 'IdeQuest' as const, icon: '🎯' }))
+            ].sort((a, b) => {
+              const aTime = a.completedAt || a.dueDate || '';
+              const bTime = b.completedAt || b.dueDate || '';
+              return aTime < bTime ? -1 : aTime > bTime ? 1 : 0;
+            });
+
+            const totalCompleted = allItems.filter(i => i.progress >= 100).length;
+            const totalItems = allItems.length;
+
+            return (
+              <div key={`${student.studentId}-${student.classId}`} className="bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] rounded-xl p-4 shadow-sm hover:border-amber-400/50 transition-all">
+                <div className="flex items-center gap-3 mb-3 border-b border-[rgba(125,211,252,0.22)] pb-3">
+                  {student.avatarUrl ? (
+                    <img src={student.avatarUrl} className="w-8 h-8 rounded-full object-cover border border-white/20" alt="" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 flex items-center justify-center font-bold text-xs shrink-0">
+                      {student.studentName[0].toUpperCase()}
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <div className="font-bold text-white text-sm leading-tight">{student.studentName}</div>
+                    <div className="text-xs text-[rgba(226,245,255,0.76)]">{student.className}</div>
+                  </div>
+                  <div className="text-right text-xs text-[rgba(226,245,255,0.5)]">
+                    {student.joinedAt ? (
+                      <>Bergabung {new Date(student.joinedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</>
+                    ) : 'Bergabung -'}
+                  </div>
+                </div>
+
+                <div className="mb-3">
+                  <div className="flex gap-1.5 text-xs text-[rgba(226,245,255,0.7)]">
+                    <span className="font-bold text-amber-400">{totalCompleted}/{totalItems}</span> selesai
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  {allItems.map((item, idx) => {
+                    const isCompleted = item.progress >= 100;
+                    const timeLabel = item.completedAt
+                      ? new Date(item.completedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+                      : item.dueDate
+                        ? `Tenggat: ${new Date(item.dueDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                        : 'Belum ada tenggat';
+
+                    return (
+                      <div key={item.id || idx} className={`flex items-center gap-2 p-2 rounded-lg text-xs transition-colors ${isCompleted ? 'bg-emerald-500/10 border border-emerald-400/20' : 'bg-[rgba(5,29,83,0.6)] border border-[rgba(125,211,252,0.15)]'}`}>
+                        <span className="shrink-0">{item.icon}</span>
+                        <span className="flex-1 font-medium text-white truncate">{item.title}</span>
+                        <span className={`shrink-0 font-medium ${isCompleted ? 'text-emerald-300' : 'text-[rgba(226,245,255,0.6)]'}`}>
+                          {isCompleted ? `✅ ${timeLabel}` : `⏳ ${timeLabel}`}
+                        </span>
                       </div>
-                    </td>
-                    <td className="p-3 sm:p-4 text-sm text-[rgba(226,245,255,0.76)] hidden sm:table-cell">{student.className}</td>
-                    <td className="p-3 sm:p-4 text-center">
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-bold">
-                        <BookOpen className="w-3.5 h-3.5" />
-                        {matCompleted} / {student.materials.length}
-                      </div>
-                    </td>
-                    <td className="p-3 sm:p-4 text-center">
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-500/20 border border-orange-400/30 text-orange-300 text-xs font-bold">
-                        <Target className="w-3.5 h-3.5" />
-                        {questCompleted} / {student.quests.length}
-                      </div>
-                    </td>
-                    <td className="p-3 sm:p-4 text-center">
-                      <button
-                        type="button"
-                        onClick={() => removeStudent(student.classId, student.studentId, student.studentName, student.className)}
-                        className="p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 rounded-md transition-colors"
-                        title="Keluarkan Siswa"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : currentMode === "koreksi" ? (
         <div className="mt-6 flex flex-col gap-4 animate-in fade-in slide-in-from-top-2">
@@ -10683,13 +10796,23 @@ function WelcomeGreetingModal({
   quotes,
   aiQuota,
   adminContact = "6281234567890",
-  onClose
+  onClose,
+  onStartSemester,
+  onStartRPP,
+  onStartIdeStudio,
+  onStartIdeQuest,
+  teacherHasClasses = false
 }: {
   user: AuthUser;
   quotes: WelcomeQuote[];
   aiQuota: { limit: number; used: number; remaining: number; resetAt?: string } | null;
   adminContact?: string;
   onClose: () => void;
+  onStartSemester?: () => void;
+  onStartRPP?: () => void;
+  onStartIdeStudio?: () => void;
+  onStartIdeQuest?: () => void;
+  teacherHasClasses?: boolean;
 }) {
   const role = user.activeRole as "teacher" | "student" | "parent";
   const displayName = user.fullName?.split(" ")[0] || user.name?.split(" ")[0] || "Kamu";
@@ -10888,6 +11011,55 @@ function WelcomeGreetingModal({
               >
                 💬 Hubungi Admin jika ingin mendapatkan kuota tambahan (berbayar)
               </a>
+            </div>
+          )}
+
+          {role === "teacher" && !teacherHasClasses && (
+            <div className="mb-6 p-4 bg-white/[0.03] border border-dashed border-amber-400/30 rounded-2xl">
+              <h4 className="text-xs font-extrabold tracking-wider uppercase text-amber-300 mb-3">
+                🎯 Mulai dari sini, Guru!
+              </h4>
+              <div className="flex flex-col gap-2">
+                <a
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent("idetech:open-semester")); onClose(); }}
+                  className="flex items-center gap-2 px-3 py-2 bg-white/[0.04] hover:bg-amber-400/10 rounded-xl border border-white/5 hover:border-amber-400/30 transition-all text-xs"
+                >
+                  <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px]">1</span>
+                  <span className="flex-1 text-slate-200 font-medium">Buat Program Semester</span>
+                  <span className="text-amber-300">→</span>
+                </a>
+                <a
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent("idetech:open-rpp")); onClose(); }}
+                  className="flex items-center gap-2 px-3 py-2 bg-white/[0.04] hover:bg-amber-400/10 rounded-xl border border-white/5 hover:border-amber-400/30 transition-all text-xs"
+                >
+                  <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px]">2</span>
+                  <span className="flex-1 text-slate-200 font-medium">Buat RPP per Pertemuan</span>
+                  <span className="text-amber-300">→</span>
+                </a>
+                <a
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent("idetech:open-ide-studio")); onClose(); }}
+                  className="flex items-center gap-2 px-3 py-2 bg-white/[0.04] hover:bg-amber-400/10 rounded-xl border border-white/5 hover:border-amber-400/30 transition-all text-xs"
+                >
+                  <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px]">3</span>
+                  <span className="flex-1 text-slate-200 font-medium">Buat Materi Pembelajaran (IdeStudio)</span>
+                  <span className="text-amber-300">→</span>
+                </a>
+                <a
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent("idetech:open-ide-quest")); onClose(); }}
+                  className="flex items-center gap-2 px-3 py-2 bg-white/[0.04] hover:bg-amber-400/10 rounded-xl border border-white/5 hover:border-amber-400/30 transition-all text-xs"
+                >
+                  <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px]">4</span>
+                  <span className="flex-1 text-slate-200 font-medium">Buat IdeQuest (Kuis/Tugas Belajar)</span>
+                  <span className="text-amber-300">→</span>
+                </a>
+              </div>
+              <p className="text-[10px] text-slate-500 mt-2 text-center">
+                Ikuti langkah-langkah ini untuk memulai pengajaran!
+              </p>
             </div>
           )}
 
@@ -11234,52 +11406,191 @@ function AdvancedMasterData() {
 function AdvancedActivityLogs() {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  useEffect(() => {
-    async function fetchLogs() {
-      try {
-        const res = await api<{ logs: any[] }>("/api/admin/logs");
-        setLogs(res.logs || []);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchLogs();
-  }, []);
+  const [search, setSearch] = useState("");
+  const [actionFilter, setActionFilter] = useState("");
+  const [resourceFilter, setResourceFilter] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ page: 1, limit: 15, total: 0, totalPages: 0 });
 
-  if (loading) return <div className="text-center text-slate-500 py-8">Memuat log aktivitas...</div>;
-  if (logs.length === 0) return <div className="text-center text-slate-500 py-8 italic">Belum ada aktivitas tercatat</div>;
+  const fetchLogs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (search) params.set("search", search);
+      if (actionFilter) params.set("action", actionFilter);
+      if (resourceFilter) params.set("resourceType", resourceFilter);
+      if (fromDate) params.set("from", fromDate);
+      if (toDate) params.set("to", toDate);
+      params.set("page", String(page));
+      const res = await api<{ logs: any[]; pagination: typeof pagination }>(`/api/admin/logs?${params.toString()}`);
+      setLogs(res.logs || []);
+      if (res.pagination) setPagination(res.pagination);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, [search, actionFilter, resourceFilter, fromDate, toDate, page]);
+
+  useEffect(() => {
+    fetchLogs();
+  }, [fetchLogs]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, actionFilter, resourceFilter, fromDate, toDate]);
+
+  const resetFilters = () => {
+    setSearch("");
+    setActionFilter("");
+    setResourceFilter("");
+    setFromDate("");
+    setToDate("");
+    setPage(1);
+  };
+
+  const actionColor = (a: string) => {
+    if (a.includes("error")) return "bg-red-900/60 text-red-300 border border-red-500/40";
+    if (a === "create") return "bg-green-900/50 text-green-300";
+    if (a === "update") return "bg-blue-900/50 text-blue-300";
+    if (a === "delete") return "bg-red-900/50 text-red-300";
+    if (a === "grade") return "bg-amber-900/50 text-amber-300";
+    return "bg-slate-800 text-slate-300";
+  };
 
   return (
-    <div className="overflow-x-auto border border-white/10 rounded-xl bg-black/20">
-      <table className="w-full text-left text-sm border-collapse">
-        <thead>
-          <tr className="bg-white/5 text-slate-300">
-            <th className="p-3 font-bold border-b border-white/10">Waktu</th>
-            <th className="p-3 font-bold border-b border-white/10">Pengguna</th>
-            <th className="p-3 font-bold border-b border-white/10">Aksi</th>
-            <th className="p-3 font-bold border-b border-white/10">Tipe</th>
-            <th className="p-3 font-bold border-b border-white/10">Detail Tambahan</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-white/5">
-          {logs.map(log => (
-            <tr key={log.id} className="hover:bg-white/5 transition-colors">
-              <td className="p-3 text-slate-400 text-xs whitespace-nowrap">{new Date(log.createdAt).toLocaleString('id-ID')}</td>
-              <td className="p-3 font-medium text-slate-200">{log.userName}</td>
-              <td className="p-3">
-                <span className={`px-2 py-1 rounded text-xs font-bold ${log.action === 'create' ? 'bg-green-900/50 text-green-300' : log.action === 'update' ? 'bg-blue-900/50 text-blue-300' : log.action === 'delete' ? 'bg-red-900/50 text-red-300' : 'bg-slate-800 text-slate-300'}`}>
-                  {log.action.toUpperCase()}
-                </span>
-              </td>
-              <td className="p-3 text-slate-300">{log.resourceType}</td>
-              <td className="p-3 text-xs text-slate-400 max-w-[200px] truncate" title={log.details || "-"}>{log.details || "-"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3 p-4 bg-black/20 border border-white/10 rounded-xl">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2">
+          <input
+            type="text"
+            placeholder="🔍 Cari nama, email, aksi, atau detail..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 lg:col-span-2"
+          />
+          <select
+            value={actionFilter}
+            onChange={e => setActionFilter(e.target.value)}
+            className="px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+          >
+            <option value="">Semua Aksi</option>
+            <option value="create">Create</option>
+            <option value="update">Update</option>
+            <option value="delete">Delete</option>
+            <option value="grade">Grade</option>
+            <option value="ai_error">⚠️ AI Error</option>
+            <option value="create_error">⚠️ Create Error</option>
+            <option value="update_error">⚠️ Update Error</option>
+            <option value="upload_error">⚠️ Upload Error</option>
+          </select>
+          <input
+            type="text"
+            placeholder="Resource type..."
+            value={resourceFilter}
+            onChange={e => setResourceFilter(e.target.value)}
+            className="px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+          />
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="px-3 py-2 bg-amber-400/20 hover:bg-amber-400/30 border border-amber-400/30 text-amber-300 rounded-lg text-sm font-bold transition-colors"
+          >
+            Reset Filter
+          </button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <label className="flex items-center gap-2 text-xs text-slate-400">
+            <span>Dari:</span>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={e => setFromDate(e.target.value)}
+              className="flex-1 px-2 py-1.5 bg-black/40 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+            />
+          </label>
+          <label className="flex items-center gap-2 text-xs text-slate-400">
+            <span>Sampai:</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={e => setToDate(e.target.value)}
+              className="flex-1 px-2 py-1.5 bg-black/40 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+            />
+          </label>
+        </div>
+        <div className="flex items-center justify-between text-xs text-slate-400">
+          <span>
+            Total: <span className="font-bold text-white">{pagination.total}</span> aktivitas
+          </span>
+          <span>
+            Halaman <span className="font-bold text-white">{pagination.page}</span> dari <span className="font-bold text-white">{pagination.totalPages || 1}</span>
+          </span>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="text-center text-slate-500 py-8">Memuat log aktivitas...</div>
+      ) : logs.length === 0 ? (
+        <div className="text-center text-slate-500 py-8 italic border border-white/10 rounded-xl bg-black/20">
+          Tidak ada aktivitas yang cocok dengan filter.
+        </div>
+      ) : (
+        <div className="overflow-x-auto border border-white/10 rounded-xl bg-black/20">
+          <table className="w-full text-left text-sm border-collapse">
+            <thead>
+              <tr className="bg-white/5 text-slate-300">
+                <th className="p-3 font-bold border-b border-white/10">Waktu</th>
+                <th className="p-3 font-bold border-b border-white/10">Pengguna</th>
+                <th className="p-3 font-bold border-b border-white/10">Aksi</th>
+                <th className="p-3 font-bold border-b border-white/10">Tipe</th>
+                <th className="p-3 font-bold border-b border-white/10">Detail Tambahan</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {logs.map(log => (
+                <tr key={log.id} className={`hover:bg-white/5 transition-colors ${log.action.includes("error") ? "bg-red-950/20" : ""}`}>
+                  <td className="p-3 text-slate-400 text-xs whitespace-nowrap">{new Date(log.createdAt).toLocaleString('id-ID')}</td>
+                  <td className="p-3 font-medium text-slate-200">{log.userName}</td>
+                  <td className="p-3">
+                    <span className={`px-2 py-1 rounded text-xs font-bold ${actionColor(log.action)}`}>
+                      {log.action.toUpperCase()}
+                    </span>
+                  </td>
+                  <td className="p-3 text-slate-300">{log.resourceType}</td>
+                  <td className="p-3 text-xs text-slate-400 max-w-[280px] truncate" title={log.details || "-"}>{log.details || "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {!loading && pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between gap-2 p-3 bg-black/20 border border-white/10 rounded-xl">
+          <button
+            type="button"
+            disabled={page <= 1}
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            className="px-4 py-2 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed border border-white/10 rounded-lg text-white text-sm font-bold transition-colors"
+          >
+            ← Sebelumnya
+          </button>
+          <span className="text-xs text-slate-400">
+            Menampilkan halaman {pagination.page} dari {pagination.totalPages}
+          </span>
+          <button
+            type="button"
+            disabled={page >= pagination.totalPages}
+            onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+            className="px-4 py-2 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed border border-white/10 rounded-lg text-white text-sm font-bold transition-colors"
+          >
+            Selanjutnya →
+          </button>
+        </div>
+      )}
     </div>
   );
 }

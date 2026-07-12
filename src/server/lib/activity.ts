@@ -6,7 +6,7 @@ export async function writeActivityLog(input: {
   userId: string;
   action: string;
   resourceType: string;
-  resourceId?: string;
+  resourceId?: string | null;
   details?: Record<string, unknown>;
 }) {
   const now = new Date();

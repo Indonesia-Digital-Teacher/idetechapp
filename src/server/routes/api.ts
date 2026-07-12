@@ -1,5 +1,5 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { and, desc, eq, inArray, like, or } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, like, lte, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { nanoid } from "nanoid";
 import { db } from "../db/client";
@@ -825,19 +825,74 @@ app.delete("/admin/master/:type/:id", requireRole(["admin"]), async (c) => {
 });
 
 app.get("/admin/logs", requireRole(["admin"]), async (c) => {
-  const rows = await db.select().from(activityLogs).orderBy(desc(activityLogs.createdAt)).limit(100);
+  const search = c.req.query("search")?.trim() || "";
+  const actionFilter = c.req.query("action")?.trim() || "";
+  const resourceFilter = c.req.query("resourceType")?.trim() || "";
+  const fromDate = c.req.query("from")?.trim() || "";
+  const toDate = c.req.query("to")?.trim() || "";
+  const page = Math.max(1, parseInt(c.req.query("page") || "1", 10));
+  const limit = 15;
+  const offset = (page - 1) * limit;
+
   const userRows = await db.select().from(users);
-  
+  const userById = new Map(userRows.map(u => [u.id, u]));
+
+  let matchedUserIds: string[] | null = null;
+  if (search) {
+    const lower = search.toLowerCase();
+    matchedUserIds = userRows
+      .filter(u => (u.name || "").toLowerCase().includes(lower) || (u.email || "").toLowerCase().includes(lower))
+      .map(u => u.id);
+  }
+
+  const conditions = [];
+  if (actionFilter) conditions.push(eq(activityLogs.action, actionFilter));
+  if (resourceFilter) conditions.push(eq(activityLogs.resourceType, resourceFilter));
+  if (fromDate) conditions.push(gte(activityLogs.createdAt, new Date(fromDate)));
+  if (toDate) conditions.push(lte(activityLogs.createdAt, new Date(toDate + "T23:59:59.999Z")));
+  if (search) {
+    const likeSearch = `%${search}%`;
+    const orParts = [
+      like(activityLogs.action, likeSearch),
+      like(activityLogs.resourceType, likeSearch),
+      like(activityLogs.details, likeSearch),
+      like(activityLogs.resourceId, likeSearch)
+    ];
+    if (matchedUserIds && matchedUserIds.length > 0) {
+      orParts.push(inArray(activityLogs.userId, matchedUserIds));
+    }
+    conditions.push(or(...orParts));
+  }
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const [countRow] = await db.select({ count: sql<number>`count(*)` }).from(activityLogs).where(whereClause);
+  const total = Number(countRow?.count || 0);
+
+  const rows = await db.select().from(activityLogs)
+    .where(whereClause)
+    .orderBy(desc(activityLogs.createdAt))
+    .limit(limit)
+    .offset(offset);
+
   const enriched = rows.map((item) => {
-    const user = userRows.find((u) => u.id === item.userId);
+    const user = userById.get(item.userId);
     return {
       ...item,
       userName: user?.name || "Unknown",
       userEmail: user?.email || "-"
     };
   });
-  
-  return c.json({ logs: enriched });
+
+  return c.json({
+    logs: enriched,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
+    }
+  });
 });
 
 
@@ -1067,6 +1122,8 @@ app.post("/teacher/todos", requireRole(["teacher", "admin"]), async (c) => {
     return c.json({ message: "Format tenggat tugas tidak valid." }, 400);
   }
 
+  const todoTitleForLog = body.title.trim();
+
   try {
     const now = new Date();
     const id = nanoid();
@@ -1075,7 +1132,7 @@ app.post("/teacher/todos", requireRole(["teacher", "admin"]), async (c) => {
       userId: user.id,
       classId: body.classId || null,
       category: body.category?.trim() || null,
-      title: body.title.trim(),
+      title: todoTitleForLog,
       description: body.description?.trim() || null,
       priority: body.priority ?? "medium",
       isCompleted: false,
@@ -1089,6 +1146,12 @@ app.post("/teacher/todos", requireRole(["teacher", "admin"]), async (c) => {
   } catch (error) {
     console.error("Failed to create teacher todo:", error);
     const detail = error instanceof Error ? error.message : String(error);
+    await writeActivityLog({
+      userId: user.id,
+      action: "create_error",
+      resourceType: "teacher_todo",
+      details: { error: detail, todoTitle: todoTitleForLog }
+    }).catch(() => {});
     const message =
       process.env.NODE_ENV === "production"
         ? "Gagal menyimpan tugas. Coba ulangi beberapa saat lagi."
@@ -1149,6 +1212,13 @@ app.patch("/teacher/todos/:id", requireRole(["teacher", "admin"]), async (c) => 
   } catch (error) {
     console.error("Failed to update teacher todo:", error);
     const detail = error instanceof Error ? error.message : String(error);
+    await writeActivityLog({
+      userId: user.id,
+      action: "update_error",
+      resourceType: "teacher_todo",
+      resourceId: id || null,
+      details: { error: detail }
+    }).catch(() => {});
     const message =
       process.env.NODE_ENV === "production"
         ? "Gagal memperbarui tugas. Coba ulangi beberapa saat lagi."
@@ -1184,6 +1254,33 @@ app.post("/teacher/todos/suggest", requireRole(["teacher", "admin"]), async (c) 
       .where(eq(materials.teacherUserId, user.id))
       .orderBy(desc(materials.createdAt))
       .limit(5);
+
+    if (teacherClasses.length === 0) {
+      const fallback = [
+        {
+          title: "Buat Kelas Baru",
+          description: "Buat kelas baru untuk memulai pembelajaran dan menambahkan murid.",
+          priority: "high",
+          category: "teaching",
+          classId: null
+        },
+        {
+          title: "Periksa Progres Siswa di Radar Pintar",
+          description: "Buka menu Radar Pintar untuk mendeteksi siswa yang mengalami perlambatan belajar.",
+          priority: "high",
+          category: "grading",
+          classId: null
+        },
+        {
+          title: "Unggah Materi di IdeStudio",
+          description: "Tambahkan materi bacaan baru atau kuis tantangan di kelas untuk meningkatkan engagement siswa.",
+          priority: "medium",
+          category: "teaching",
+          classId: null
+        }
+      ];
+      return c.json({ suggestions: fallback });
+    }
 
     const cybraUrl = process.env.CYBRA_API_URL || "https://asisten.ferilee.gurumuda.eu.org";
     const prompt = `Anda adalah Asisten AI pendidik untuk platform IdeTech.
@@ -1237,6 +1334,12 @@ Ingat: hanya kembalikan array JSON murni saja agar bisa diparse dengan JSON.pars
     return c.json({ suggestions });
   } catch (error) {
     console.error("Failed to suggest teacher todos:", error);
+    await writeActivityLog({
+      userId: user.id,
+      action: "ai_error",
+      resourceType: "teacher_todos_suggest",
+      details: { error: String(error), message: error instanceof Error ? error.message : "Unknown error" }
+    }).catch(() => {});
     const fallback = [
       {
         title: "Tinjau RPP Mingguan",
@@ -1573,6 +1676,19 @@ Format keluaran HARUS berupa array JSON murni, jangan sertakan tag pembungkus ma
     return c.json({ meetings: finalMeetings });
   } catch (error) {
     console.error("Failed to generate semester plan:", error);
+    await writeActivityLog({
+      userId: user.id,
+      action: "ai_error",
+      resourceType: "semester_plan",
+      resourceId: body.classId || null,
+      details: {
+        error: String(error),
+        message: error instanceof Error ? error.message : "Unknown error",
+        teachingDays: body.teachingDays,
+        startDate: body.startDate,
+        endDate: body.endDate
+      }
+    }).catch(() => {});
     const fallbackMeetings = getSmartFallbackMeetings(body.capaianPembelajaran, dates.length).map((m, idx) => ({
       title: m.title,
       description: m.description,
@@ -1792,6 +1908,12 @@ app.post("/teacher/idequests", requireRole(["teacher", "admin"]), requirePermiss
       mission += `\n\n![Lampiran Gambar](${photoUrl})`;
     } catch (err) {
       console.error("Gagal upload lampiran gambar quest ke RustFS:", err);
+      await writeActivityLog({
+        userId: user.id,
+        action: "upload_error",
+        resourceType: "quest_attachment",
+        details: { error: String(err), message: err instanceof Error ? err.message : "Unknown error" }
+      }).catch(() => {});
       return c.json({ message: "Gagal mengunggah gambar lampiran." }, 500);
     }
   }
@@ -1918,7 +2040,8 @@ app.get("/teacher/student-progress", requireRole(["teacher", "admin"]), requireP
     classId: classStudents.classId,
     studentName: users.name,
     studentEmail: users.email,
-    avatarUrl: users.avatarUrl
+    avatarUrl: users.avatarUrl,
+    joinedAt: classStudents.createdAt
   })
   .from(classStudents)
   .innerJoin(users, eq(classStudents.studentUserId, users.id))
@@ -1987,6 +2110,7 @@ app.get("/teacher/student-progress", requireRole(["teacher", "admin"]), requireP
       studentEmail: sc.studentEmail,
       avatarUrl: sc.avatarUrl,
       className: teacherClasses.find(c => c.id === sc.classId)?.name || "Unknown",
+      joinedAt: sc.joinedAt,
       materials: studentMats,
       quests: studentQsts
     };
@@ -2075,6 +2199,12 @@ app.post("/teacher/journals", requireRole(["teacher", "admin"]), requirePermissi
       photoUrl = `${s3Config.publicBaseUrl}/${key}`;
     } catch (err) {
       console.error("Gagal upload foto ke RustFS:", err);
+      await writeActivityLog({
+        userId: user.id,
+        action: "upload_error",
+        resourceType: "journal_photo",
+        details: { error: String(err), message: err instanceof Error ? err.message : "Unknown error" }
+      }).catch(() => {});
       return c.json({ message: "Gagal mengunggah foto jurnal." }, 500);
     }
   }
@@ -2232,6 +2362,12 @@ app.post("/teacher/generate-ai", requireRole(["teacher", "admin"]), requirePermi
     if (!response.ok) {
       const errorText = await response.text().catch(() => "");
       console.error(`Cybra AI error ${response.status}:`, errorText);
+      await writeActivityLog({
+        userId: user.id,
+        action: "ai_error",
+        resourceType: "ai_generate",
+        details: { status: response.status, errorText, prompt: body.prompt?.slice(0, 200) }
+      }).catch(() => {});
       return c.json({ message: `Gagal terhubung ke AI Dianyssa. Status: ${response.status}` }, 502);
     }
 
@@ -2239,6 +2375,12 @@ app.post("/teacher/generate-ai", requireRole(["teacher", "admin"]), requirePermi
     return c.json(data);
   } catch (err: any) {
     console.error("Cybra AI error:", err);
+    await writeActivityLog({
+      userId: user.id,
+      action: "ai_error",
+      resourceType: "ai_generate",
+      details: { error: String(err), message: err.message, prompt: body.prompt?.slice(0, 200) }
+    }).catch(() => {});
     return c.json({ message: `Koneksi ke backend AI gagal: ${err.message}` }, 500);
   }
 });
@@ -2939,6 +3081,12 @@ app.post("/student/quests/:id/complete", requireRole(["student"]), requirePermis
       submissionFileUrl = `${s3Config.publicBaseUrl}/${key}`;
     } catch (err) {
       console.error("Gagal upload file jawaban ke RustFS:", err);
+      await writeActivityLog({
+        userId: user.id,
+        action: "upload_error",
+        resourceType: "quest_submission_file",
+        details: { error: String(err), message: err instanceof Error ? err.message : "Unknown error" }
+      }).catch(() => {});
       return c.json({ message: "Gagal mengunggah file jawaban." }, 500);
     }
   }
@@ -3700,6 +3848,181 @@ app.get("/teacher/consultations/unread-count", requireRole(["teacher"]), async (
   // Filter out messages sent by the teacher themselves to get "incoming" messages
   const unreadCount = recentMessages.filter(m => m.senderUserId !== user.id).length;
   return c.json({ count: Math.min(unreadCount, 99) });
+});
+
+// List students with their linked parents for the current teacher
+app.get("/teacher/consultations/students", requireRole(["teacher"]), async (c) => {
+  const user = c.get("authUser");
+
+  // Get classes owned by this teacher
+  const teacherClasses = await db.select({ id: classes.id })
+    .from(classes)
+    .where(eq(classes.teacherUserId, user.id));
+
+  if (teacherClasses.length === 0) {
+    return c.json({ students: [] });
+  }
+
+  const classIds = teacherClasses.map(c => c.id);
+
+  // Get distinct students in those classes
+  const studentsInClasses = await db.select({
+    id: users.id,
+    name: users.name,
+    email: users.email,
+    avatarUrl: users.avatarUrl,
+    classId: classStudents.classId
+  })
+    .from(classStudents)
+    .innerJoin(users, eq(classStudents.studentUserId, users.id))
+    .where(inArray(classStudents.classId, classIds));
+
+  const studentIds = [...new Set(studentsInClasses.map(s => s.id))];
+  if (studentIds.length === 0) {
+    return c.json({ students: [] });
+  }
+
+  // Get parents linked to those students
+  const parents = await db.select({
+    studentUserId: parentStudents.studentUserId,
+    parentUserId: parentStudents.parentUserId,
+    relationship: parentStudents.relationship,
+    parentName: users.name,
+    parentEmail: users.email
+  })
+    .from(parentStudents)
+    .innerJoin(users, eq(parentStudents.parentUserId, users.id))
+    .where(inArray(parentStudents.studentUserId, studentIds));
+
+  const parentsByStudent = new Map<string, typeof parents>();
+  for (const p of parents) {
+    if (!parentsByStudent.has(p.studentUserId)) {
+      parentsByStudent.set(p.studentUserId, []);
+    }
+    parentsByStudent.get(p.studentUserId)!.push(p);
+  }
+
+  const students = studentsInClasses.map(s => ({
+    id: s.id,
+    name: s.name,
+    email: s.email,
+    avatarUrl: s.avatarUrl,
+    classId: s.classId,
+    parents: parentsByStudent.get(s.id) ?? []
+  }));
+
+  return c.json({ students });
+});
+
+// Teacher creates a new consultation thread with a parent
+app.post("/teacher/consultations", requireRole(["teacher"]), async (c) => {
+  const user = c.get("authUser");
+  const body = await c.req.json().catch(() => ({}));
+
+  if (!body.studentId || !body.parentId || !body.topic || !body.content) {
+    return c.json({ message: "Data tidak lengkap" }, 400);
+  }
+
+  // Verify the student belongs to one of the teacher's classes
+  const teacherClasses = await db.select({ id: classes.id })
+    .from(classes)
+    .where(eq(classes.teacherUserId, user.id));
+
+  const classIds = teacherClasses.map(c => c.id);
+  if (classIds.length === 0) {
+    return c.json({ message: "Unauthorized" }, 403);
+  }
+
+  const [membership] = await db.select()
+    .from(classStudents)
+    .where(and(
+      eq(classStudents.studentUserId, body.studentId),
+      inArray(classStudents.classId, classIds)
+    ))
+    .limit(1);
+
+  if (!membership) {
+    return c.json({ message: "Unauthorized" }, 403);
+  }
+
+  // Verify the parent is linked to the student
+  const [ps] = await db.select()
+    .from(parentStudents)
+    .where(and(
+      eq(parentStudents.parentUserId, body.parentId),
+      eq(parentStudents.studentUserId, body.studentId)
+    ))
+    .limit(1);
+
+  if (!ps) {
+    return c.json({ message: "Orang tua tidak terhubung dengan murid ini" }, 400);
+  }
+
+  // Check for duplicate open thread between same teacher, parent, and student
+  const [existing] = await db.select({ id: consultationThreads.id })
+    .from(consultationThreads)
+    .where(and(
+      eq(consultationThreads.teacherUserId, user.id),
+      eq(consultationThreads.parentUserId, body.parentId),
+      eq(consultationThreads.studentUserId, body.studentId),
+      eq(consultationThreads.status, "open")
+    ))
+    .limit(1);
+
+  if (existing) {
+    return c.json({ message: "Konsultasi terbuka sudah ada", threadId: existing.id }, 409);
+  }
+
+  const threadId = `thr_${nanoid(12)}`;
+  const now = new Date();
+
+  await db.insert(consultationThreads).values({
+    id: threadId,
+    studentUserId: body.studentId,
+    parentUserId: body.parentId,
+    teacherUserId: user.id,
+    topic: body.topic,
+    createdAt: now,
+    updatedAt: now
+  });
+
+  await db.insert(consultationMessages).values({
+    id: `msg_${nanoid(12)}`,
+    threadId,
+    senderUserId: user.id,
+    content: body.content,
+    createdAt: now
+  });
+
+  const [thread] = await db.select({
+    id: consultationThreads.id,
+    topic: consultationThreads.topic,
+    status: consultationThreads.status,
+    parentName: users.name
+  })
+    .from(consultationThreads)
+    .innerJoin(users, eq(consultationThreads.parentUserId, users.id))
+    .where(eq(consultationThreads.id, threadId))
+    .limit(1);
+
+  broadcastToTeacher(user.id, "consultation", {
+    threadId,
+    kind: "new_thread",
+    senderUserId: user.id,
+    senderName: user.name,
+    createdAt: now.toISOString()
+  });
+
+  broadcastToThread(threadId, "message", {
+    id: threadId,
+    threadId,
+    senderUserId: user.id,
+    senderName: user.name,
+    content: body.content,
+    createdAt: now.toISOString()
+  });
+
+  return c.json({ thread }, 201);
 });
 
 app.get("/teacher/consultations/:id", requireRole(["teacher"]), async (c) => {
