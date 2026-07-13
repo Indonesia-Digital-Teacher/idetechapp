@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { serveStatic } from "hono/bun";
@@ -24,6 +25,31 @@ app.use("/api/*", async (c, next) => {
   c.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   c.header("Pragma", "no-cache");
   c.header("Expires", "0");
+});
+
+// Global error handler: logs full error (with stack + errorId) to stderr and
+// returns a safe JSON response. Preserves HTTPException (e.g. 401/403/404 from middleware).
+app.onError((err, c) => {
+  const errorId = `err_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  const isDev = process.env.NODE_ENV !== "production";
+
+  console.error(
+    `[${errorId}] ${c.req.method} ${c.req.path} -> unhandled:`,
+    err instanceof Error ? (err.stack ?? err.message) : err
+  );
+
+  if (err instanceof HTTPException) {
+    return err.getResponse();
+  }
+
+  return c.json(
+    {
+      message: "Terjadi kesalahan pada server. Silakan coba lagi atau hubungi administrator.",
+      errorId,
+      ...(isDev && err instanceof Error ? { detail: err.message } : {})
+    },
+    500
+  );
 });
 
 app.route("/api", apiRoutes);

@@ -314,6 +314,7 @@ app.delete("/admin/users/:id", requireRole(["admin"]), requirePermission("user.m
 });
 
 app.get("/admin/access", requireRole(["admin"]), requirePermission("system.setting"), async (c) => {
+  try {
   const [allUsers, allRoles, allPermissions, allRolePermissions] = await Promise.all([
     db.select().from(users),
     db.select().from(roles),
@@ -346,6 +347,10 @@ app.get("/admin/access", requireRole(["admin"]), requirePermission("system.setti
       apiBase: "/api"
     }
   });
+  } catch (err) {
+    console.error("[admin/access] Gagal memuat ringkasan akses sistem:", err);
+    throw err;
+  }
 });
 
 app.patch("/admin/roles/:name/permissions", requireRole(["admin"]), requirePermission("system.setting"), async (c) => {
@@ -1314,7 +1319,8 @@ Ingat: hanya kembalikan array JSON murni saja agar bisa diparse dengan JSON.pars
     const aiRes = await fetch(`${cybraUrl}/api/integration/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: prompt, history: [] })
+      body: JSON.stringify({ message: prompt, history: [] }),
+      signal: AbortSignal.timeout(45_000)
     });
 
     if (!aiRes.ok) {
@@ -1636,7 +1642,8 @@ Format keluaran HARUS berupa array JSON murni, jangan sertakan tag pembungkus ma
     const aiRes = await fetch(`${cybraUrl}/api/integration/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: prompt, history: [] })
+      body: JSON.stringify({ message: prompt, history: [] }),
+      signal: AbortSignal.timeout(45_000)
     });
 
     let meetings = [];
@@ -2317,11 +2324,12 @@ app.post("/teacher/chat", requireRole(["teacher", "admin"]), requirePermission("
     const cybraUrl = process.env.CYBRA_API_URL || "https://asisten.ferilee.gurumuda.eu.org";
     const response = await fetch(`${cybraUrl}/api/integration/chat`, {
       method: "POST",
-      headers: { 
+      headers: {
         "Content-Type": "application/json",
         "User-Agent": "Mozilla/5.0 (IdeTech Server) AppleWebKit/537.36"
       },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(45_000)
     });
 
     if (!response.ok) {
@@ -2352,11 +2360,12 @@ app.post("/teacher/generate-ai", requireRole(["teacher", "admin"]), requirePermi
     const cybraUrl = process.env.CYBRA_API_URL || "https://asisten.ferilee.gurumuda.eu.org";
     const response = await fetch(`${cybraUrl}/api/integration/chat`, {
       method: "POST",
-      headers: { 
+      headers: {
         "Content-Type": "application/json",
         "User-Agent": "Mozilla/5.0 (IdeTech Server) AppleWebKit/537.36"
       },
-      body: JSON.stringify({ message: body.prompt, history: [] })
+      body: JSON.stringify({ message: body.prompt, history: [] }),
+      signal: AbortSignal.timeout(45_000)
     });
 
     if (!response.ok) {
@@ -4709,11 +4718,12 @@ Artikel harus memiliki judul utama (H1), pendahuluan yang menarik, 2-3 poin pemb
     const cybraUrl = process.env.CYBRA_API_URL || "https://asisten.ferilee.gurumuda.eu.org";
     const response = await fetch(`${cybraUrl}/api/integration/chat`, {
       method: "POST",
-      headers: { 
+      headers: {
         "Content-Type": "application/json",
         "User-Agent": "Mozilla/5.0 (IdeTech Server) AppleWebKit/537.36"
       },
-      body: JSON.stringify({ message })
+      body: JSON.stringify({ message }),
+      signal: AbortSignal.timeout(45_000)
     });
 
     if (!response.ok) {

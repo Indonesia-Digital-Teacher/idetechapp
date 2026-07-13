@@ -65,6 +65,7 @@ import {
   Trash2,
   Upload,
   Image as ImageIcon,
+  Check,
   CheckCircle2,
   ChevronLeft,
   ChevronDown,
@@ -92,6 +93,7 @@ import {
   AlertCircle,
   Flag,
   ClipboardList,
+  Copy,
   GripVertical,
   Edit3,
   XCircle,
@@ -11426,6 +11428,7 @@ function AdvancedActivityLogs() {
   const [toDate, setToDate] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ page: 1, limit: 15, total: 0, totalPages: 0 });
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);
@@ -11446,6 +11449,30 @@ function AdvancedActivityLogs() {
       setLoading(false);
     }
   }, [search, actionFilter, resourceFilter, fromDate, toDate, page]);
+
+  const handleCopyDetails = useCallback(async (logId: string, text: string) => {
+    if (!text) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      setCopiedId(logId);
+      window.setTimeout(() => {
+        setCopiedId(prev => (prev === logId ? null : prev));
+      }, 1500);
+    } catch (err) {
+      console.error("Gagal menyalin detail aktivitas:", err);
+    }
+  }, []);
 
   useEffect(() => {
     fetchLogs();
@@ -11564,7 +11591,7 @@ function AdvancedActivityLogs() {
             </thead>
             <tbody className="divide-y divide-white/5">
               {logs.map(log => (
-                <tr key={log.id} className={`hover:bg-white/5 transition-colors ${log.action.includes("error") ? "bg-red-950/20" : ""}`}>
+                <tr key={log.id} className={`group hover:bg-white/5 transition-colors ${log.action.includes("error") ? "bg-red-950/20" : ""}`}>
                   <td className="p-3 text-slate-400 text-xs whitespace-nowrap">{new Date(log.createdAt).toLocaleString('id-ID')}</td>
                   <td className="p-3 font-medium text-slate-200">{log.userName}</td>
                   <td className="p-3">
@@ -11573,7 +11600,34 @@ function AdvancedActivityLogs() {
                     </span>
                   </td>
                   <td className="p-3 text-slate-300">{log.resourceType}</td>
-                  <td className="p-3 text-xs text-slate-400 max-w-[280px] truncate" title={log.details || "-"}>{log.details || "-"}</td>
+                  <td className="p-3 text-xs text-slate-400 max-w-[280px]">
+                    {log.details ? (
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="truncate flex-1 min-w-0" title={log.details}>{log.details}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyDetails(log.id, log.details)}
+                          aria-label={copiedId === log.id ? "Detail tersalin" : "Salin detail"}
+                          className={`relative shrink-0 inline-flex items-center justify-center w-6 h-6 rounded transition-opacity focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-400 ${copiedId === log.id ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"}`}
+                        >
+                          {copiedId === log.id ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5 text-slate-400 hover:text-white" />
+                          )}
+                          <span
+                            role="status"
+                            aria-live="polite"
+                            className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-1.5 py-0.5 rounded bg-slate-900 text-white text-[10px] font-bold whitespace-nowrap border border-white/10 shadow-lg transition-opacity ${copiedId === log.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                          >
+                            {copiedId === log.id ? "Tersalin!" : "Salin"}
+                          </span>
+                        </button>
+                      </div>
+                    ) : (
+                      <span>-</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
