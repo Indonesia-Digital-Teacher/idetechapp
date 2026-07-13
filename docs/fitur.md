@@ -24,7 +24,10 @@ Pusat kendali bagi pendidik untuk menyusun, mengelola, dan memantau pembelajaran
 *   **Undang Siswa**: Siswa dapat bergabung secara mandiri menggunakan kode kelas yang dibagikan.
 
 ### Sistem Manajemen RPP & AI
-*   **AI RPP Generator**: Asisten cerdas berbasis AI yang mampu menyusun *draft* Rencana Pelaksanaan Pembelajaran (RPP) dalam hitungan detik berdasarkan topik dan sasaran yang diinput oleh guru.
+*   **AI RPP Generator**: Asisten cerdas berbasis AI yang mampu menyusun *draft* Rencana Pelaksanaan Pembelajaran (RPP) dalam hitungan detik berdasarkan topik dan sasaran yang diinput oleh guru. Sekarang dapat diperkaya dengan **konten materi resmi (BSKAP/ATP)** sesuai mapel, fase, semester, dan nomor pertemuan yang dipilih.
+*   **AI Program Semester Generator**: Asisten AI yang menyusun rancangan pembagian materi per pertemuan selama satu semester berdasarkan Capaian Pembelajaran (CP), hari mengajar, dan rentang tanggal. Mendukung dua mode:
+    *   *AI CYBRA*: generate dengan AI, dengan prompt yang diperkaya outline materi resmi.
+    *   *Template Materi Lokal*: langsung mengacu pada distribusi materi resmi dari `/docs/material` tanpa mengonsumsi kuota AI, dengan **scaling proporsional** ke jumlah mengajar aktual guru.
 *   **Bank Ide (Bank RPP)**: Ekosistem perpustakaan RPP komunitas. Guru dapat mempublikasikan RPP miliknya, serta mencari, melihat, dan menyalin (menduplikasi) RPP buatan guru lain ke dalam koleksi pribadi mereka.
 *   **Actionable RPP**: Mengubah RPP langsung menjadi penugasan/aksi di kelas tertentu.
 

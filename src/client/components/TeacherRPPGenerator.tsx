@@ -5,6 +5,7 @@ import remarkMath from 'remark-math';
 import remarkGfm from 'remark-gfm';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
+import { CP_DATA, type Fase } from '../data/cpData';
 
 export function TeacherRPPGenerator({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState<1 | 2>(1);
@@ -14,7 +15,11 @@ export function TeacherRPPGenerator({ onClose }: { onClose: () => void }) {
     topic: '',
     grade: '7',
     duration: '2x45 Menit',
-    model: 'Project Based Learning'
+    model: 'Project Based Learning',
+    mapel: '',
+    fase: 'E' as Fase,
+    semester: 'ganjil' as 'ganjil' | 'genap',
+    pertemuanKe: ''
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmittingBank, setIsSubmittingBank] = useState(false);
@@ -98,7 +103,13 @@ Formatlah menggunakan Markdown dengan struktur yang rapi (Informasi Umum, Kompon
           "Content-Type": "application/json",
           "Authorization": `Bearer ${localStorage.getItem("token") || ""}`
         },
-        body: JSON.stringify({ prompt })
+        body: JSON.stringify({
+          prompt,
+          mapel: form.mapel || null,
+          fase: form.fase || null,
+          semester: form.semester || null,
+          pertemuanKe: form.pertemuanKe ? Number(form.pertemuanKe) : null
+        })
       });
       
       const data = await res.json();
@@ -229,6 +240,66 @@ Formatlah menggunakan Markdown dengan struktur yang rapi (Informasi Umum, Kompon
                   <option value="Inquiry Learning" className="text-slate-800 bg-white">Inquiry Learning</option>
                   <option value="Tatap Muka Biasa" className="text-slate-800 bg-white">Tatap Muka Konvensional</option>
                 </select>
+              </div>
+
+              <div className="p-4 rounded-xl bg-white/10 border border-white/10 space-y-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <BookOpen className="w-4 h-4 text-amber-300" />
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">Aksen Materi Resmi (Opsional)</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-blue-100 text-[10px] font-bold uppercase tracking-wider mb-1.5">Mapel</label>
+                    <select
+                      value={form.mapel}
+                      onChange={e => setForm({...form, mapel: e.target.value})}
+                      className="w-full px-3 py-2.5 bg-white/15 border border-blue-300/40 rounded-xl text-white focus:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all text-xs font-medium appearance-none"
+                    >
+                      <option value="" className="text-slate-800 bg-white">-- Tidak pakai --</option>
+                      {CP_DATA[form.fase]?.map(m => (
+                        <option key={m.value} value={m.value} className="text-slate-800 bg-white">{m.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-blue-100 text-[10px] font-bold uppercase tracking-wider mb-1.5">Fase</label>
+                    <select
+                      value={form.fase}
+                      onChange={e => setForm({...form, fase: e.target.value as Fase, mapel: ''})}
+                      className="w-full px-3 py-2.5 bg-white/15 border border-blue-300/40 rounded-xl text-white focus:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all text-xs font-medium appearance-none"
+                    >
+                      <option value="E" className="text-slate-800 bg-white">Fase E (Kelas X)</option>
+                      <option value="F" className="text-slate-800 bg-white">Fase F (Kelas XI)</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-blue-100 text-[10px] font-bold uppercase tracking-wider mb-1.5">Semester</label>
+                    <select
+                      value={form.semester}
+                      onChange={e => setForm({...form, semester: e.target.value as 'ganjil' | 'genap'})}
+                      className="w-full px-3 py-2.5 bg-white/15 border border-blue-300/40 rounded-xl text-white focus:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all text-xs font-medium appearance-none"
+                    >
+                      <option value="ganjil" className="text-slate-800 bg-white">Ganjil</option>
+                      <option value="genap" className="text-slate-800 bg-white">Genap</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-blue-100 text-[10px] font-bold uppercase tracking-wider mb-1.5">Pertemuan Ke-</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={form.pertemuanKe}
+                      onChange={e => setForm({...form, pertemuanKe: e.target.value})}
+                      placeholder="Cth: 3"
+                      className="w-full px-3 py-2.5 bg-white/10 border border-blue-400/30 rounded-xl text-white placeholder-blue-300/50 focus:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all text-xs font-medium"
+                    />
+                  </div>
+                </div>
+                <p className="text-[10px] text-blue-100/70 leading-relaxed">
+                  Jika diisi, sistem akan menyisipkan outline materi resmi sesuai mapel/fase/semester ke prompt AI agar RPP lebih sesuai kurikulum.
+                </p>
               </div>
 
               <button 

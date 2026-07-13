@@ -1,0 +1,2394 @@
+{
+  "ddpk-tkj-e-ganjil": {
+    "id": "ddpk-tkj-e-ganjil",
+    "mapel": "ddpk-tkj",
+    "mapelLabel": "Dasar-dasar Program Keahlian TKJ",
+    "fase": "E",
+    "semester": "ganjil",
+    "totalPertemuan": 36,
+    "units": [
+      {
+        "unit": "Unit 1: Wawasan Dunia Kerja & Profesi",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 6,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 6,
+            "topik": "Proses bisnis, jenis profesi (Job Profile), kewirausahaan (Technopreneurship), dan pelayanan pelanggan (Customer Service).",
+            "deskripsi": "Menganalisis jenis-jenis profesi, proses bisnis, budaya mutu, dan peluang usaha untuk membangun personal branding dan passion."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Perkembangan Teknologi TJKT",
+        "pertemuanStart": 7,
+        "pertemuanEnd": 12,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 7,
+            "pertemuanEnd": 12,
+            "topik": "Isu terkini: Teknologi 5G, Microwave Link, IPv6, Data Center, Layanan IoT, Cloud Computing, dan Keamanan Informasi.",
+            "deskripsi": "Memahami perkembangan teknologi pada perangkat teknik jaringan komputer dan telekomunikasi."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: K3LH dan Budaya Kerja",
+        "pertemuanStart": 13,
+        "pertemuanEnd": 18,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 13,
+            "pertemuanEnd": 18,
+            "topik": "Praktik kerja aman, pencegahan kecelakaan kerja, prosedur darurat, penerapan 5R, dan K3LH khusus pada ketinggian.",
+            "deskripsi": "Menerapkan prosedur K3LH dan budaya kerja industri di lingkungan kerja."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 4: Sistem Operasi & Perangkat Keras",
+        "pertemuanStart": 19,
+        "pertemuanEnd": 26,
+        "pertemuanCount": 8,
+        "subTopics": [
+          {
+            "pertemuanStart": 19,
+            "pertemuanEnd": 26,
+            "topik": "Instalasi dan konfigurasi sistem operasi (Windows/Linux), manajemen berkas, serta pengenalan komponen perangkat keras server/PC.",
+            "deskripsi": "Memahami dasar penggunaan dan konfigurasi sistem operasi serta perangkat keras."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 5: Virtualisasi & Layanan Server Dasar",
+        "pertemuanStart": 27,
+        "pertemuanEnd": 34,
+        "pertemuanCount": 8,
+        "subTopics": [
+          {
+            "pertemuanStart": 27,
+            "pertemuanEnd": 34,
+            "topik": "Konsep teknologi virtualisasi (VirtualBox/VMware) dan instalasi layanan server sederhana (File/Web server dasar).",
+            "deskripsi": "Menerapkan dasar virtualisasi dan konfigurasi server."
+          }
+        ]
+      },
+      {
+        "unit": "Review & STS",
+        "pertemuanStart": 35,
+        "pertemuanEnd": 36,
+        "pertemuanCount": 2,
+        "subTopics": [
+          {
+            "pertemuanStart": 35,
+            "pertemuanEnd": 36,
+            "topik": "Assess: Asesmen sumatif tengah fase dan refleksi portofolio hasil instalasi.",
+            "deskripsi": "Verifikasi pemahaman elemen 1 dan 2."
+          }
+        ]
+      }
+    ]
+  },
+  "ddpk-tkj-e-genap": {
+    "id": "ddpk-tkj-e-genap",
+    "mapel": "ddpk-tkj",
+    "mapelLabel": "Dasar-dasar Program Keahlian TKJ",
+    "fase": "E",
+    "semester": "genap",
+    "totalPertemuan": 36,
+    "units": [
+      {
+        "unit": "Unit 1: Wawasan Dunia Kerja & Profesi",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 6,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 6,
+            "topik": "Proses bisnis, jenis profesi (Job Profile), kewirausahaan (Technopreneurship), dan pelayanan pelanggan (Customer Service).",
+            "deskripsi": "Menganalisis jenis-jenis profesi, proses bisnis, budaya mutu, dan peluang usaha untuk membangun personal branding dan passion."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Perkembangan Teknologi TJKT",
+        "pertemuanStart": 7,
+        "pertemuanEnd": 12,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 7,
+            "pertemuanEnd": 12,
+            "topik": "Isu terkini: Teknologi 5G, Microwave Link, IPv6, Data Center, Layanan IoT, Cloud Computing, dan Keamanan Informasi.",
+            "deskripsi": "Memahami perkembangan teknologi pada perangkat teknik jaringan komputer dan telekomunikasi."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: K3LH dan Budaya Kerja",
+        "pertemuanStart": 13,
+        "pertemuanEnd": 18,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 13,
+            "pertemuanEnd": 18,
+            "topik": "Praktik kerja aman, pencegahan kecelakaan kerja, prosedur darurat, penerapan 5R, dan K3LH khusus pada ketinggian.",
+            "deskripsi": "Menerapkan prosedur K3LH dan budaya kerja industri di lingkungan kerja."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 4: Sistem Operasi & Perangkat Keras",
+        "pertemuanStart": 19,
+        "pertemuanEnd": 26,
+        "pertemuanCount": 8,
+        "subTopics": [
+          {
+            "pertemuanStart": 19,
+            "pertemuanEnd": 26,
+            "topik": "Instalasi dan konfigurasi sistem operasi (Windows/Linux), manajemen berkas, serta pengenalan komponen perangkat keras server/PC.",
+            "deskripsi": "Memahami dasar penggunaan dan konfigurasi sistem operasi serta perangkat keras."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 5: Virtualisasi & Layanan Server Dasar",
+        "pertemuanStart": 27,
+        "pertemuanEnd": 34,
+        "pertemuanCount": 8,
+        "subTopics": [
+          {
+            "pertemuanStart": 27,
+            "pertemuanEnd": 34,
+            "topik": "Konsep teknologi virtualisasi (VirtualBox/VMware) dan instalasi layanan server sederhana (File/Web server dasar).",
+            "deskripsi": "Menerapkan dasar virtualisasi dan konfigurasi server."
+          }
+        ]
+      },
+      {
+        "unit": "Review & STS",
+        "pertemuanStart": 35,
+        "pertemuanEnd": 36,
+        "pertemuanCount": 2,
+        "subTopics": [
+          {
+            "pertemuanStart": 35,
+            "pertemuanEnd": 36,
+            "topik": "Assess: Asesmen sumatif tengah fase dan refleksi portofolio hasil instalasi.",
+            "deskripsi": "Verifikasi pemahaman elemen 1 dan 2."
+          }
+        ]
+      }
+    ]
+  },
+  "bing-e-ganjil": {
+    "id": "bing-e-ganjil",
+    "mapel": "bing",
+    "mapelLabel": "Bahasa Inggris",
+    "fase": "E",
+    "semester": "ganjil",
+    "totalPertemuan": 36,
+    "units": [
+      {
+        "unit": "Unit 1: Descriptive Text (Social Media & Identity)",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 12,
+        "pertemuanCount": 12,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 12,
+            "topik": "Discover & Explore: Menyimak deskripsi lisan tentang profil tokoh/pekerjaan. Launch: Menjelaskan secara lisan ciri fisik dan sifat. Transform & Assess: Menulis teks deskriptif multimodal untuk media digital.",
+            "deskripsi": "Menganalisis informasi tersurat/tersirat tentang topik sehari-hari; menggunakan bahasa Inggris untuk berkomunikasi sesuai konteks."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Recount Text (Experiences & World Events)",
+        "pertemuanStart": 13,
+        "pertemuanEnd": 24,
+        "pertemuanCount": 12,
+        "subTopics": [
+          {
+            "pertemuanStart": 13,
+            "pertemuanEnd": 24,
+            "topik": "Discover: Membaca teks pengalaman masa lalu (biografi/peristiwa). Explore: Menarik inferensi dari urutan kejadian. Launch: Menceritakan pengalaman pribadi secara lisan. Transform: Membuat vlog atau jurnal digital pengalaman nyata.",
+            "deskripsi": "Memahami alur informasi secara keseluruhan dalam teks fiksi/nonfiksi; mengomunikasikan gagasan secara tertulis."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: Procedure Text (Tips & Safety at Work)",
+        "pertemuanStart": 25,
+        "pertemuanEnd": 34,
+        "pertemuanCount": 10,
+        "subTopics": [
+          {
+            "pertemuanStart": 25,
+            "pertemuanEnd": 34,
+            "topik": "Explore: Memirsa teks prosedur (infografis/video) terkait K3 (Kesehatan dan Keselamatan Kerja). Launch: Mendemonstrasikan langkah kerja. Transform: Menyusun manual prosedur teknis sederhana.",
+            "deskripsi": "Menggunakan struktur teks dan unsur kebahasaan yang tepat; mengomunikasikan pengalaman secara tertulis atau multimodal."
+          }
+        ]
+      },
+      {
+        "unit": "Review & Sumatif Semester",
+        "pertemuanStart": 35,
+        "pertemuanEnd": 36,
+        "pertemuanCount": 2,
+        "subTopics": [
+          {
+            "pertemuanStart": 35,
+            "pertemuanEnd": 36,
+            "topik": "Assess: Penilaian pencapaian kompetensi tengah fase melalui portofolio.",
+            "deskripsi": "Mengevaluasi progres belajar mandiri."
+          }
+        ]
+      }
+    ]
+  },
+  "bing-e-genap": {
+    "id": "bing-e-genap",
+    "mapel": "bing",
+    "mapelLabel": "Bahasa Inggris",
+    "fase": "E",
+    "semester": "genap",
+    "totalPertemuan": 36,
+    "units": [
+      {
+        "unit": "Unit 1: Descriptive Text (Social Media & Identity)",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 12,
+        "pertemuanCount": 12,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 12,
+            "topik": "Discover & Explore: Menyimak deskripsi lisan tentang profil tokoh/pekerjaan. Launch: Menjelaskan secara lisan ciri fisik dan sifat. Transform & Assess: Menulis teks deskriptif multimodal untuk media digital.",
+            "deskripsi": "Menganalisis informasi tersurat/tersirat tentang topik sehari-hari; menggunakan bahasa Inggris untuk berkomunikasi sesuai konteks."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Recount Text (Experiences & World Events)",
+        "pertemuanStart": 13,
+        "pertemuanEnd": 24,
+        "pertemuanCount": 12,
+        "subTopics": [
+          {
+            "pertemuanStart": 13,
+            "pertemuanEnd": 24,
+            "topik": "Discover: Membaca teks pengalaman masa lalu (biografi/peristiwa). Explore: Menarik inferensi dari urutan kejadian. Launch: Menceritakan pengalaman pribadi secara lisan. Transform: Membuat vlog atau jurnal digital pengalaman nyata.",
+            "deskripsi": "Memahami alur informasi secara keseluruhan dalam teks fiksi/nonfiksi; mengomunikasikan gagasan secara tertulis."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: Procedure Text (Tips & Safety at Work)",
+        "pertemuanStart": 25,
+        "pertemuanEnd": 34,
+        "pertemuanCount": 10,
+        "subTopics": [
+          {
+            "pertemuanStart": 25,
+            "pertemuanEnd": 34,
+            "topik": "Explore: Memirsa teks prosedur (infografis/video) terkait K3 (Kesehatan dan Keselamatan Kerja). Launch: Mendemonstrasikan langkah kerja. Transform: Menyusun manual prosedur teknis sederhana.",
+            "deskripsi": "Menggunakan struktur teks dan unsur kebahasaan yang tepat; mengomunikasikan pengalaman secara tertulis atau multimodal."
+          }
+        ]
+      },
+      {
+        "unit": "Review & Sumatif Semester",
+        "pertemuanStart": 35,
+        "pertemuanEnd": 36,
+        "pertemuanCount": 2,
+        "subTopics": [
+          {
+            "pertemuanStart": 35,
+            "pertemuanEnd": 36,
+            "topik": "Assess: Penilaian pencapaian kompetensi tengah fase melalui portofolio.",
+            "deskripsi": "Mengevaluasi progres belajar mandiri."
+          }
+        ]
+      }
+    ]
+  },
+  "bing-f-ganjil": {
+    "id": "bing-f-ganjil",
+    "mapel": "bing",
+    "mapelLabel": "Bahasa Inggris",
+    "fase": "F",
+    "semester": "ganjil",
+    "totalPertemuan": 36,
+    "units": [
+      {
+        "unit": "Unit 1: Analytical Exposition (Isu Sosial/Terkini)",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 12,
+        "pertemuanCount": 12,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 12,
+            "topik": "Discover & Explore: Menyimak teks lisan fiksi/nonfiksi tentang isu terkini. Launch: Berpendapat dan berargumen secara lisan. Transform & Assess: Menulis teks eksposisi dengan struktur kompleks dan media digital.",
+            "deskripsi": "Memahami alur informasi teks fiksi/nonfiksi lisan; menggunakan bahasa Inggris untuk mempertahankan argumen."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Narrative Text (Fiksi & Nilai Budaya)",
+        "pertemuanStart": 13,
+        "pertemuanEnd": 24,
+        "pertemuanCount": 12,
+        "subTopics": [
+          {
+            "pertemuanStart": 13,
+            "pertemuanEnd": 24,
+            "topik": "Discover: Membaca teks fiksi tertulis yang kompleks. Explore: Mengevaluasi informasi tersurat/tersirat. Launch: Menulis ulang/memodifikasi cerita. Transform: Mempresentasikan teks narasi dalam bentuk digital/pertunjukan.",
+            "deskripsi": "Mengevaluasi informasi tersurat/tersirat; mempresentasikan teks fiksi dalam berbagai media."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: Complex Procedure (Workplace/Technology)",
+        "pertemuanStart": 25,
+        "pertemuanEnd": 34,
+        "pertemuanCount": 10,
+        "subTopics": [
+          {
+            "pertemuanStart": 25,
+            "pertemuanEnd": 34,
+            "topik": "Explore: Memirsa teks multimodal tentang prosedur teknis dunia kerja. Launch: Membuat infografis/video tutorial. Transform: Demonstrasi strategi koreksi mandiri dalam kaidah menulis.",
+            "deskripsi": "Mengomunikasikan gagasan/pengalaman tertulis; menunjukkan strategi koreksi mandiri."
+          }
+        ]
+      },
+      {
+        "unit": "Review & STS/SAS",
+        "pertemuanStart": 35,
+        "pertemuanEnd": 36,
+        "pertemuanCount": 2,
+        "subTopics": [
+          {
+            "pertemuanStart": 35,
+            "pertemuanEnd": 36,
+            "topik": "Assess: Asesmen akhir semester dan refleksi pembelajaran mendalam.",
+            "deskripsi": "Penilaian pencapaian kompetensi."
+          }
+        ]
+      }
+    ]
+  },
+  "bing-f-genap": {
+    "id": "bing-f-genap",
+    "mapel": "bing",
+    "mapelLabel": "Bahasa Inggris",
+    "fase": "F",
+    "semester": "genap",
+    "totalPertemuan": 36,
+    "units": [
+      {
+        "unit": "Unit 1: Analytical Exposition (Isu Sosial/Terkini)",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 12,
+        "pertemuanCount": 12,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 12,
+            "topik": "Discover & Explore: Menyimak teks lisan fiksi/nonfiksi tentang isu terkini. Launch: Berpendapat dan berargumen secara lisan. Transform & Assess: Menulis teks eksposisi dengan struktur kompleks dan media digital.",
+            "deskripsi": "Memahami alur informasi teks fiksi/nonfiksi lisan; menggunakan bahasa Inggris untuk mempertahankan argumen."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Narrative Text (Fiksi & Nilai Budaya)",
+        "pertemuanStart": 13,
+        "pertemuanEnd": 24,
+        "pertemuanCount": 12,
+        "subTopics": [
+          {
+            "pertemuanStart": 13,
+            "pertemuanEnd": 24,
+            "topik": "Discover: Membaca teks fiksi tertulis yang kompleks. Explore: Mengevaluasi informasi tersurat/tersirat. Launch: Menulis ulang/memodifikasi cerita. Transform: Mempresentasikan teks narasi dalam bentuk digital/pertunjukan.",
+            "deskripsi": "Mengevaluasi informasi tersurat/tersirat; mempresentasikan teks fiksi dalam berbagai media."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: Complex Procedure (Workplace/Technology)",
+        "pertemuanStart": 25,
+        "pertemuanEnd": 34,
+        "pertemuanCount": 10,
+        "subTopics": [
+          {
+            "pertemuanStart": 25,
+            "pertemuanEnd": 34,
+            "topik": "Explore: Memirsa teks multimodal tentang prosedur teknis dunia kerja. Launch: Membuat infografis/video tutorial. Transform: Demonstrasi strategi koreksi mandiri dalam kaidah menulis.",
+            "deskripsi": "Mengomunikasikan gagasan/pengalaman tertulis; menunjukkan strategi koreksi mandiri."
+          }
+        ]
+      },
+      {
+        "unit": "Review & STS/SAS",
+        "pertemuanStart": 35,
+        "pertemuanEnd": 36,
+        "pertemuanCount": 2,
+        "subTopics": [
+          {
+            "pertemuanStart": 35,
+            "pertemuanEnd": 36,
+            "topik": "Assess: Asesmen akhir semester dan refleksi pembelajaran mendalam.",
+            "deskripsi": "Penilaian pencapaian kompetensi."
+          }
+        ]
+      }
+    ]
+  },
+  "bindo-e-ganjil": {
+    "id": "bindo-e-ganjil",
+    "mapel": "bindo",
+    "mapelLabel": "Bahasa Indonesia",
+    "fase": "E",
+    "semester": "ganjil",
+    "totalPertemuan": 36,
+    "units": [
+      {
+        "unit": "Unit 1: Laporan Hasil Observasi (LHO)",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 12,
+        "pertemuanCount": 12,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 12,
+            "topik": "Discover & Explore: Mengevaluasi informasi tersurat/tersirat dalam teks LHO visual/audiovisual. Launch: Menulis gagasan secara logis dan objektif. Transform: Memublikasikan laporan dalam bentuk infografis atau artikel di media digital.",
+            "deskripsi": "Mengevaluasi gagasan dan pesan dari teks nonsastra; menulis gagasan secara logis dan kreatif."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Teks Anekdot (Kritik Sosial)",
+        "pertemuanStart": 13,
+        "pertemuanEnd": 24,
+        "pertemuanCount": 12,
+        "subTopics": [
+          {
+            "pertemuanStart": 13,
+            "pertemuanEnd": 24,
+            "topik": "Discover & Explore: Menyimak anekdot lisan untuk mengevaluasi gagasan dan pesan yang dimaksudkan. Launch: Menulis teks anekdot secara kreatif untuk menyampaikan simpati/empati. Transform: Menampilkan anekdot dalam bentuk komik digital atau gelar wicara (talkshow).",
+            "deskripsi": "Menginterpretasi gagasan dan perasaan secara kreatif; mempresentasikan gagasan secara kritis."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: Hikayat & Cerpen (Nilai Budaya)",
+        "pertemuanStart": 25,
+        "pertemuanEnd": 34,
+        "pertemuanCount": 10,
+        "subTopics": [
+          {
+            "pertemuanStart": 25,
+            "pertemuanEnd": 34,
+            "topik": "Explore: Mengevaluasi unsur intrinsik dan ekstrinsik teks sastra aural. Launch: Membandingkan isi dan nilai-nilai dalam hikayat dan cerpen. Transform: Mengonversi hikayat ke cerpen modern dan memublikasikannya.",
+            "deskripsi": "Mengevaluasi unsur intrinsik/ekstrinsik sastra; membandingkan isi teks."
+          }
+        ]
+      },
+      {
+        "unit": "Review & STS/SAS",
+        "pertemuanStart": 35,
+        "pertemuanEnd": 36,
+        "pertemuanCount": 2,
+        "subTopics": [
+          {
+            "pertemuanStart": 35,
+            "pertemuanEnd": 36,
+            "topik": "Assess: Asesmen sumatif semester dan refleksi kemajuan belajar.",
+            "deskripsi": "Menilai pemahaman konseptual dan aplikasi."
+          }
+        ]
+      }
+    ]
+  },
+  "bindo-e-genap": {
+    "id": "bindo-e-genap",
+    "mapel": "bindo",
+    "mapelLabel": "Bahasa Indonesia",
+    "fase": "E",
+    "semester": "genap",
+    "totalPertemuan": 36,
+    "units": [
+      {
+        "unit": "Unit 1: Laporan Hasil Observasi (LHO)",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 12,
+        "pertemuanCount": 12,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 12,
+            "topik": "Discover & Explore: Mengevaluasi informasi tersurat/tersirat dalam teks LHO visual/audiovisual. Launch: Menulis gagasan secara logis dan objektif. Transform: Memublikasikan laporan dalam bentuk infografis atau artikel di media digital.",
+            "deskripsi": "Mengevaluasi gagasan dan pesan dari teks nonsastra; menulis gagasan secara logis dan kreatif."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Teks Anekdot (Kritik Sosial)",
+        "pertemuanStart": 13,
+        "pertemuanEnd": 24,
+        "pertemuanCount": 12,
+        "subTopics": [
+          {
+            "pertemuanStart": 13,
+            "pertemuanEnd": 24,
+            "topik": "Discover & Explore: Menyimak anekdot lisan untuk mengevaluasi gagasan dan pesan yang dimaksudkan. Launch: Menulis teks anekdot secara kreatif untuk menyampaikan simpati/empati. Transform: Menampilkan anekdot dalam bentuk komik digital atau gelar wicara (talkshow).",
+            "deskripsi": "Menginterpretasi gagasan dan perasaan secara kreatif; mempresentasikan gagasan secara kritis."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: Hikayat & Cerpen (Nilai Budaya)",
+        "pertemuanStart": 25,
+        "pertemuanEnd": 34,
+        "pertemuanCount": 10,
+        "subTopics": [
+          {
+            "pertemuanStart": 25,
+            "pertemuanEnd": 34,
+            "topik": "Explore: Mengevaluasi unsur intrinsik dan ekstrinsik teks sastra aural. Launch: Membandingkan isi dan nilai-nilai dalam hikayat dan cerpen. Transform: Mengonversi hikayat ke cerpen modern dan memublikasikannya.",
+            "deskripsi": "Mengevaluasi unsur intrinsik/ekstrinsik sastra; membandingkan isi teks."
+          }
+        ]
+      },
+      {
+        "unit": "Review & STS/SAS",
+        "pertemuanStart": 35,
+        "pertemuanEnd": 36,
+        "pertemuanCount": 2,
+        "subTopics": [
+          {
+            "pertemuanStart": 35,
+            "pertemuanEnd": 36,
+            "topik": "Assess: Asesmen sumatif semester dan refleksi kemajuan belajar.",
+            "deskripsi": "Menilai pemahaman konseptual dan aplikasi."
+          }
+        ]
+      }
+    ]
+  },
+  "bindo-f-ganjil": {
+    "id": "bindo-f-ganjil",
+    "mapel": "bindo",
+    "mapelLabel": "Bahasa Indonesia",
+    "fase": "F",
+    "semester": "ganjil",
+    "totalPertemuan": 18,
+    "units": [
+      {
+        "unit": "Unit 1: Teks Karya Ilmiah & Artikel Riset",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 6,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 6,
+            "topik": "Discover & Explore: Menyimak paparan riset dan mengevaluasi gagasan teks akademik aural. Launch: Menulis karya ilmiah secara kritis. Transform: Mempertahankan hasil penelitian melalui presentasi/diskusi argumentatif.",
+            "deskripsi": "Menulis gagasan secara logis dan kritis; mempertahankan hasil penelitian dengan argumentasi."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Teks Prosedur Kompleks (Dunia Kerja)",
+        "pertemuanStart": 7,
+        "pertemuanEnd": 11,
+        "pertemuanCount": 5,
+        "subTopics": [
+          {
+            "pertemuanStart": 7,
+            "pertemuanEnd": 11,
+            "topik": "Explore: Mengevaluasi berbagai teks prosedur kerja berbentuk cetak dan digital. Launch: Mempresentasikan teks prosedur menggunakan berbagai media digital. Transform: Menyusun manual prosedur teknis yang relevan dengan bidang keahlian murid.",
+            "deskripsi": "Mengevaluasi teks nonsastra dalam konteks dunia kerja; mempresentasikan teks dalam berbagai media."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: Teks Proposal (Proyek/Kegiatan)",
+        "pertemuanStart": 12,
+        "pertemuanEnd": 16,
+        "pertemuanCount": 5,
+        "subTopics": [
+          {
+            "pertemuanStart": 12,
+            "pertemuanEnd": 16,
+            "topik": "Discover: Mengidentifikasi struktur proposal dan kaidah logika berpikir. Explore: Merefleksi gagasan proposal berdasarkan konteks sosial/kerja. Launch: Menulis proposal kegiatan atau proyek usaha secara kolaboratif.",
+            "deskripsi": "Menulis berbagai tipe teks dalam konteks dunia kerja; merefleksi gagasan berdasarkan kaidah logika."
+          }
+        ]
+      },
+      {
+        "unit": "Review & Sumatif Semester",
+        "pertemuanStart": 17,
+        "pertemuanEnd": 18,
+        "pertemuanCount": 2,
+        "subTopics": [
+          {
+            "pertemuanStart": 17,
+            "pertemuanEnd": 18,
+            "topik": "Assess: Evaluasi portofolio karya nonsastra dan refleksi PM atas kemajuan literasi akademik.",
+            "deskripsi": "Menilai ketercapaian kompetensi nonsastra Fase F."
+          }
+        ]
+      }
+    ]
+  },
+  "bindo-f-genap": {
+    "id": "bindo-f-genap",
+    "mapel": "bindo",
+    "mapelLabel": "Bahasa Indonesia",
+    "fase": "F",
+    "semester": "genap",
+    "totalPertemuan": 18,
+    "units": [
+      {
+        "unit": "Unit 1: Teks Karya Ilmiah & Artikel Riset",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 6,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 6,
+            "topik": "Discover & Explore: Menyimak paparan riset dan mengevaluasi gagasan teks akademik aural. Launch: Menulis karya ilmiah secara kritis. Transform: Mempertahankan hasil penelitian melalui presentasi/diskusi argumentatif.",
+            "deskripsi": "Menulis gagasan secara logis dan kritis; mempertahankan hasil penelitian dengan argumentasi."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Teks Prosedur Kompleks (Dunia Kerja)",
+        "pertemuanStart": 7,
+        "pertemuanEnd": 11,
+        "pertemuanCount": 5,
+        "subTopics": [
+          {
+            "pertemuanStart": 7,
+            "pertemuanEnd": 11,
+            "topik": "Explore: Mengevaluasi berbagai teks prosedur kerja berbentuk cetak dan digital. Launch: Mempresentasikan teks prosedur menggunakan berbagai media digital. Transform: Menyusun manual prosedur teknis yang relevan dengan bidang keahlian murid.",
+            "deskripsi": "Mengevaluasi teks nonsastra dalam konteks dunia kerja; mempresentasikan teks dalam berbagai media."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: Teks Proposal (Proyek/Kegiatan)",
+        "pertemuanStart": 12,
+        "pertemuanEnd": 16,
+        "pertemuanCount": 5,
+        "subTopics": [
+          {
+            "pertemuanStart": 12,
+            "pertemuanEnd": 16,
+            "topik": "Discover: Mengidentifikasi struktur proposal dan kaidah logika berpikir. Explore: Merefleksi gagasan proposal berdasarkan konteks sosial/kerja. Launch: Menulis proposal kegiatan atau proyek usaha secara kolaboratif.",
+            "deskripsi": "Menulis berbagai tipe teks dalam konteks dunia kerja; merefleksi gagasan berdasarkan kaidah logika."
+          }
+        ]
+      },
+      {
+        "unit": "Review & Sumatif Semester",
+        "pertemuanStart": 17,
+        "pertemuanEnd": 18,
+        "pertemuanCount": 2,
+        "subTopics": [
+          {
+            "pertemuanStart": 17,
+            "pertemuanEnd": 18,
+            "topik": "Assess: Evaluasi portofolio karya nonsastra dan refleksi PM atas kemajuan literasi akademik.",
+            "deskripsi": "Menilai ketercapaian kompetensi nonsastra Fase F."
+          }
+        ]
+      }
+    ]
+  },
+  "informatika-e-ganjil": {
+    "id": "informatika-e-ganjil",
+    "mapel": "informatika",
+    "mapelLabel": "Informatika",
+    "fase": "E",
+    "semester": "ganjil",
+    "totalPertemuan": 18,
+    "units": [
+      {
+        "unit": "Unit 1: Berpikir Komputasional (BK)",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 6,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 5,
+            "topik": "Struktur data (Stack, Queue, Graph, Tree) dan Algoritma standar (Searching, Sorting)",
+            "deskripsi": "Memahami konsep struktur data dan algoritma standar untuk menghasilkan solusi dalam menyelesaikan persoalan."
+          },
+          {
+            "pertemuanStart": 6,
+            "pertemuanEnd": 6,
+            "topik": "Perancangan Solusi dalam format Pseudocode",
+            "deskripsi": "Menuliskan solusi rancangan program sederhana dalam format pseudocode yang dekat dengan bahasa komputer."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Sistem Komputer (SK)",
+        "pertemuanStart": 7,
+        "pertemuanEnd": 9,
+        "pertemuanCount": 3,
+        "subTopics": [
+          {
+            "pertemuanStart": 7,
+            "pertemuanEnd": 8,
+            "topik": "Model Von Neumann dan dinamika Input-Process-Output",
+            "deskripsi": "Memahami model dan menyimulasikan dinamika Input-Process-Output dalam komputer Von Neumann."
+          },
+          {
+            "pertemuanStart": 9,
+            "pertemuanEnd": 9,
+            "topik": "Peran Sistem Operasi dan Mekanisme Internal",
+            "deskripsi": "Memahami peran sistem operasi dalam mengelola sumber daya komputer."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: Jaringan Komputer dan Internet (JKI)",
+        "pertemuanStart": 10,
+        "pertemuanEnd": 13,
+        "pertemuanCount": 4,
+        "subTopics": [
+          {
+            "pertemuanStart": 10,
+            "pertemuanEnd": 13,
+            "topik": "Konsep konektivitas (Kabel & Nirkabel) serta konfigurasi keamanan dasar",
+            "deskripsi": "Memahami konsep, penerapan, dan konfigurasi keamanan dasar untuk konektivitas jaringan data lokal dan internet."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 4: Literasi Digital & TIK (LD)",
+        "pertemuanStart": 14,
+        "pertemuanEnd": 17,
+        "pertemuanCount": 4,
+        "subTopics": [
+          {
+            "pertemuanStart": 14,
+            "pertemuanEnd": 16,
+            "topik": "Integrasi Aplikasi Perkantoran Lanjutan (Dokumen, Lembar Kerja, Presentasi)",
+            "deskripsi": "Memahami pemanfaatan perangkat teknologi yang lebih beragam untuk pengolah dokumen, lembar kerja, dan presentasi."
+          },
+          {
+            "pertemuanStart": 17,
+            "pertemuanEnd": 17,
+            "topik": "Keamanan Akun dan Platform Digital",
+            "deskripsi": "Menerapkan pengelolaan kata sandi dan autentikasi dua langkah pada akun platform digital."
+          }
+        ]
+      },
+      {
+        "unit": "Review & STS",
+        "pertemuanStart": 18,
+        "pertemuanEnd": 18,
+        "pertemuanCount": 1,
+        "subTopics": [
+          {
+            "pertemuanStart": 18,
+            "pertemuanEnd": 18,
+            "topik": "Assess: Asesmen sumatif tengah fase dan refleksi portofolio digital",
+            "deskripsi": "Menilai pemahaman konseptual dan keterampilan teknis."
+          }
+        ]
+      }
+    ]
+  },
+  "informatika-e-genap": {
+    "id": "informatika-e-genap",
+    "mapel": "informatika",
+    "mapelLabel": "Informatika",
+    "fase": "E",
+    "semester": "genap",
+    "totalPertemuan": 18,
+    "units": [
+      {
+        "unit": "Unit 1: Berpikir Komputasional (BK)",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 6,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 5,
+            "topik": "Struktur data (Stack, Queue, Graph, Tree) dan Algoritma standar (Searching, Sorting)",
+            "deskripsi": "Memahami konsep struktur data dan algoritma standar untuk menghasilkan solusi dalam menyelesaikan persoalan."
+          },
+          {
+            "pertemuanStart": 6,
+            "pertemuanEnd": 6,
+            "topik": "Perancangan Solusi dalam format Pseudocode",
+            "deskripsi": "Menuliskan solusi rancangan program sederhana dalam format pseudocode yang dekat dengan bahasa komputer."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Sistem Komputer (SK)",
+        "pertemuanStart": 7,
+        "pertemuanEnd": 9,
+        "pertemuanCount": 3,
+        "subTopics": [
+          {
+            "pertemuanStart": 7,
+            "pertemuanEnd": 8,
+            "topik": "Model Von Neumann dan dinamika Input-Process-Output",
+            "deskripsi": "Memahami model dan menyimulasikan dinamika Input-Process-Output dalam komputer Von Neumann."
+          },
+          {
+            "pertemuanStart": 9,
+            "pertemuanEnd": 9,
+            "topik": "Peran Sistem Operasi dan Mekanisme Internal",
+            "deskripsi": "Memahami peran sistem operasi dalam mengelola sumber daya komputer."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: Jaringan Komputer dan Internet (JKI)",
+        "pertemuanStart": 10,
+        "pertemuanEnd": 13,
+        "pertemuanCount": 4,
+        "subTopics": [
+          {
+            "pertemuanStart": 10,
+            "pertemuanEnd": 13,
+            "topik": "Konsep konektivitas (Kabel & Nirkabel) serta konfigurasi keamanan dasar",
+            "deskripsi": "Memahami konsep, penerapan, dan konfigurasi keamanan dasar untuk konektivitas jaringan data lokal dan internet."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 4: Literasi Digital & TIK (LD)",
+        "pertemuanStart": 14,
+        "pertemuanEnd": 17,
+        "pertemuanCount": 4,
+        "subTopics": [
+          {
+            "pertemuanStart": 14,
+            "pertemuanEnd": 16,
+            "topik": "Integrasi Aplikasi Perkantoran Lanjutan (Dokumen, Lembar Kerja, Presentasi)",
+            "deskripsi": "Memahami pemanfaatan perangkat teknologi yang lebih beragam untuk pengolah dokumen, lembar kerja, dan presentasi."
+          },
+          {
+            "pertemuanStart": 17,
+            "pertemuanEnd": 17,
+            "topik": "Keamanan Akun dan Platform Digital",
+            "deskripsi": "Menerapkan pengelolaan kata sandi dan autentikasi dua langkah pada akun platform digital."
+          }
+        ]
+      },
+      {
+        "unit": "Review & STS",
+        "pertemuanStart": 18,
+        "pertemuanEnd": 18,
+        "pertemuanCount": 1,
+        "subTopics": [
+          {
+            "pertemuanStart": 18,
+            "pertemuanEnd": 18,
+            "topik": "Assess: Asesmen sumatif tengah fase dan refleksi portofolio digital",
+            "deskripsi": "Menilai pemahaman konseptual dan keterampilan teknis."
+          }
+        ]
+      }
+    ]
+  },
+  "kka-e-ganjil": {
+    "id": "kka-e-ganjil",
+    "mapel": "kka",
+    "mapelLabel": "Koding dan Kecerdasan Artifisial",
+    "fase": "E",
+    "semester": "ganjil",
+    "totalPertemuan": 18,
+    "units": [
+      {
+        "unit": "Unit 1: Berpikir Komputasional",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 4,
+        "pertemuanCount": 4,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 4,
+            "topik": "Dekomposisi dan Pengenalan Pola pada Masalah Kejuruan",
+            "deskripsi": "Menerapkan berpikir komputasional untuk memecahkan masalah kompleks pada objek sesuai bidang keahlian."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Literasi Digital",
+        "pertemuanStart": 5,
+        "pertemuanEnd": 9,
+        "pertemuanCount": 5,
+        "subTopics": [
+          {
+            "pertemuanStart": 5,
+            "pertemuanEnd": 9,
+            "topik": "Produksi dan Diseminasi Konten Multimedia Vokasi",
+            "deskripsi": "Memproduksi konten digital kreatif dalam bentuk multimedia yang relevan dengan kebutuhan industri/bidang keahlian."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: Analisis Data",
+        "pertemuanStart": 10,
+        "pertemuanEnd": 15,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 10,
+            "pertemuanEnd": 15,
+            "topik": "Struktur Basis Data dan Pengolahan Data Bermakna",
+            "deskripsi": "Memahami konsep dasar basis data dan menerapkan teknik pengolahan data untuk pengambilan keputusan sederhana."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 4: Algoritma Dasar",
+        "pertemuanStart": 16,
+        "pertemuanEnd": 18,
+        "pertemuanCount": 3,
+        "subTopics": [
+          {
+            "pertemuanStart": 16,
+            "pertemuanEnd": 18,
+            "topik": "Perbandingan Efisiensi Algoritma",
+            "deskripsi": "Membandingkan beberapa algoritma untuk menemukan solusi yang paling efektif dan efisien."
+          }
+        ]
+      }
+    ]
+  },
+  "kka-e-genap": {
+    "id": "kka-e-genap",
+    "mapel": "kka",
+    "mapelLabel": "Koding dan Kecerdasan Artifisial",
+    "fase": "E",
+    "semester": "genap",
+    "totalPertemuan": 18,
+    "units": [
+      {
+        "unit": "Unit 1: Berpikir Komputasional",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 4,
+        "pertemuanCount": 4,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 4,
+            "topik": "Dekomposisi dan Pengenalan Pola pada Masalah Kejuruan",
+            "deskripsi": "Menerapkan berpikir komputasional untuk memecahkan masalah kompleks pada objek sesuai bidang keahlian."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Literasi Digital",
+        "pertemuanStart": 5,
+        "pertemuanEnd": 9,
+        "pertemuanCount": 5,
+        "subTopics": [
+          {
+            "pertemuanStart": 5,
+            "pertemuanEnd": 9,
+            "topik": "Produksi dan Diseminasi Konten Multimedia Vokasi",
+            "deskripsi": "Memproduksi konten digital kreatif dalam bentuk multimedia yang relevan dengan kebutuhan industri/bidang keahlian."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: Analisis Data",
+        "pertemuanStart": 10,
+        "pertemuanEnd": 15,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 10,
+            "pertemuanEnd": 15,
+            "topik": "Struktur Basis Data dan Pengolahan Data Bermakna",
+            "deskripsi": "Memahami konsep dasar basis data dan menerapkan teknik pengolahan data untuk pengambilan keputusan sederhana."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 4: Algoritma Dasar",
+        "pertemuanStart": 16,
+        "pertemuanEnd": 18,
+        "pertemuanCount": 3,
+        "subTopics": [
+          {
+            "pertemuanStart": 16,
+            "pertemuanEnd": 18,
+            "topik": "Perbandingan Efisiensi Algoritma",
+            "deskripsi": "Membandingkan beberapa algoritma untuk menemukan solusi yang paling efektif dan efisien."
+          }
+        ]
+      }
+    ]
+  },
+  "mtk-e-ganjil": {
+    "id": "mtk-e-ganjil",
+    "mapel": "mtk",
+    "mapelLabel": "Matematika",
+    "fase": "E",
+    "semester": "ganjil",
+    "totalPertemuan": 44,
+    "units": [
+      {
+        "unit": "Bab 1: Eksponen dan Bentuk Akar",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 10,
+        "pertemuanCount": 10,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 4,
+            "topik": "Definisi Eksponen, Sifat-sifat perkalian, pembagian, dan perpangkatan eksponen.",
+            "deskripsi": "Bilangan"
+          },
+          {
+            "pertemuanStart": 5,
+            "pertemuanEnd": 7,
+            "topik": "Pangkat nol, pangkat negatif, dan konsep pangkat pecahan.",
+            "deskripsi": "Bilangan"
+          },
+          {
+            "pertemuanStart": 8,
+            "pertemuanEnd": 10,
+            "topik": "Hubungan eksponen dengan bentuk akar dan teknik merasionalkan penyebut.",
+            "deskripsi": "Bilangan"
+          }
+        ]
+      },
+      {
+        "unit": "Bab 2: Barisan dan Deret",
+        "pertemuanStart": 11,
+        "pertemuanEnd": 20,
+        "pertemuanCount": 10,
+        "subTopics": [
+          {
+            "pertemuanStart": 11,
+            "pertemuanEnd": 13,
+            "topik": "Konsep Barisan Aritmetika dan penentuan suku ke-$n$.",
+            "deskripsi": "Bilangan"
+          },
+          {
+            "pertemuanStart": 14,
+            "pertemuanEnd": 16,
+            "topik": "Konsep Barisan Geometri dan pemodelan masalah pembelahan bakteri/virus.",
+            "deskripsi": "Bilangan"
+          },
+          {
+            "pertemuanStart": 17,
+            "pertemuanEnd": 20,
+            "topik": "Deret Aritmetika, Deret Geometri, dan aplikasi pada Bunga Tunggal & Majemuk.",
+            "deskripsi": "Bilangan"
+          }
+        ]
+      },
+      {
+        "unit": "Review & PTS",
+        "pertemuanStart": 21,
+        "pertemuanEnd": 24,
+        "pertemuanCount": 4,
+        "subTopics": [
+          {
+            "pertemuanStart": 21,
+            "pertemuanEnd": 24,
+            "topik": "Evaluasi Mandiri, Projek kontekstual (misal: simulasi tabungan), dan PTS.",
+            "deskripsi": "\\-"
+          }
+        ]
+      },
+      {
+        "unit": "Bab 4: Sistem Persamaan & Pertidaksamaan Linear",
+        "pertemuanStart": 25,
+        "pertemuanEnd": 34,
+        "pertemuanCount": 10,
+        "subTopics": [
+          {
+            "pertemuanStart": 25,
+            "pertemuanEnd": 27,
+            "topik": "Memodelkan masalah ke dalam Sistem Persamaan Linear Tiga Variabel (SPLTV).",
+            "deskripsi": "Aljabar & Fungsi"
+          },
+          {
+            "pertemuanStart": 28,
+            "pertemuanEnd": 30,
+            "topik": "Penyelesaian SPLTV dengan metode eliminasi dan substitusi.",
+            "deskripsi": "Aljabar & Fungsi"
+          },
+          {
+            "pertemuanStart": 31,
+            "pertemuanEnd": 34,
+            "topik": "Sistem Pertidaksamaan Linear Dua Variabel (SPtLDV) dan penentuan daerah penyelesaian grafik.",
+            "deskripsi": "Aljabar & Fungsi"
+          }
+        ]
+      },
+      {
+        "unit": "Bab 5: Persamaan dan Fungsi Kuadrat",
+        "pertemuanStart": 35,
+        "pertemuanEnd": 42,
+        "pertemuanCount": 8,
+        "subTopics": [
+          {
+            "pertemuanStart": 35,
+            "pertemuanEnd": 38,
+            "topik": "Menyelesaikan Persamaan Kuadrat (Faktorisasi, Kuadrat Sempurna, Rumus ABC).",
+            "deskripsi": "Aljabar & Fungsi"
+          },
+          {
+            "pertemuanStart": 39,
+            "pertemuanEnd": 42,
+            "topik": "Karakteristik Fungsi Kuadrat (titik puncak, sumbu simetri) dan aplikasi gerak parabola.",
+            "deskripsi": "Aljabar & Fungsi"
+          }
+        ]
+      },
+      {
+        "unit": "Review & Akhir Semester",
+        "pertemuanStart": 43,
+        "pertemuanEnd": 44,
+        "pertemuanCount": 2,
+        "subTopics": [
+          {
+            "pertemuanStart": 43,
+            "pertemuanEnd": 44,
+            "topik": "Refleksi akhir semester ganjil dan penguatan konsep Aljabar.",
+            "deskripsi": "\\-"
+          }
+        ]
+      }
+    ]
+  },
+  "mtk-e-genap": {
+    "id": "mtk-e-genap",
+    "mapel": "mtk",
+    "mapelLabel": "Matematika",
+    "fase": "E",
+    "semester": "genap",
+    "totalPertemuan": 44,
+    "units": [
+      {
+        "unit": "Bab 1: Eksponen dan Bentuk Akar",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 10,
+        "pertemuanCount": 10,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 4,
+            "topik": "Definisi Eksponen, Sifat-sifat perkalian, pembagian, dan perpangkatan eksponen.",
+            "deskripsi": "Bilangan"
+          },
+          {
+            "pertemuanStart": 5,
+            "pertemuanEnd": 7,
+            "topik": "Pangkat nol, pangkat negatif, dan konsep pangkat pecahan.",
+            "deskripsi": "Bilangan"
+          },
+          {
+            "pertemuanStart": 8,
+            "pertemuanEnd": 10,
+            "topik": "Hubungan eksponen dengan bentuk akar dan teknik merasionalkan penyebut.",
+            "deskripsi": "Bilangan"
+          }
+        ]
+      },
+      {
+        "unit": "Bab 2: Barisan dan Deret",
+        "pertemuanStart": 11,
+        "pertemuanEnd": 20,
+        "pertemuanCount": 10,
+        "subTopics": [
+          {
+            "pertemuanStart": 11,
+            "pertemuanEnd": 13,
+            "topik": "Konsep Barisan Aritmetika dan penentuan suku ke-$n$.",
+            "deskripsi": "Bilangan"
+          },
+          {
+            "pertemuanStart": 14,
+            "pertemuanEnd": 16,
+            "topik": "Konsep Barisan Geometri dan pemodelan masalah pembelahan bakteri/virus.",
+            "deskripsi": "Bilangan"
+          },
+          {
+            "pertemuanStart": 17,
+            "pertemuanEnd": 20,
+            "topik": "Deret Aritmetika, Deret Geometri, dan aplikasi pada Bunga Tunggal & Majemuk.",
+            "deskripsi": "Bilangan"
+          }
+        ]
+      },
+      {
+        "unit": "Review & PTS",
+        "pertemuanStart": 21,
+        "pertemuanEnd": 24,
+        "pertemuanCount": 4,
+        "subTopics": [
+          {
+            "pertemuanStart": 21,
+            "pertemuanEnd": 24,
+            "topik": "Evaluasi Mandiri, Projek kontekstual (misal: simulasi tabungan), dan PTS.",
+            "deskripsi": "\\-"
+          }
+        ]
+      },
+      {
+        "unit": "Bab 4: Sistem Persamaan & Pertidaksamaan Linear",
+        "pertemuanStart": 25,
+        "pertemuanEnd": 34,
+        "pertemuanCount": 10,
+        "subTopics": [
+          {
+            "pertemuanStart": 25,
+            "pertemuanEnd": 27,
+            "topik": "Memodelkan masalah ke dalam Sistem Persamaan Linear Tiga Variabel (SPLTV).",
+            "deskripsi": "Aljabar & Fungsi"
+          },
+          {
+            "pertemuanStart": 28,
+            "pertemuanEnd": 30,
+            "topik": "Penyelesaian SPLTV dengan metode eliminasi dan substitusi.",
+            "deskripsi": "Aljabar & Fungsi"
+          },
+          {
+            "pertemuanStart": 31,
+            "pertemuanEnd": 34,
+            "topik": "Sistem Pertidaksamaan Linear Dua Variabel (SPtLDV) dan penentuan daerah penyelesaian grafik.",
+            "deskripsi": "Aljabar & Fungsi"
+          }
+        ]
+      },
+      {
+        "unit": "Bab 5: Persamaan dan Fungsi Kuadrat",
+        "pertemuanStart": 35,
+        "pertemuanEnd": 42,
+        "pertemuanCount": 8,
+        "subTopics": [
+          {
+            "pertemuanStart": 35,
+            "pertemuanEnd": 38,
+            "topik": "Menyelesaikan Persamaan Kuadrat (Faktorisasi, Kuadrat Sempurna, Rumus ABC).",
+            "deskripsi": "Aljabar & Fungsi"
+          },
+          {
+            "pertemuanStart": 39,
+            "pertemuanEnd": 42,
+            "topik": "Karakteristik Fungsi Kuadrat (titik puncak, sumbu simetri) dan aplikasi gerak parabola.",
+            "deskripsi": "Aljabar & Fungsi"
+          }
+        ]
+      },
+      {
+        "unit": "Review & Akhir Semester",
+        "pertemuanStart": 43,
+        "pertemuanEnd": 44,
+        "pertemuanCount": 2,
+        "subTopics": [
+          {
+            "pertemuanStart": 43,
+            "pertemuanEnd": 44,
+            "topik": "Refleksi akhir semester ganjil dan penguatan konsep Aljabar.",
+            "deskripsi": "\\-"
+          }
+        ]
+      }
+    ]
+  },
+  "mtk-f-ganjil": {
+    "id": "mtk-f-ganjil",
+    "mapel": "mtk",
+    "mapelLabel": "Matematika",
+    "fase": "F",
+    "semester": "ganjil",
+    "totalPertemuan": 18,
+    "units": [
+      {
+        "unit": "Unit 1: Barisan dan Deret",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 3,
+        "pertemuanCount": 3,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 3,
+            "topik": "Barisan dan Deret Aritmetika & Geometri",
+            "deskripsi": "Menjelaskan konsep barisan/deret serta menggunakannya untuk generalisasi pola."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Matematika Finansial",
+        "pertemuanStart": 4,
+        "pertemuanEnd": 9,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 4,
+            "pertemuanEnd": 6,
+            "topik": "Bunga Tunggal dan Bunga Majemuk",
+            "deskripsi": "Menerapkan konsep bunga pada masalah pinjaman dan investasi."
+          },
+          {
+            "pertemuanStart": 7,
+            "pertemuanEnd": 9,
+            "topik": "Anuitas dan Investasi Lanjutan",
+            "deskripsi": "Memodelkan pinjaman dengan anuitas serta menyelidiki pengaruh parameter suku bunga."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: Fungsi Komposisi dan Invers",
+        "pertemuanStart": 10,
+        "pertemuanEnd": 14,
+        "pertemuanCount": 5,
+        "subTopics": [
+          {
+            "pertemuanStart": 10,
+            "pertemuanEnd": 12,
+            "topik": "Komposisi Fungsi",
+            "deskripsi": "Menentukan hasil komposisi fungsi untuk memodelkan situasi dunia nyata."
+          },
+          {
+            "pertemuanStart": 13,
+            "pertemuanEnd": 14,
+            "topik": "Fungsi Invers",
+            "deskripsi": "Menentukan invers fungsi dan syarat keberadaannya."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 4: Transformasi Fungsi",
+        "pertemuanStart": 15,
+        "pertemuanEnd": 17,
+        "pertemuanCount": 3,
+        "subTopics": [
+          {
+            "pertemuanStart": 15,
+            "pertemuanEnd": 17,
+            "topik": "Transformasi Fungsi (Linear, Kuadrat, Eksponensial)",
+            "deskripsi": "Melakukan transformasi (translasi, refleksi, dilatasi, rotasi) pada grafik fungsi."
+          }
+        ]
+      },
+      {
+        "unit": "Review & Asesmen",
+        "pertemuanStart": 18,
+        "pertemuanEnd": 18,
+        "pertemuanCount": 1,
+        "subTopics": [
+          {
+            "pertemuanStart": 18,
+            "pertemuanEnd": 18,
+            "topik": "Evaluasi Mandiri Semester Ganjil",
+            "deskripsi": "Menilai pemahaman konseptual dan aplikasi elemen Bilangan serta Aljabar."
+          }
+        ]
+      }
+    ]
+  },
+  "mtk-f-genap": {
+    "id": "mtk-f-genap",
+    "mapel": "mtk",
+    "mapelLabel": "Matematika",
+    "fase": "F",
+    "semester": "genap",
+    "totalPertemuan": 18,
+    "units": [
+      {
+        "unit": "Unit 1: Barisan dan Deret",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 3,
+        "pertemuanCount": 3,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 3,
+            "topik": "Barisan dan Deret Aritmetika & Geometri",
+            "deskripsi": "Menjelaskan konsep barisan/deret serta menggunakannya untuk generalisasi pola."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Matematika Finansial",
+        "pertemuanStart": 4,
+        "pertemuanEnd": 9,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 4,
+            "pertemuanEnd": 6,
+            "topik": "Bunga Tunggal dan Bunga Majemuk",
+            "deskripsi": "Menerapkan konsep bunga pada masalah pinjaman dan investasi."
+          },
+          {
+            "pertemuanStart": 7,
+            "pertemuanEnd": 9,
+            "topik": "Anuitas dan Investasi Lanjutan",
+            "deskripsi": "Memodelkan pinjaman dengan anuitas serta menyelidiki pengaruh parameter suku bunga."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: Fungsi Komposisi dan Invers",
+        "pertemuanStart": 10,
+        "pertemuanEnd": 14,
+        "pertemuanCount": 5,
+        "subTopics": [
+          {
+            "pertemuanStart": 10,
+            "pertemuanEnd": 12,
+            "topik": "Komposisi Fungsi",
+            "deskripsi": "Menentukan hasil komposisi fungsi untuk memodelkan situasi dunia nyata."
+          },
+          {
+            "pertemuanStart": 13,
+            "pertemuanEnd": 14,
+            "topik": "Fungsi Invers",
+            "deskripsi": "Menentukan invers fungsi dan syarat keberadaannya."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 4: Transformasi Fungsi",
+        "pertemuanStart": 15,
+        "pertemuanEnd": 17,
+        "pertemuanCount": 3,
+        "subTopics": [
+          {
+            "pertemuanStart": 15,
+            "pertemuanEnd": 17,
+            "topik": "Transformasi Fungsi (Linear, Kuadrat, Eksponensial)",
+            "deskripsi": "Melakukan transformasi (translasi, refleksi, dilatasi, rotasi) pada grafik fungsi."
+          }
+        ]
+      },
+      {
+        "unit": "Review & Asesmen",
+        "pertemuanStart": 18,
+        "pertemuanEnd": 18,
+        "pertemuanCount": 1,
+        "subTopics": [
+          {
+            "pertemuanStart": 18,
+            "pertemuanEnd": 18,
+            "topik": "Evaluasi Mandiri Semester Ganjil",
+            "deskripsi": "Menilai pemahaman konseptual dan aplikasi elemen Bilangan serta Aljabar."
+          }
+        ]
+      }
+    ]
+  },
+  "mulok-e-ganjil": {
+    "id": "mulok-e-ganjil",
+    "mapel": "mulok",
+    "mapelLabel": "Muatan Lokal",
+    "fase": "E",
+    "semester": "ganjil",
+    "totalPertemuan": 18,
+    "units": [
+      {
+        "unit": "Unit 1: Unggah-ungguh Basa (Etika Berbahasa)",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 6,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 6,
+            "topik": "Discover: Menyimak dialog sehari-hari. Explore: Analisis penggunaan Ngoko dan Krama. Launch: Simulasi percakapan di lingkungan sekolah/kerja.",
+            "deskripsi": "Peserta didik mampu menggunakan unggah-ungguh basa yang tepat sesuai konteks mitra tutur."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Teks Sastra (Crita Wayang/Cekak)",
+        "pertemuanStart": 7,
+        "pertemuanEnd": 12,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 7,
+            "pertemuanEnd": 12,
+            "topik": "Discover: Membaca/Memirsa kisah tokoh wayang. Explore: Evaluasi unsur intrinsik dan pesan moral (piwulang). Transform: Menulis ulang cerita dalam bentuk komik/naskah drama.",
+            "deskripsi": "Peserta didik mampu mengevaluasi gagasan dan pesan moral dari teks sastra aural/tulis."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: Aksara Jawa (Sandhangan & Pasangan)",
+        "pertemuanStart": 13,
+        "pertemuanEnd": 17,
+        "pertemuanCount": 5,
+        "subTopics": [
+          {
+            "pertemuanStart": 13,
+            "pertemuanEnd": 17,
+            "topik": "Discover: Mengidentifikasi aksara dalam teks pendek. Explore: Penyelidikan aturan penulisan pasangan. Launch: Menulis kalimat sederhana menggunakan Aksara Jawa.",
+            "deskripsi": "Peserta didik mampu menulis gagasan secara logis menggunakan aksara daerah secara tepat."
+          }
+        ]
+      },
+      {
+        "unit": "Review & Sumatif Semester",
+        "pertemuanStart": 18,
+        "pertemuanEnd": 18,
+        "pertemuanCount": 1,
+        "subTopics": [
+          {
+            "pertemuanStart": 18,
+            "pertemuanEnd": 18,
+            "topik": "Assess: Penilaian portofolio dan refleksi kemajuan belajar mandiri.",
+            "deskripsi": "Evaluasi pencapaian kompetensi tengah fase."
+          }
+        ]
+      }
+    ]
+  },
+  "mulok-e-genap": {
+    "id": "mulok-e-genap",
+    "mapel": "mulok",
+    "mapelLabel": "Muatan Lokal",
+    "fase": "E",
+    "semester": "genap",
+    "totalPertemuan": 18,
+    "units": [
+      {
+        "unit": "Unit 1: Unggah-ungguh Basa (Etika Berbahasa)",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 6,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 6,
+            "topik": "Discover: Menyimak dialog sehari-hari. Explore: Analisis penggunaan Ngoko dan Krama. Launch: Simulasi percakapan di lingkungan sekolah/kerja.",
+            "deskripsi": "Peserta didik mampu menggunakan unggah-ungguh basa yang tepat sesuai konteks mitra tutur."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Teks Sastra (Crita Wayang/Cekak)",
+        "pertemuanStart": 7,
+        "pertemuanEnd": 12,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 7,
+            "pertemuanEnd": 12,
+            "topik": "Discover: Membaca/Memirsa kisah tokoh wayang. Explore: Evaluasi unsur intrinsik dan pesan moral (piwulang). Transform: Menulis ulang cerita dalam bentuk komik/naskah drama.",
+            "deskripsi": "Peserta didik mampu mengevaluasi gagasan dan pesan moral dari teks sastra aural/tulis."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: Aksara Jawa (Sandhangan & Pasangan)",
+        "pertemuanStart": 13,
+        "pertemuanEnd": 17,
+        "pertemuanCount": 5,
+        "subTopics": [
+          {
+            "pertemuanStart": 13,
+            "pertemuanEnd": 17,
+            "topik": "Discover: Mengidentifikasi aksara dalam teks pendek. Explore: Penyelidikan aturan penulisan pasangan. Launch: Menulis kalimat sederhana menggunakan Aksara Jawa.",
+            "deskripsi": "Peserta didik mampu menulis gagasan secara logis menggunakan aksara daerah secara tepat."
+          }
+        ]
+      },
+      {
+        "unit": "Review & Sumatif Semester",
+        "pertemuanStart": 18,
+        "pertemuanEnd": 18,
+        "pertemuanCount": 1,
+        "subTopics": [
+          {
+            "pertemuanStart": 18,
+            "pertemuanEnd": 18,
+            "topik": "Assess: Penilaian portofolio dan refleksi kemajuan belajar mandiri.",
+            "deskripsi": "Evaluasi pencapaian kompetensi tengah fase."
+          }
+        ]
+      }
+    ]
+  },
+  "pai-e-ganjil": {
+    "id": "pai-e-ganjil",
+    "mapel": "pai",
+    "mapelLabel": "Pendidikan Agama Islam dan Budi Pekerti",
+    "fase": "E",
+    "semester": "ganjil",
+    "totalPertemuan": 18,
+    "units": [
+      {
+        "unit": "Unit 1: Al-Qur’an dan Hadis (Kompetisi dalam Kebaikan)",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 4,
+        "pertemuanCount": 4,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 4,
+            "topik": "Discover & Explore: Menganalisis ayat Al-Qur’an tentang perintah berlomba-lomba dalam kebaikan. Launch: Demonstrasi hafalan dan tartil.",
+            "deskripsi": "Memahami ayat dan hadis tentang perintah berlomba-lomba dalam kebaikan secara tekstual dan kontekstual."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Al-Qur’an dan Hadis (Etika Pergaulan)",
+        "pertemuanStart": 5,
+        "pertemuanEnd": 8,
+        "pertemuanCount": 4,
+        "subTopics": [
+          {
+            "pertemuanStart": 5,
+            "pertemuanEnd": 8,
+            "topik": "Explore: Penyelidikan fenomena sosial terkait larangan pergaulan bebas dan zina. Transform: Kampanye digital anti-zina di lingkungan SMK.",
+            "deskripsi": "Memahami ayat dan hadis tentang larangan pergaulan bebas dan zina sebagai nilai kehidupan."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: Akidah (Syu‘ab al-Īmān)",
+        "pertemuanStart": 9,
+        "pertemuanEnd": 14,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 9,
+            "pertemuanEnd": 14,
+            "topik": "Discover: Mengidentifikasi cabang-cabang iman. Explore: Kaitan iman dengan amal saleh. Transform: Projek \"Pohon Iman\" (visualisasi implementasi iman dalam kejuruan).",
+            "deskripsi": "Memahami beberapa cabang iman (syu‘ab al-īmān) sebagai landasan berakhlak mulia."
+          }
+        ]
+      },
+      {
+        "unit": "Unit Projek & Review",
+        "pertemuanStart": 15,
+        "pertemuanEnd": 17,
+        "pertemuanCount": 3,
+        "subTopics": [
+          {
+            "pertemuanStart": 15,
+            "pertemuanEnd": 17,
+            "topik": "Launch: Projek Kepemimpinan Islami (integrasi elemen AQH & Akidah).",
+            "deskripsi": "Menguatkan terbentuknya dimensi profil lulusan."
+          }
+        ]
+      },
+      {
+        "unit": "Asesmen Sumatif",
+        "pertemuanStart": 18,
+        "pertemuanEnd": 18,
+        "pertemuanCount": 1,
+        "subTopics": [
+          {
+            "pertemuanStart": 18,
+            "pertemuanEnd": 18,
+            "topik": "Assess: Evaluasi pemahaman konseptual dan aplikasi nilai iman.",
+            "deskripsi": "Menilai ketercapaian kompetensi tengah fase."
+          }
+        ]
+      }
+    ]
+  },
+  "pai-e-genap": {
+    "id": "pai-e-genap",
+    "mapel": "pai",
+    "mapelLabel": "Pendidikan Agama Islam dan Budi Pekerti",
+    "fase": "E",
+    "semester": "genap",
+    "totalPertemuan": 18,
+    "units": [
+      {
+        "unit": "Unit 1: Al-Qur’an dan Hadis (Kompetisi dalam Kebaikan)",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 4,
+        "pertemuanCount": 4,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 4,
+            "topik": "Discover & Explore: Menganalisis ayat Al-Qur’an tentang perintah berlomba-lomba dalam kebaikan. Launch: Demonstrasi hafalan dan tartil.",
+            "deskripsi": "Memahami ayat dan hadis tentang perintah berlomba-lomba dalam kebaikan secara tekstual dan kontekstual."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Al-Qur’an dan Hadis (Etika Pergaulan)",
+        "pertemuanStart": 5,
+        "pertemuanEnd": 8,
+        "pertemuanCount": 4,
+        "subTopics": [
+          {
+            "pertemuanStart": 5,
+            "pertemuanEnd": 8,
+            "topik": "Explore: Penyelidikan fenomena sosial terkait larangan pergaulan bebas dan zina. Transform: Kampanye digital anti-zina di lingkungan SMK.",
+            "deskripsi": "Memahami ayat dan hadis tentang larangan pergaulan bebas dan zina sebagai nilai kehidupan."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: Akidah (Syu‘ab al-Īmān)",
+        "pertemuanStart": 9,
+        "pertemuanEnd": 14,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 9,
+            "pertemuanEnd": 14,
+            "topik": "Discover: Mengidentifikasi cabang-cabang iman. Explore: Kaitan iman dengan amal saleh. Transform: Projek \"Pohon Iman\" (visualisasi implementasi iman dalam kejuruan).",
+            "deskripsi": "Memahami beberapa cabang iman (syu‘ab al-īmān) sebagai landasan berakhlak mulia."
+          }
+        ]
+      },
+      {
+        "unit": "Unit Projek & Review",
+        "pertemuanStart": 15,
+        "pertemuanEnd": 17,
+        "pertemuanCount": 3,
+        "subTopics": [
+          {
+            "pertemuanStart": 15,
+            "pertemuanEnd": 17,
+            "topik": "Launch: Projek Kepemimpinan Islami (integrasi elemen AQH & Akidah).",
+            "deskripsi": "Menguatkan terbentuknya dimensi profil lulusan."
+          }
+        ]
+      },
+      {
+        "unit": "Asesmen Sumatif",
+        "pertemuanStart": 18,
+        "pertemuanEnd": 18,
+        "pertemuanCount": 1,
+        "subTopics": [
+          {
+            "pertemuanStart": 18,
+            "pertemuanEnd": 18,
+            "topik": "Assess: Evaluasi pemahaman konseptual dan aplikasi nilai iman.",
+            "deskripsi": "Menilai ketercapaian kompetensi tengah fase."
+          }
+        ]
+      }
+    ]
+  },
+  "ppkn-e-ganjil": {
+    "id": "ppkn-e-ganjil",
+    "mapel": "ppkn",
+    "mapelLabel": "Pendidikan Pancasila",
+    "fase": "E",
+    "semester": "ganjil",
+    "totalPertemuan": 18,
+    "units": [
+      {
+        "unit": "Unit 1: Pancasila sebagai Ideologi Negara",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 9,
+        "pertemuanCount": 9,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 4,
+            "topik": "Discover & Explore: Menganalisis cara pandang para perumus Pancasila tentang dasar negara.",
+            "deskripsi": "Menganalisis cara pandang perumus Pancasila; menganalisis kedudukan Pancasila sebagai dasar negara dan ideologi."
+          },
+          {
+            "pertemuanStart": 5,
+            "pertemuanEnd": 9,
+            "topik": "Launch & Assess: Studi kasus penerapan nilai Pancasila dalam kehidupan berbangsa dan bernegara.",
+            "deskripsi": "Mengaktualisasikan nilai Pancasila sebagai pandangan hidup dan ideologi negara."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Konstitusi dan Peraturan Perundangan",
+        "pertemuanStart": 10,
+        "pertemuanEnd": 18,
+        "pertemuanCount": 9,
+        "subTopics": [
+          {
+            "pertemuanStart": 10,
+            "pertemuanEnd": 13,
+            "topik": "Discover & Explore: Menganalisis tata urutan peraturan perundang-undangan di Indonesia.",
+            "deskripsi": "Menganalisis tata urutan peraturan perundang-undangan; memahami Pancasila sebagai sumber dari segala sumber hukum."
+          },
+          {
+            "pertemuanStart": 14,
+            "pertemuanEnd": 18,
+            "topik": "Transform & Assess: Penerapan perilaku taat hukum untuk mewujudkan harmoni sosial.",
+            "deskripsi": "Menerapkan perilaku taat hukum berdasarkan peraturan yang berlaku untuk harmoni manusia dan lingkungan."
+          }
+        ]
+      }
+    ]
+  },
+  "ppkn-e-genap": {
+    "id": "ppkn-e-genap",
+    "mapel": "ppkn",
+    "mapelLabel": "Pendidikan Pancasila",
+    "fase": "E",
+    "semester": "genap",
+    "totalPertemuan": 18,
+    "units": [
+      {
+        "unit": "Unit 1: Pancasila sebagai Ideologi Negara",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 9,
+        "pertemuanCount": 9,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 4,
+            "topik": "Discover & Explore: Menganalisis cara pandang para perumus Pancasila tentang dasar negara.",
+            "deskripsi": "Menganalisis cara pandang perumus Pancasila; menganalisis kedudukan Pancasila sebagai dasar negara dan ideologi."
+          },
+          {
+            "pertemuanStart": 5,
+            "pertemuanEnd": 9,
+            "topik": "Launch & Assess: Studi kasus penerapan nilai Pancasila dalam kehidupan berbangsa dan bernegara.",
+            "deskripsi": "Mengaktualisasikan nilai Pancasila sebagai pandangan hidup dan ideologi negara."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Konstitusi dan Peraturan Perundangan",
+        "pertemuanStart": 10,
+        "pertemuanEnd": 18,
+        "pertemuanCount": 9,
+        "subTopics": [
+          {
+            "pertemuanStart": 10,
+            "pertemuanEnd": 13,
+            "topik": "Discover & Explore: Menganalisis tata urutan peraturan perundang-undangan di Indonesia.",
+            "deskripsi": "Menganalisis tata urutan peraturan perundang-undangan; memahami Pancasila sebagai sumber dari segala sumber hukum."
+          },
+          {
+            "pertemuanStart": 14,
+            "pertemuanEnd": 18,
+            "topik": "Transform & Assess: Penerapan perilaku taat hukum untuk mewujudkan harmoni sosial.",
+            "deskripsi": "Menerapkan perilaku taat hukum berdasarkan peraturan yang berlaku untuk harmoni manusia dan lingkungan."
+          }
+        ]
+      }
+    ]
+  },
+  "ipas-e-ganjil": {
+    "id": "ipas-e-ganjil",
+    "mapel": "ipas",
+    "mapelLabel": "IPAS",
+    "fase": "E",
+    "semester": "ganjil",
+    "totalPertemuan": 36,
+    "units": [
+      {
+        "unit": "Proyek 1: Keberlanjutan Ekosistem Lokal",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 12,
+        "pertemuanCount": 12,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 12,
+            "topik": "Discover: Observasi ekosistem di sekitar sekolah. Explore: Penyelidikan ilmiah komponen biotik/abiotik. Launch: Kampanye pelestarian keanekaragaman hayati. Transform & Assess: Refleksi peran manusia dalam ekosistem.",
+            "deskripsi": "Makhluk Hidup & Lingkungan: Menjelaskan fenomena ilmiah keterkaitan manusia, tumbuhan, dan hewan dengan lingkungannya."
+          }
+        ]
+      },
+      {
+        "unit": "Proyek 2: Zat dan Inovasi Ekonomi Kreatif",
+        "pertemuanStart": 13,
+        "pertemuanEnd": 24,
+        "pertemuanCount": 12,
+        "subTopics": [
+          {
+            "pertemuanStart": 13,
+            "pertemuanEnd": 24,
+            "topik": "Discover: Identifikasi jenis zat dan perubahannya secara fisika/kimia. Explore: Eksperimen perubahan zat pada produk lokal. Launch: Produksi barang bernilai ekonomi dari limbah/zat tertentu. Assess: Uji kualitas produk.",
+            "deskripsi": "Zat & Perubahannya: Meninjau perubahan zat dari perspektif ekonomi kreatif dan sosial."
+          }
+        ]
+      },
+      {
+        "unit": "Proyek 3: Solusi Energi Terbarukan",
+        "pertemuanStart": 25,
+        "pertemuanEnd": 36,
+        "pertemuanCount": 12,
+        "subTopics": [
+          {
+            "pertemuanStart": 25,
+            "pertemuanEnd": 36,
+            "topik": "Discover: Analisis kebutuhan energi di bengkel/lab. Explore: Simulasi konversi energi kimia ke listrik/panas. Launch: Membuat prototipe alat energi terbarukan sederhana. Transform: Refleksi dampak energi terhadap lingkungan.",
+            "deskripsi": "Energi & Perubahannya: Memodelkan perubahan energi kimia, listrik, panas, dan mekanik."
+          }
+        ]
+      }
+    ]
+  },
+  "ipas-e-genap": {
+    "id": "ipas-e-genap",
+    "mapel": "ipas",
+    "mapelLabel": "IPAS",
+    "fase": "E",
+    "semester": "genap",
+    "totalPertemuan": 36,
+    "units": [
+      {
+        "unit": "Proyek 1: Keberlanjutan Ekosistem Lokal",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 12,
+        "pertemuanCount": 12,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 12,
+            "topik": "Discover: Observasi ekosistem di sekitar sekolah. Explore: Penyelidikan ilmiah komponen biotik/abiotik. Launch: Kampanye pelestarian keanekaragaman hayati. Transform & Assess: Refleksi peran manusia dalam ekosistem.",
+            "deskripsi": "Makhluk Hidup & Lingkungan: Menjelaskan fenomena ilmiah keterkaitan manusia, tumbuhan, dan hewan dengan lingkungannya."
+          }
+        ]
+      },
+      {
+        "unit": "Proyek 2: Zat dan Inovasi Ekonomi Kreatif",
+        "pertemuanStart": 13,
+        "pertemuanEnd": 24,
+        "pertemuanCount": 12,
+        "subTopics": [
+          {
+            "pertemuanStart": 13,
+            "pertemuanEnd": 24,
+            "topik": "Discover: Identifikasi jenis zat dan perubahannya secara fisika/kimia. Explore: Eksperimen perubahan zat pada produk lokal. Launch: Produksi barang bernilai ekonomi dari limbah/zat tertentu. Assess: Uji kualitas produk.",
+            "deskripsi": "Zat & Perubahannya: Meninjau perubahan zat dari perspektif ekonomi kreatif dan sosial."
+          }
+        ]
+      },
+      {
+        "unit": "Proyek 3: Solusi Energi Terbarukan",
+        "pertemuanStart": 25,
+        "pertemuanEnd": 36,
+        "pertemuanCount": 12,
+        "subTopics": [
+          {
+            "pertemuanStart": 25,
+            "pertemuanEnd": 36,
+            "topik": "Discover: Analisis kebutuhan energi di bengkel/lab. Explore: Simulasi konversi energi kimia ke listrik/panas. Launch: Membuat prototipe alat energi terbarukan sederhana. Transform: Refleksi dampak energi terhadap lingkungan.",
+            "deskripsi": "Energi & Perubahannya: Memodelkan perubahan energi kimia, listrik, panas, dan mekanik."
+          }
+        ]
+      }
+    ]
+  },
+  "pjok-e-ganjil": {
+    "id": "pjok-e-ganjil",
+    "mapel": "pjok",
+    "mapelLabel": "PJOK",
+    "fase": "E",
+    "semester": "ganjil",
+    "totalPertemuan": 18,
+    "units": [
+      {
+        "unit": "Unit 1: Permainan Invasi (Sepak Bola/Bola Basket)",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 6,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 6,
+            "topik": "Discover & Explore: Menyelidiki pola gerak spesifik dan variasi teknik. Launch: Menerapkan strategi tim dalam situasi permainan menantang. Transform: Refleksi peran kepemimpinan dan kolaborasi dalam tim.",
+            "deskripsi": "Terampil Bergerak & Belajar Melalui Gerak: Menerapkan keterampilan gerak spesifik dan strategi pengambilan keputusan dalam kerja tim."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Permainan Net (Bola Voli/Bulutangkis)",
+        "pertemuanStart": 7,
+        "pertemuanEnd": 12,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 7,
+            "pertemuanEnd": 12,
+            "topik": "Explore: Eksperimen strategi penempatan bola dan koordinasi. Launch: Turnamen mini kelas dengan penekanan pada perilaku etis. Assess: Mengevaluasi pengaruh perilaku etis terhadap hasil pertandingan.",
+            "deskripsi": "Belajar Melalui Gerak: Memperagakan fair play dan mengevaluasi pengaruh perilaku etis terhadap capaian aktivitas jasmani."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: Aktivitas Kebugaran & Gaya Hidup",
+        "pertemuanStart": 13,
+        "pertemuanEnd": 17,
+        "pertemuanCount": 5,
+        "subTopics": [
+          {
+            "pertemuanStart": 13,
+            "pertemuanEnd": 17,
+            "topik": "Discover: Menginvestigasi dampak aktivitas fisik teratur terhadap kesehatan jantung/mental. Transform: Merancang strategi peningkatan kebugaran jasmani mandiri.",
+            "deskripsi": "Bergaya Hidup Aktif: Berpartisipasi dalam aktivitas kebugaran dan menginvestigasi dampaknya terhadap kesehatan."
+          }
+        ]
+      },
+      {
+        "unit": "Sumatif Semester Ganjil",
+        "pertemuanStart": 18,
+        "pertemuanEnd": 18,
+        "pertemuanCount": 1,
+        "subTopics": [
+          {
+            "pertemuanStart": 18,
+            "pertemuanEnd": 18,
+            "topik": "Assess: Tes kebugaran jasmani dan portofolio refleksi harian gaya hidup aktif.",
+            "deskripsi": "Menilai ketercapaian kompetensi elemen 1, 2, dan 3."
+          }
+        ]
+      }
+    ]
+  },
+  "pjok-e-genap": {
+    "id": "pjok-e-genap",
+    "mapel": "pjok",
+    "mapelLabel": "PJOK",
+    "fase": "E",
+    "semester": "genap",
+    "totalPertemuan": 18,
+    "units": [
+      {
+        "unit": "Unit 1: Permainan Invasi (Sepak Bola/Bola Basket)",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 6,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 6,
+            "topik": "Discover & Explore: Menyelidiki pola gerak spesifik dan variasi teknik. Launch: Menerapkan strategi tim dalam situasi permainan menantang. Transform: Refleksi peran kepemimpinan dan kolaborasi dalam tim.",
+            "deskripsi": "Terampil Bergerak & Belajar Melalui Gerak: Menerapkan keterampilan gerak spesifik dan strategi pengambilan keputusan dalam kerja tim."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Permainan Net (Bola Voli/Bulutangkis)",
+        "pertemuanStart": 7,
+        "pertemuanEnd": 12,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 7,
+            "pertemuanEnd": 12,
+            "topik": "Explore: Eksperimen strategi penempatan bola dan koordinasi. Launch: Turnamen mini kelas dengan penekanan pada perilaku etis. Assess: Mengevaluasi pengaruh perilaku etis terhadap hasil pertandingan.",
+            "deskripsi": "Belajar Melalui Gerak: Memperagakan fair play dan mengevaluasi pengaruh perilaku etis terhadap capaian aktivitas jasmani."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: Aktivitas Kebugaran & Gaya Hidup",
+        "pertemuanStart": 13,
+        "pertemuanEnd": 17,
+        "pertemuanCount": 5,
+        "subTopics": [
+          {
+            "pertemuanStart": 13,
+            "pertemuanEnd": 17,
+            "topik": "Discover: Menginvestigasi dampak aktivitas fisik teratur terhadap kesehatan jantung/mental. Transform: Merancang strategi peningkatan kebugaran jasmani mandiri.",
+            "deskripsi": "Bergaya Hidup Aktif: Berpartisipasi dalam aktivitas kebugaran dan menginvestigasi dampaknya terhadap kesehatan."
+          }
+        ]
+      },
+      {
+        "unit": "Sumatif Semester Ganjil",
+        "pertemuanStart": 18,
+        "pertemuanEnd": 18,
+        "pertemuanCount": 1,
+        "subTopics": [
+          {
+            "pertemuanStart": 18,
+            "pertemuanEnd": 18,
+            "topik": "Assess: Tes kebugaran jasmani dan portofolio refleksi harian gaya hidup aktif.",
+            "deskripsi": "Menilai ketercapaian kompetensi elemen 1, 2, dan 3."
+          }
+        ]
+      }
+    ]
+  },
+  "sejarah-e-ganjil": {
+    "id": "sejarah-e-ganjil",
+    "mapel": "sejarah",
+    "mapelLabel": "Sejarah",
+    "fase": "E",
+    "semester": "ganjil",
+    "totalPertemuan": 18,
+    "units": [
+      {
+        "unit": "Unit 1: Pengantar Ilmu Sejarah",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 6,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 6,
+            "topik": "Discover: Mengamati fenomena sejarah di sekitar sekolah/daerah. Explore: Memahami konsep manusia, ruang, waktu, diakronis, dan sinkronis. Launch: Membuat silsilah keluarga atau narasi sejarah diri.",
+            "deskripsi": "Memahami konsep dasar ilmu sejarah sebagai landasan berpikir."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Masa Kerajaan Hindu-Buddha",
+        "pertemuanStart": 7,
+        "pertemuanEnd": 12,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 7,
+            "pertemuanEnd": 12,
+            "topik": "Discover: Menyelidiki artefak/candi secara digital. Explore: Menganalisis pengaruh budaya dan ekonomi maritim. Transform: Diskusi relevansi tata ruang/arsitektur kerajaan dengan jurusan DPIB.",
+            "deskripsi": "Menginterpretasi peristiwa sejarah masa Kerajaan Hindu-Buddha."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: Masa Kerajaan Islam",
+        "pertemuanStart": 13,
+        "pertemuanEnd": 17,
+        "pertemuanCount": 5,
+        "subTopics": [
+          {
+            "pertemuanStart": 13,
+            "pertemuanEnd": 17,
+            "topik": "Explore: Jalur perdagangan dan penyebaran Islam. Launch: Proyek \"Lini Masa Kerajaan Islam\" yang dikaitkan dengan kearifan lokal. Transform: Refleksi nilai toleransi dalam masyarakat majemuk.",
+            "deskripsi": "Menginterpretasi masuknya Islam dan peran ulama di Indonesia."
+          }
+        ]
+      },
+      {
+        "unit": "Review & Asesmen",
+        "pertemuanStart": 18,
+        "pertemuanEnd": 18,
+        "pertemuanCount": 1,
+        "subTopics": [
+          {
+            "pertemuanStart": 18,
+            "pertemuanEnd": 18,
+            "topik": "Assess: Evaluasi sumatif tengah fase dan refleksi kemajuan berpikir sejarah.",
+            "deskripsi": "Menilai pemahaman konsep dasar dan masa kerajaan."
+          }
+        ]
+      }
+    ]
+  },
+  "sejarah-e-genap": {
+    "id": "sejarah-e-genap",
+    "mapel": "sejarah",
+    "mapelLabel": "Sejarah",
+    "fase": "E",
+    "semester": "genap",
+    "totalPertemuan": 18,
+    "units": [
+      {
+        "unit": "Unit 1: Pengantar Ilmu Sejarah",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 6,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 6,
+            "topik": "Discover: Mengamati fenomena sejarah di sekitar sekolah/daerah. Explore: Memahami konsep manusia, ruang, waktu, diakronis, dan sinkronis. Launch: Membuat silsilah keluarga atau narasi sejarah diri.",
+            "deskripsi": "Memahami konsep dasar ilmu sejarah sebagai landasan berpikir."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Masa Kerajaan Hindu-Buddha",
+        "pertemuanStart": 7,
+        "pertemuanEnd": 12,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 7,
+            "pertemuanEnd": 12,
+            "topik": "Discover: Menyelidiki artefak/candi secara digital. Explore: Menganalisis pengaruh budaya dan ekonomi maritim. Transform: Diskusi relevansi tata ruang/arsitektur kerajaan dengan jurusan DPIB.",
+            "deskripsi": "Menginterpretasi peristiwa sejarah masa Kerajaan Hindu-Buddha."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: Masa Kerajaan Islam",
+        "pertemuanStart": 13,
+        "pertemuanEnd": 17,
+        "pertemuanCount": 5,
+        "subTopics": [
+          {
+            "pertemuanStart": 13,
+            "pertemuanEnd": 17,
+            "topik": "Explore: Jalur perdagangan dan penyebaran Islam. Launch: Proyek \"Lini Masa Kerajaan Islam\" yang dikaitkan dengan kearifan lokal. Transform: Refleksi nilai toleransi dalam masyarakat majemuk.",
+            "deskripsi": "Menginterpretasi masuknya Islam dan peran ulama di Indonesia."
+          }
+        ]
+      },
+      {
+        "unit": "Review & Asesmen",
+        "pertemuanStart": 18,
+        "pertemuanEnd": 18,
+        "pertemuanCount": 1,
+        "subTopics": [
+          {
+            "pertemuanStart": 18,
+            "pertemuanEnd": 18,
+            "topik": "Assess: Evaluasi sumatif tengah fase dan refleksi kemajuan berpikir sejarah.",
+            "deskripsi": "Menilai pemahaman konsep dasar dan masa kerajaan."
+          }
+        ]
+      }
+    ]
+  },
+  "senbud-e-ganjil": {
+    "id": "senbud-e-ganjil",
+    "mapel": "senbud",
+    "mapelLabel": "Seni Budaya",
+    "fase": "E",
+    "semester": "ganjil",
+    "totalPertemuan": 18,
+    "units": [
+      {
+        "unit": "Unit 1: Apresiasi & Eksplorasi Unsur Seni",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 6,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 6,
+            "topik": "Discover & Explore: Mengamati dan mengidentifikasi unsur-unsur seni (Rupa: garis, warna, tekstur; Musik: nada, irama, harmoni) pada objek di lingkungan sekitar.",
+            "deskripsi": "Mengidentifikasi, menjelaskan, dan mengeksplorasi unsur serta prinsip desain/musik dalam kehidupan sehari-hari."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Eksperimen Alat & Teknik",
+        "pertemuanStart": 7,
+        "pertemuanEnd": 12,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 7,
+            "pertemuanEnd": 12,
+            "topik": "Explore & Launch: Menguji coba berbagai alat dan bahan (manual/digital) serta menghubungkan seni dengan bidang ilmu lain (seperti IPAS atau Sejarah).",
+            "deskripsi": "Mengeksplorasi alternatif alat/bahan dan teknik yang tersedia di lingkungan sekitar secara kreatif."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: Penciptaan Karya Mandiri",
+        "pertemuanStart": 13,
+        "pertemuanEnd": 17,
+        "pertemuanCount": 5,
+        "subTopics": [
+          {
+            "pertemuanStart": 13,
+            "pertemuanEnd": 17,
+            "topik": "Launch & Transform: Menciptakan karya orisinal untuk mengekspresikan pengalaman pribadi atau minat berdasarkan teknik yang dipilih.",
+            "deskripsi": "Membuat karya seni berdasarkan hasil pengamatan lingkungan dengan mempertimbangkan fungsi dan estetika."
+          }
+        ]
+      },
+      {
+        "unit": "Review & STS",
+        "pertemuanStart": 18,
+        "pertemuanEnd": 18,
+        "pertemuanCount": 1,
+        "subTopics": [
+          {
+            "pertemuanStart": 18,
+            "pertemuanEnd": 18,
+            "topik": "Assess: Asesmen sumatif tengah fase dan refleksi portofolio hasil karya semester ganjil.",
+            "deskripsi": "Menilai perkembangan keterampilan teknis dan pemahaman konseptual."
+          }
+        ]
+      }
+    ]
+  },
+  "senbud-e-genap": {
+    "id": "senbud-e-genap",
+    "mapel": "senbud",
+    "mapelLabel": "Seni Budaya",
+    "fase": "E",
+    "semester": "genap",
+    "totalPertemuan": 18,
+    "units": [
+      {
+        "unit": "Unit 1: Apresiasi & Eksplorasi Unsur Seni",
+        "pertemuanStart": 1,
+        "pertemuanEnd": 6,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 1,
+            "pertemuanEnd": 6,
+            "topik": "Discover & Explore: Mengamati dan mengidentifikasi unsur-unsur seni (Rupa: garis, warna, tekstur; Musik: nada, irama, harmoni) pada objek di lingkungan sekitar.",
+            "deskripsi": "Mengidentifikasi, menjelaskan, dan mengeksplorasi unsur serta prinsip desain/musik dalam kehidupan sehari-hari."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 2: Eksperimen Alat & Teknik",
+        "pertemuanStart": 7,
+        "pertemuanEnd": 12,
+        "pertemuanCount": 6,
+        "subTopics": [
+          {
+            "pertemuanStart": 7,
+            "pertemuanEnd": 12,
+            "topik": "Explore & Launch: Menguji coba berbagai alat dan bahan (manual/digital) serta menghubungkan seni dengan bidang ilmu lain (seperti IPAS atau Sejarah).",
+            "deskripsi": "Mengeksplorasi alternatif alat/bahan dan teknik yang tersedia di lingkungan sekitar secara kreatif."
+          }
+        ]
+      },
+      {
+        "unit": "Unit 3: Penciptaan Karya Mandiri",
+        "pertemuanStart": 13,
+        "pertemuanEnd": 17,
+        "pertemuanCount": 5,
+        "subTopics": [
+          {
+            "pertemuanStart": 13,
+            "pertemuanEnd": 17,
+            "topik": "Launch & Transform: Menciptakan karya orisinal untuk mengekspresikan pengalaman pribadi atau minat berdasarkan teknik yang dipilih.",
+            "deskripsi": "Membuat karya seni berdasarkan hasil pengamatan lingkungan dengan mempertimbangkan fungsi dan estetika."
+          }
+        ]
+      },
+      {
+        "unit": "Review & STS",
+        "pertemuanStart": 18,
+        "pertemuanEnd": 18,
+        "pertemuanCount": 1,
+        "subTopics": [
+          {
+            "pertemuanStart": 18,
+            "pertemuanEnd": 18,
+            "topik": "Assess: Asesmen sumatif tengah fase dan refleksi portofolio hasil karya semester ganjil.",
+            "deskripsi": "Menilai perkembangan keterampilan teknis dan pemahaman konseptual."
+          }
+        ]
+      }
+    ]
+  }
+}

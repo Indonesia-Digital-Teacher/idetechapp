@@ -120,6 +120,11 @@ const agamaSubOptions: SubOption[] = [
 
 const seniSubOptions: SubOption[] = [
   {
+    label: "Seni Budaya",
+    value: "senbud",
+    cp: "Mengeksplorasi unsur rupa, tari, musik, atau teater; menghubungkan seni dengan kearifan lokal dan bidang keilmuan lain; serta membuat karya seni berdasarkan pengamatan terhadap lingkungan dengan mempertimbangkan fungsi dan teknik tertentu."
+  },
+  {
     label: "Musik",
     value: "musik",
     cp: "Mengidentifikasi unsur musik (nada, irama, melodi, dll) dan menganalisis musik dari berbagai genre; menyajikan musik nusantara dan modern; serta menciptakan karya musik kreasi sendiri."
@@ -256,6 +261,16 @@ export const CP_DATA: Record<Fase, MapelOption[]> = {
       value: "kka",
       subLabel: "Pilih Jurusan SMK",
       requiresJurusan: true
+    },
+    {
+      label: "Dasar-dasar Program Keahlian TKJ",
+      value: "ddpk-tkj",
+      cp: "Memahami wawasan industri TJKT, perkembangan teknologi jaringan dan telekomunikasi, K3LH dan budaya kerja, sistem operasi serta perangkat keras, virtualisasi dan layanan server dasar, media transmisi, alamat IP, fiber optic, router/switch, dan penggunaan alat ukur jaringan."
+    },
+    {
+      label: "Muatan Lokal (Bahasa Jawa)",
+      value: "mulok",
+      cp: "Mengevaluasi gagasan dan pesan dari teks sastra lokal; menggunakan unggah-ungguh basa secara tepat; menulis gagasan menggunakan aksara daerah; memahami nilai filosofis tembang dan kearifan budaya lokal; serta mempresentasikan gagasan dan hasil penyelidikan budaya secara kritis."
     }
   ],
   F: [

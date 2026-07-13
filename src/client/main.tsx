@@ -4702,6 +4702,8 @@ function TeacherTodoPanel({
   const [genEndDate, setGenEndDate] = useState("2026-12-11");
   const [genMaxMeetings, setGenMaxMeetings] = useState("");
   const [genClassId, setGenClassId] = useState("");
+  const [genUseMaterial, setGenUseMaterial] = useState(false);
+  const [genSemester, setGenSemester] = useState<"ganjil" | "genap" | "auto">("auto");
   const [loadingSemester, setLoadingSemester] = useState(false);
   const [semesterError, setSemesterError] = useState("");
   const [generatedMeetings, setGeneratedMeetings] = useState<any[]>([]);
@@ -4735,6 +4737,9 @@ function TeacherTodoPanel({
     setLoadingSemester(true);
     setSemesterError("");
     try {
+      const semesterValue = genSemester === "auto"
+        ? null
+        : genSemester;
       const res = await api<{ meetings: any[] }>("/api/teacher/todos/semester-plan", {
         method: "POST",
         body: JSON.stringify({
@@ -4743,7 +4748,11 @@ function TeacherTodoPanel({
           startDate: genStartDate,
           endDate: genEndDate,
           maxMeetings: genMaxMeetings ? parseInt(genMaxMeetings, 10) : undefined,
-          classId: genClassId || null
+          classId: genClassId || null,
+          mapel: genMapel || null,
+          fase: genFase || null,
+          semester: semesterValue,
+          useMaterial: genUseMaterial
         })
       });
       setGeneratedMeetings(res.meetings || []);
@@ -5545,6 +5554,41 @@ function TeacherTodoPanel({
                 </label>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-black text-white/50 uppercase tracking-wider">Semester</span>
+                  <select
+                    value={genSemester}
+                    onChange={e => setGenSemester(e.target.value as any)}
+                    className="todo-form-input text-xs cursor-pointer"
+                    title="Auto = dari tanggal mulai (Ganjil: Jul-Des, Genap: Jan-Jun)"
+                  >
+                    <option value="auto">Auto (dari tanggal mulai)</option>
+                    <option value="ganjil">Ganjil</option>
+                    <option value="genap">Genap</option>
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-black text-white/50 uppercase tracking-wider">Mode</span>
+                  <div className="flex items-center gap-2 h-9">
+                    <button
+                      type="button"
+                      onClick={() => setGenUseMaterial(false)}
+                      className={`flex-1 h-full text-[10px] font-bold rounded-lg border transition-all ${!genUseMaterial ? "bg-violet-600 border-violet-500 text-white" : "bg-white/5 border-white/10 text-white/60 hover:text-white"}`}
+                    >
+                      AI CYBRA
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGenUseMaterial(true)}
+                      className={`flex-1 h-full text-[10px] font-bold rounded-lg border transition-all ${genUseMaterial ? "bg-emerald-600 border-emerald-500 text-white" : "bg-white/5 border-white/10 text-white/60 hover:text-white"}`}
+                    >
+                      Template Materi
+                    </button>
+                  </div>
+                </label>
+              </div>
+
               <button
                 type="button"
                 onClick={generateSemesterPlan}
@@ -5559,7 +5603,7 @@ function TeacherTodoPanel({
                 ) : (
                   <Sparkles className="w-4 h-4 text-violet-200" />
                 )}
-                {loadingSemester ? 'Memproses Rencana AI...' : 'Rencanakan Pembelajaran'}
+                {loadingSemester ? (genUseMaterial ? 'Memuat Template Materi...' : 'Memproses Rencana AI...') : (genUseMaterial ? 'Rencanakan dari Materi' : 'Rencanakan dengan AI')}
               </button>
             </div>
           </div>

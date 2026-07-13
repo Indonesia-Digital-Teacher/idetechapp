@@ -35,6 +35,8 @@ import {
 import type { RoleName } from "../db/schema";
 import { type AppEnv, authRequired, requirePermission, requireRole } from "../lib/auth";
 import { writeActivityLog } from "../lib/activity";
+import { findMaterial, formatMaterialAsMarkdownTable, scaleToActualMeetings, type ScaledMeeting } from "../lib/materials";
+import type { Semester } from "../data/materials";
 import { getChatQuotaConfig, getAiGenerationQuotaConfig, getGeneralSettings } from "../lib/settings";
 import { getS3Config } from "../lib/storage";
 import { dashboardCatalog, permissionCatalog, roleCatalog, studentQuestCatalog } from "../lib/catalog";
@@ -1536,14 +1538,19 @@ function getSmartFallbackMeetings(capaianPembelajaran: string, totalCount: numbe
 
 app.post("/teacher/todos/semester-plan", requireRole(["teacher", "admin"]), async (c) => {
   const user = c.get("authUser");
-  const body = await c.req.json<{
-    capaianPembelajaran: string;
-    teachingDays: number[];
-    startDate: string;
-    endDate: string;
-    maxMeetings?: number;
-    classId?: string | null;
-  }>();
+  const rawBody = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const body = {
+    capaianPembelajaran: String(rawBody.capaianPembelajaran || ""),
+    teachingDays: Array.isArray(rawBody.teachingDays) ? rawBody.teachingDays.map((d: unknown) => Number(d)) : [],
+    startDate: String(rawBody.startDate || ""),
+    endDate: String(rawBody.endDate || ""),
+    maxMeetings: rawBody.maxMeetings ? Number(rawBody.maxMeetings) : undefined,
+    classId: rawBody.classId ? String(rawBody.classId) : null,
+    mapel: rawBody.mapel ? String(rawBody.mapel) : null,
+    fase: rawBody.fase ? String(rawBody.fase) : null,
+    semester: rawBody.semester ? String(rawBody.semester) : null,
+    useMaterial: rawBody.useMaterial === true || rawBody.useMaterial === "true",
+  };
 
   if (!body.capaianPembelajaran?.trim()) {
     return c.json({ message: "Capaian Pembelajaran wajib diisi." }, 400);
@@ -1585,12 +1592,52 @@ app.post("/teacher/todos/semester-plan", requireRole(["teacher", "admin"]), asyn
     return c.json({ message: "Tidak ada hari mengajar yang cocok dalam rentang tanggal tersebut." }, 400);
   }
 
+  // Deteksi semester jika tidak dikirim client
+  let semester: Semester | null = body.semester === "ganjil" || body.semester === "genap" ? (body.semester as Semester) : null;
+  if (!semester && body.startDate) {
+    const startMonth = new Date(body.startDate).getMonth() + 1; // 1-12
+    semester = startMonth >= 7 && startMonth <= 12 ? "ganjil" : "genap";
+  }
+
+  const mapel = body.mapel;
+  const fase = body.fase === "E" || body.fase === "F" ? body.fase : null;
+  const material = mapel && fase && semester ? findMaterial(mapel, fase, semester) : null;
+
+  // Mode Template Lokal: langsung pakai materi dari /docs/material tanpa AI
+  if (body.useMaterial && material) {
+    const scaled = scaleToActualMeetings(material, dates.length, {
+      classId: body.classId,
+      dueDates: dates
+    });
+    const finalMeetings = scaled.map((m) => ({
+      title: m.title,
+      description: m.description,
+      priority: m.priority,
+      category: m.category,
+      dueDate: m.dueDate || dates[m.meetingNumber - 1] || dates[dates.length - 1],
+      classId: m.classId,
+      unit: m.unit,
+      elemen: m.elemen
+    }));
+    return c.json({ meetings: finalMeetings });
+  }
+
   try {
+    let outlineBlock = "";
+    if (material) {
+      outlineBlock = `
+
+Berikut adalah outline materi resmi (dari BSKAP/ATP) untuk ${material.mapelLabel} Fase ${material.fase} Semester ${material.semester === "ganjil" ? "Ganjil" : "Genap"}:
+${formatMaterialAsMarkdownTable(material)}
+
+Gunakan outline ini sebagai panduan utama saat mendistribusikan topik. Pertahankan urutan dan nama bab/unit; sesuaikan hanya penomoran pertemuan agar tepat ${dates.length} pertemuan.`;
+    }
+
     const prompt = `Anda adalah Asisten AI pendidik untuk platform IdeTech.
 Tugas Anda adalah merancang program semester (rincian materi pembelajaran per pertemuan) berdasarkan Capaian Pembelajaran (CP) berikut ini.
 
 Capaian Pembelajaran (CP):
-"${body.capaianPembelajaran}"
+"${body.capaianPembelajaran}"${outlineBlock}
 
 Rencana semester ini harus dibagi menjadi tepat ${dates.length} pertemuan/topik materi pembelajaran secara berurutan.
 
@@ -1663,7 +1710,23 @@ Format keluaran HARUS berupa array JSON murni, jangan sertakan tag pembungkus ma
     }
 
     if (!meetings || !Array.isArray(meetings) || meetings.length === 0) {
-      meetings = getSmartFallbackMeetings(body.capaianPembelajaran, dates.length);
+      if (material) {
+        meetings = scaleToActualMeetings(material, dates.length, {
+          classId: body.classId,
+          dueDates: dates
+        }).map((m) => ({
+          title: m.title,
+          description: m.description,
+          priority: m.priority,
+          category: m.category,
+          dueDate: m.dueDate,
+          classId: m.classId,
+          unit: m.unit,
+          elemen: m.elemen
+        }));
+      } else {
+        meetings = getSmartFallbackMeetings(body.capaianPembelajaran, dates.length);
+      }
     }
 
     const finalMeetings = meetings.slice(0, dates.length).map((m: any, idx: number) => {
@@ -1696,7 +1759,10 @@ Format keluaran HARUS berupa array JSON murni, jangan sertakan tag pembungkus ma
         endDate: body.endDate
       }
     }).catch(() => {});
-    const fallbackMeetings = getSmartFallbackMeetings(body.capaianPembelajaran, dates.length).map((m, idx) => ({
+    const fallbackMeetings = (material
+      ? scaleToActualMeetings(material, dates.length, { classId: body.classId, dueDates: dates })
+      : getSmartFallbackMeetings(body.capaianPembelajaran, dates.length)
+    ).map((m, idx) => ({
       title: m.title,
       description: m.description,
       priority: m.priority,
@@ -2348,12 +2414,59 @@ app.post("/teacher/chat", requireRole(["teacher", "admin"]), requirePermission("
 
 app.post("/teacher/generate-ai", requireRole(["teacher", "admin"]), requirePermission("chat.use"), async (c) => {
   const user = c.get("authUser");
-  const body = (await c.req.json().catch(() => ({}))) as { prompt: string };
+  const rawBody = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const body = {
+    prompt: String(rawBody.prompt || ""),
+    mapel: rawBody.mapel ? String(rawBody.mapel) : null,
+    fase: rawBody.fase === "E" || rawBody.fase === "F" ? (rawBody.fase as "E" | "F") : null,
+    semester: rawBody.semester === "ganjil" || rawBody.semester === "genap" ? (rawBody.semester as Semester) : null,
+    pertemuanKe: rawBody.pertemuanKe ? Number(rawBody.pertemuanKe) : null
+  };
   if (!body.prompt) return c.json({ message: "Prompt tidak boleh kosong." }, 400);
 
   const quotaCheck = await checkAndConsumeAiQuota(user.id, user.email);
   if (!quotaCheck.allowed) {
     return c.json({ message: quotaCheck.message }, 429);
+  }
+
+  // Inject materi context ke prompt jika tersedia
+  let enrichedPrompt = body.prompt;
+  if (body.mapel && body.fase && body.semester) {
+    const material = findMaterial(body.mapel, body.fase, body.semester);
+    if (material && body.pertemuanKe) {
+      // Cari unit & sub-topik untuk pertemuan ini
+      const target = material.units.find(u => u.pertemuanStart <= body.pertemuanKe! && u.pertemuanEnd >= body.pertemuanKe!);
+      if (target) {
+        const sub = target.subTopics.find(s => s.pertemuanStart <= body.pertemuanKe! && s.pertemuanEnd >= body.pertemuanKe!);
+        enrichedPrompt += `
+
+---
+KONTEN MATERI RESMI UNTUK RPP INI:
+Mapel: ${material.mapelLabel}, Fase ${material.fase}, Semester ${material.semester === "ganjil" ? "Ganjil" : "Genap"}
+Pertemuan ke-${body.pertemuanKe}
+Unit: ${target.unit}${sub ? `
+Sub-topik: ${sub.topik}
+Tujuan/Elemen: ${sub.deskripsi}` : ""}
+---
+Sesuaikan RPP di atas dengan konten materi resmi ini.`;
+      } else {
+        enrichedPrompt += `
+
+---
+OUTLINE MATERI RESMI ${material.mapelLabel} Fase ${material.fase} Semester ${material.semester === "ganjil" ? "Ganjil" : "Genap"}:
+${formatMaterialAsMarkdownTable(material)}
+---
+Gunakan outline ini sebagai referensi kurikulum.`;
+      }
+    } else if (material) {
+      enrichedPrompt += `
+
+---
+OUTLINE MATERI RESMI ${material.mapelLabel} Fase ${material.fase} Semester ${material.semester === "ganjil" ? "Ganjil" : "Genap"}:
+${formatMaterialAsMarkdownTable(material)}
+---
+Gunakan outline ini sebagai referensi kurikulum.`;
+    }
   }
 
   try {
@@ -2364,7 +2477,7 @@ app.post("/teacher/generate-ai", requireRole(["teacher", "admin"]), requirePermi
         "Content-Type": "application/json",
         "User-Agent": "Mozilla/5.0 (IdeTech Server) AppleWebKit/537.36"
       },
-      body: JSON.stringify({ message: body.prompt, history: [] }),
+      body: JSON.stringify({ message: enrichedPrompt, history: [] }),
       signal: AbortSignal.timeout(45_000)
     });
 
