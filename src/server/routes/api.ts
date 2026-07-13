@@ -35,7 +35,7 @@ import {
 import type { RoleName } from "../db/schema";
 import { type AppEnv, authRequired, requirePermission, requireRole } from "../lib/auth";
 import { writeActivityLog } from "../lib/activity";
-import { findMaterial, formatMaterialAsMarkdownTable, scaleToActualMeetings, type ScaledMeeting } from "../lib/materials";
+import { findMaterial, formatMaterialAsMarkdownTable, generateFallbackRPP, scaleToActualMeetings, type ScaledMeeting } from "../lib/materials";
 import type { Semester } from "../data/materials";
 import { getChatQuotaConfig, getAiGenerationQuotaConfig, getGeneralSettings } from "../lib/settings";
 import { getS3Config } from "../lib/storage";
@@ -2503,7 +2503,25 @@ Gunakan outline ini sebagai referensi kurikulum.`;
       resourceType: "ai_generate",
       details: { error: String(err), message: err.message, prompt: body.prompt?.slice(0, 200) }
     }).catch(() => {});
-    return c.json({ message: `Koneksi ke backend AI gagal: ${err.message}` }, 500);
+
+    // Fallback RPP lokal dari materi resmi jika CYBRA timeout/error
+    if (body.mapel && body.fase && body.semester) {
+      const fallback = generateFallbackRPP({
+        mapel: body.mapel,
+        fase: body.fase,
+        semester: body.semester,
+        pertemuanKe: body.pertemuanKe,
+        topic: body.prompt?.slice(0, 120),
+        grade: undefined,
+        duration: undefined,
+        model: undefined
+      });
+      if (fallback) {
+        return c.json({ reply: fallback, fallback: true, message: "Layanan AI CYBRA sedang tidak tersedia. RPP ini dibuat otomatis dari materi resmi." });
+      }
+    }
+
+    return c.json({ message: "Layanan AI CYBRA sedang tidak tersedia. Silakan coba lagi nanti atau gunakan Template Materi untuk Program Semester." }, 504);
   }
 });
 

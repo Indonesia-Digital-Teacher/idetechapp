@@ -205,3 +205,105 @@ export function formatMaterialAsMarkdownTable(material: MaterialDoc): string {
   }
   return lines.join("\n");
 }
+
+/** Generate RPP fallback sederhana dari materi resmi jika AI CYBRA tidak tersedia. */
+export function generateFallbackRPP(options: {
+  mapel: string;
+  fase: Fase;
+  semester: Semester;
+  pertemuanKe?: number | null;
+  topic?: string;
+  grade?: string;
+  duration?: string;
+  model?: string;
+}): string | null {
+  const material = findMaterial(options.mapel, options.fase, options.semester);
+  if (!material) return null;
+
+  let targetUnit: MaterialUnit | null = null;
+  let targetSub: MaterialSubTopic | null = null;
+
+  if (options.pertemuanKe) {
+    targetUnit = material.units.find(u => u.pertemuanStart <= options.pertemuanKe! && u.pertemuanEnd >= options.pertemuanKe!) ?? null;
+    if (targetUnit) {
+      targetSub = targetUnit.subTopics.find(s => s.pertemuanStart <= options.pertemuanKe! && s.pertemuanEnd >= options.pertemuanKe!) ?? null;
+    }
+  }
+
+  // Kalau pertemuan tidak ditemukan, gunakan unit pertama
+  if (!targetUnit) {
+    targetUnit = material.units[0] ?? null;
+    targetSub = targetUnit?.subTopics[0] ?? null;
+  }
+  if (!targetUnit || !targetSub) return null;
+
+  const unitLower = targetUnit.unit.toLowerCase();
+  const isReview = unitLower.includes("review") || unitLower.includes("asesmen") || unitLower.includes("sumatif");
+  const elemen = extractElemen(targetSub.deskripsi) || extractElemen(targetUnit.unit) || "Sesuai CP";
+
+  const model = options.model || "Project Based Learning";
+  const steps = isReview
+    ? `1. **Persiapan Asesmen**: Guru menjelaskan format dan kriteria penilaian.
+2. **Pelaksanaan**: Siswa mengerjakan asesmen sesuai topik.
+3. **Pengolahan Hasil**: Guru memberikan umpan balik dan rekomendasi tindak lanjut.`
+    : `1. **Discover**: Guru memantik rasa ingin tahu siswa dengan masalah kontekstual terkait ${targetSub.topik}.
+2. **Explore**: Siswa berdiskusi/mencoba menyelesaikan masalah dalam kelompok.
+3. **Launch**: Siswa menyajikan gagasan atau prototipe awal.
+4. **Transform**: Siswa mengaplikasikan konsep pada situasi baru.
+5. **Assess**: Guru dan siswa melakukan refleksi serta penilaian formatif.`;
+
+  return `# Rencana Pelaksanaan Pembelajaran (RPP) / Modul Ajar
+
+## Informasi Umum
+- **Mata Pelajaran**: ${material.mapelLabel}
+- **Fase**: ${material.fase}
+- **Semester**: ${material.semester === "ganjil" ? "Ganjil" : "Genap"}
+- **Pertemuan Ke**: ${options.pertemuanKe ?? "-"}
+- **Unit/Bab**: ${targetUnit.unit}
+- **Topik**: ${targetSub.topik}
+- **Elemen / Tujuan**: ${targetSub.deskripsi}
+- **Kelas**: ${options.grade ?? "-"}
+- **Alokasi Waktu**: ${options.duration ?? "2x45 Menit"}
+- **Model Pembelajaran**: ${model}
+
+> *Catatan: RPP ini dibuat otomatis dari materi resmi BSKAP/ATP karena layanan AI CYBRA sedang tidak tersedia. Silakan sesuaikan dengan konteks kelas Anda.*
+
+## Komponen Inti
+
+### A. Tujuan Pembelajaran
+Setelah kegiatan pembelajaran, siswa diharapkan mampu:
+1. Memahami konsep ${targetSub.topik}.
+2. Mengaplikasikan ${targetSub.topik} dalam konteks yang relevan.
+3. Menganalisis hubungan ${targetSub.topik} dengan materi sebelumnya.
+
+### B. Profil Pelajar Pancasila
+- Bernalar Kritis
+- Kreatif
+- Mandiri
+- Bergotong Royong
+
+### C. Sarana dan Prasarana
+- Buku siswa dan buku guru
+- Laptop / LCD
+- LKS atau lembar kerja siswa
+- Media penunjang (video, simulasi, dll.)
+
+### D. Materi dan Sumber Belajar
+- ${targetSub.topik}
+- ${targetUnit.unit}
+- Sumber: Dokumen materi resmi IdeTech
+
+## Langkah Pembelajaran (${model})
+${steps}
+
+## Penutup
+1. Refleksi singkat bersama siswa tentang pembelajaran hari ini.
+2. Penugasan mandiri atau kelompok untuk menguatkan pemahaman.
+3. Apersepsi untuk pertemuan berikutnya.
+
+## Asesmen
+- **Asesmen Formatif**: Pengamatan diskusi, latihan singkat, dan umpan balik.
+- **Asesmen Sumatif**: Kuis/ulangan harian/proyek kecil terkait ${targetSub.topik}.
+`;
+}
+

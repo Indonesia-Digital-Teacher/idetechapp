@@ -25,6 +25,7 @@ export function TeacherRPPGenerator({ onClose }: { onClose: () => void }) {
   const [isSubmittingBank, setIsSubmittingBank] = useState(false);
   const [result, setResult] = useState('');
   const [error, setError] = useState('');
+  const [fallbackNotice, setFallbackNotice] = useState('');
   const [subjects, setSubjects] = useState<{id: string, name: string}[]>([]);
   const [classes, setClasses] = useState<{id: string, name: string}[]>([]);
 
@@ -87,6 +88,7 @@ export function TeacherRPPGenerator({ onClose }: { onClose: () => void }) {
     setIsLoading(true);
     setStep(2);
     setError('');
+    setFallbackNotice('');
     
     try {
       const prompt = `Bertindaklah sebagai Guru Profesional dan Ahli Kurikulum Merdeka. Buatkan Rencana Pelaksanaan Pembelajaran (RPP) / Modul Ajar lengkap untuk:
@@ -114,17 +116,24 @@ Formatlah menggunakan Markdown dengan struktur yang rapi (Informasi Umum, Kompon
       
       const data = await res.json();
       if (!res.ok) {
-        setError(data.message || 'Gagal terhubung ke layanan AI.');
+        const msg = data.message || 'Gagal terhubung ke layanan AI.';
+        const isTimeout = msg.toLowerCase().includes('timeout') || msg.toLowerCase().includes('cybra') || msg.toLowerCase().includes('tidak tersedia');
+        setError(isTimeout
+          ? 'Layanan AI CYBRA sedang tidak tersedia. Silakan coba lagi nanti, atau aktifkan Aksen Materi Resmi untuk hasil fallback.'
+          : msg);
         return;
       }
       if (data.reply) {
         setResult(data.reply);
         setFormMinimized(true);
+        if (data.fallback) {
+          setFallbackNotice(data.message || 'RPP ini dibuat otomatis dari materi resmi karena AI CYBRA sedang tidak tersedia.');
+        }
       } else {
         setError('Gagal mendapatkan respon dari AI Dianyssa.');
       }
     } catch (err) {
-      setError('Terjadi kesalahan koneksi saat men-generate RPP.');
+      setError('Terjadi kesalahan koneksi saat menghubungi AI. Cek koneksi internet atau coba mode fallback dengan Aksen Materi Resmi.');
     } finally {
       setIsLoading(false);
     }
@@ -333,6 +342,14 @@ Formatlah menggunakan Markdown dengan struktur yang rapi (Informasi Umum, Kompon
 
           {/* Output Area */}
           <div className="w-full md:w-3/5 bg-slate-50 flex flex-col relative overflow-hidden">
+            {fallbackNotice && (
+              <div className="bg-amber-50 border-b border-amber-200 px-5 py-3 flex items-start gap-3 shrink-0">
+                <div className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="text-amber-600 text-xs font-bold">!</span>
+                </div>
+                <p className="text-xs text-amber-800 leading-relaxed">{fallbackNotice}</p>
+              </div>
+            )}
             {step === 1 ? (
               <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
                 <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mb-6 shadow-inner">
