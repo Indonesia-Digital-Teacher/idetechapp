@@ -1823,7 +1823,7 @@ function StudentCompactDashboard({
         </section>
       </section>
 
-      {openPanel === "profile" ? <StudentProfileModal user={user} indicators={indicators} onClose={() => setOpenPanel(null)} onUserUpdate={(u) => setLocalUser(prev => ({ ...prev, name: u.name, fullName: u.fullName }))} /> : null}
+      {openPanel === "profile" ? <StudentProfileModal user={user} indicators={indicators} onClose={() => setOpenPanel(null)} onUserUpdate={(u) => setLocalUser(prev => ({ ...prev, name: u.name, fullName: u.fullName, schoolName: u.schoolName, contactChannel: u.contactChannel, contactValue: u.contactValue }))} /> : null}
       {openPanel && openPanel !== "profile" ? (
         <StudentContentModal
           user={user}
@@ -2081,7 +2081,13 @@ function StudentProfileModal({
   user: AuthUser;
   indicators: StudentIndicatorResponse | null;
   onClose: () => void;
-  onUserUpdate?: (updated: { name: string; fullName: string | null }) => void;
+  onUserUpdate?: (updated: {
+    name: string;
+    fullName: string | null;
+    schoolName: string | null;
+    contactChannel: "wa" | "telegram" | null;
+    contactValue: string | null;
+  }) => void;
 }) {
   const level = indicators?.meta.levelButton.replace(/[^0-9]/g, "") || "101";
   const totalPoints = indicators?.meta.stats?.totalPoints ?? 0;
@@ -2092,12 +2098,40 @@ function StudentProfileModal({
 
   const [showEditName, setShowEditName] = useState(false);
   const [editedName, setEditedName] = useState(user.fullName || user.name);
+  const [editedSchoolName, setEditedSchoolName] = useState(user.schoolName ?? "");
+  const [editedContactChannel, setEditedContactChannel] = useState<"wa" | "telegram">(user.contactChannel ?? "wa");
+  const [editedContactValue, setEditedContactValue] = useState(user.contactValue ?? "");
   const [savingName, setSavingName] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [schoolOptions, setSchoolOptions] = useState<SchoolOption[]>([]);
+  const [schoolBusy, setSchoolBusy] = useState(false);
 
   useEffect(() => {
+    if (!showEditName) return;
+    if (editedSchoolName.trim().length < 2) {
+      setSchoolOptions([]);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setSchoolBusy(true);
+      api<{ schools: SchoolOption[] }>(`/api/schools/search?q=${encodeURIComponent(editedSchoolName)}`)
+        .then((res) => setSchoolOptions(res.schools || []))
+        .catch(() => setSchoolOptions([]))
+        .finally(() => setSchoolBusy(false));
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+  }, [editedSchoolName, showEditName]);
+
+  useEffect(() => {
+    if (!showEditName) return;
     setEditedName(user.fullName || user.name);
-  }, [user.fullName, user.name]);
+    setEditedSchoolName(user.schoolName ?? "");
+    setEditedContactChannel(user.contactChannel ?? "wa");
+    setEditedContactValue(user.contactValue ?? "");
+    setEditError(null);
+  }, [showEditName, user.fullName, user.name, user.schoolName, user.contactChannel, user.contactValue]);
 
   const stats = [
     { label: "Total Poin", value: String(totalPoints), icon: Target },
@@ -2145,8 +2179,8 @@ function StudentProfileModal({
                     type="button"
                     onClick={() => setShowEditName(true)}
                     className="bg-white/20 hover:bg-white/30 p-1 rounded-full transition-colors"
-                    aria-label="Ubah nama"
-                    title="Ubah nama"
+                    aria-label="Ubah profil"
+                    title="Ubah profil"
                   >
                     <Pencil className="w-3.5 h-3.5 text-white" strokeWidth={3} />
                   </button>
@@ -2210,9 +2244,9 @@ function StudentProfileModal({
       </section>
 
       {showEditName && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200" role="dialog" aria-modal="true" aria-label="Ubah nama">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200" role="dialog" aria-modal="true" aria-label="Ubah profil">
           <div className="absolute inset-0" onClick={() => { if (!savingName) { setShowEditName(false); setEditError(null); } }} />
-          <div className="relative w-full max-w-md bg-[#2b2b2b] rounded-2xl p-5 shadow-[0_12px_0_#1a1a1a,0_25px_30px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-300 border border-white/10">
+          <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto bg-[#2b2b2b] rounded-2xl p-5 shadow-[0_12px_0_#1a1a1a,0_25px_30px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-300 border border-white/10">
             <button
               type="button"
               onClick={() => { if (!savingName) { setShowEditName(false); setEditError(null); } }}
@@ -2222,8 +2256,8 @@ function StudentProfileModal({
               <X className="w-5 h-5" />
             </button>
 
-            <h3 className="font-black text-white text-lg mb-1">Ubah Nama</h3>
-            <p className="text-xs text-slate-400 mb-4">Nama akan ditampilkan di profil dan leaderboard.</p>
+            <h3 className="font-black text-white text-lg mb-1">Ubah Profil</h3>
+            <p className="text-xs text-slate-400 mb-4">Data dipakai untuk mencocokkan sekolah dan komunikasi belajar.</p>
 
             {editError && (
               <div className="mb-3 p-2 bg-rose-500/20 border border-rose-400/30 rounded-lg text-rose-200 text-xs">
@@ -2231,7 +2265,7 @@ function StudentProfileModal({
               </div>
             )}
 
-            <label className="flex flex-col w-full mb-4">
+            <label className="flex flex-col w-full mb-3">
               <span className="text-xs font-bold text-slate-300 mb-1">Nama Lengkap</span>
               <input
                 type="text"
@@ -2243,6 +2277,59 @@ function StudentProfileModal({
                 disabled={savingName}
               />
             </label>
+
+            <label className="flex flex-col w-full mb-1">
+              <span className="text-xs font-bold text-slate-300 mb-1">Nama Sekolah</span>
+              <input
+                type="text"
+                value={editedSchoolName}
+                onChange={(e) => setEditedSchoolName(e.target.value)}
+                maxLength={150}
+                list="profile-edit-school-options"
+                className="w-full bg-[#1a1a1a] border border-[#444] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                placeholder="Cari nama sekolah se-Indonesia"
+                disabled={savingName}
+              />
+              <datalist id="profile-edit-school-options">
+                {schoolOptions.map((school) => (
+                  <option key={`${school.name}-${school.city}-${school.province}`} value={school.name}>
+                    {[school.city, school.province].filter(Boolean).join(", ")}
+                  </option>
+                ))}
+              </datalist>
+              <small className="text-[10px] text-slate-500 mt-1">
+                {schoolBusy ? "Mencari sekolah..." : "Ketik minimal 2 huruf untuk mencari dari API sekolah Indonesia."}
+              </small>
+            </label>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 mb-2">
+              <label className="flex flex-col w-full">
+                <span className="text-xs font-bold text-slate-300 mb-1">Kontak</span>
+                <select
+                  value={editedContactChannel}
+                  onChange={(e) => setEditedContactChannel(e.target.value as "wa" | "telegram")}
+                  disabled={savingName}
+                  className="w-full bg-[#1a1a1a] border border-[#444] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                >
+                  <option value="wa">WhatsApp</option>
+                  <option value="telegram">Telegram</option>
+                </select>
+              </label>
+              <label className="flex flex-col w-full">
+                <span className="text-xs font-bold text-slate-300 mb-1">
+                  {editedContactChannel === "wa" ? "Nomor HP / WA" : "Username Telegram"}
+                </span>
+                <input
+                  type="text"
+                  value={editedContactValue}
+                  onChange={(e) => setEditedContactValue(e.target.value)}
+                  maxLength={50}
+                  className="w-full bg-[#1a1a1a] border border-[#444] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                  placeholder={editedContactChannel === "wa" ? "08xxxxxxxxxx" : "@username"}
+                  disabled={savingName}
+                />
+              </label>
+            </div>
 
             <div className="flex gap-2">
               <button
@@ -2256,28 +2343,68 @@ function StudentProfileModal({
               <button
                 type="button"
                 onClick={async () => {
-                  const trimmed = editedName.trim();
-                  if (trimmed.length < 3) {
+                  const trimmedName = editedName.trim();
+                  if (trimmedName.length < 3) {
                     setEditError("Nama minimal 3 karakter.");
                     return;
                   }
-                  if (!/^[a-zA-Z\s.'’`]+$/.test(trimmed)) {
+                  if (trimmedName.length > 100) {
+                    setEditError("Nama maksimal 100 karakter.");
+                    return;
+                  }
+                  if (!/^[a-zA-Z\s.'’`]+$/.test(trimmedName)) {
                     setEditError("Nama hanya boleh mengandung huruf, spasi, titik, atau tanda petik.");
                     return;
                   }
+
+                  const trimmedSchool = editedSchoolName.trim();
+                  if (trimmedSchool.length < 3) {
+                    setEditError("Nama sekolah minimal 3 karakter.");
+                    return;
+                  }
+                  if (trimmedSchool.length > 150) {
+                    setEditError("Nama sekolah maksimal 150 karakter.");
+                    return;
+                  }
+
+                  const trimmedContact = editedContactValue.trim();
+                  if (trimmedContact.length > 50) {
+                    setEditError("Kontak maksimal 50 karakter.");
+                    return;
+                  }
+                  if (editedContactChannel === "wa" && !/^[0-9+][0-9\s-]{7,18}$/.test(trimmedContact)) {
+                    setEditError("Nomor WA tidak valid.");
+                    return;
+                  }
+                  if (editedContactChannel === "telegram" && !/^@?[a-zA-Z0-9_]{5,32}$/.test(trimmedContact)) {
+                    setEditError("Username Telegram tidak valid.");
+                    return;
+                  }
+
                   setSavingName(true);
                   setEditError(null);
                   try {
                     await api("/api/profile", {
                       method: "PATCH",
-                      body: JSON.stringify({ fullName: trimmed })
+                      body: JSON.stringify({
+                        fullName: trimmedName,
+                        schoolName: trimmedSchool,
+                        contactChannel: editedContactChannel,
+                        contactValue: trimmedContact
+                      })
                     });
                     if (onUserUpdate) {
-                      onUserUpdate({ name: trimmed, fullName: trimmed });
+                      onUserUpdate({
+                        name: trimmedName,
+                        fullName: trimmedName,
+                        schoolName: trimmedSchool,
+                        contactChannel: editedContactChannel,
+                        contactValue: editedContactChannel === "telegram" && !trimmedContact.startsWith("@") ? `@${trimmedContact}` : trimmedContact
+                      });
                     }
                     setShowEditName(false);
                   } catch (err) {
-                    setEditError(err instanceof Error ? err.message : "Gagal menyimpan nama.");
+                    setEditError(err instanceof Error ? err.message : "Gagal menyimpan profil.");
                   } finally {
                     setSavingName(false);
                   }
