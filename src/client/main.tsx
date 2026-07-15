@@ -1823,7 +1823,7 @@ function StudentCompactDashboard({
         </section>
       </section>
 
-      {openPanel === "profile" ? <StudentProfileModal user={user} indicators={indicators} onClose={() => setOpenPanel(null)} /> : null}
+      {openPanel === "profile" ? <StudentProfileModal user={user} indicators={indicators} onClose={() => setOpenPanel(null)} onUserUpdate={(u) => setLocalUser(prev => ({ ...prev, name: u.name, fullName: u.fullName }))} /> : null}
       {openPanel && openPanel !== "profile" ? (
         <StudentContentModal
           user={user}
@@ -2075,11 +2075,13 @@ function StudentMapIcon({
 function StudentProfileModal({
   user,
   indicators,
-  onClose
+  onClose,
+  onUserUpdate
 }: {
   user: AuthUser;
   indicators: StudentIndicatorResponse | null;
   onClose: () => void;
+  onUserUpdate?: (updated: { name: string; fullName: string | null }) => void;
 }) {
   const level = indicators?.meta.levelButton.replace(/[^0-9]/g, "") || "101";
   const totalPoints = indicators?.meta.stats?.totalPoints ?? 0;
@@ -2087,6 +2089,15 @@ function StudentProfileModal({
   const completedMaterials = indicators?.meta.stats?.completedMaterials ?? 0;
   const earnedBadges = indicators?.meta.stats?.earnedBadges ?? 0;
   const classesJoined = indicators?.meta.stats?.classesJoined ?? 0;
+
+  const [showEditName, setShowEditName] = useState(false);
+  const [editedName, setEditedName] = useState(user.fullName || user.name);
+  const [savingName, setSavingName] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setEditedName(user.fullName || user.name);
+  }, [user.fullName, user.name]);
 
   const stats = [
     { label: "Total Poin", value: String(totalPoints), icon: Target },
@@ -2128,7 +2139,18 @@ function StudentProfileModal({
 
               {/* Identity */}
               <div className="flex-1 text-white">
-                <h3 className="font-black text-[22px] leading-tight drop-shadow-[0_2px_0_#2b48a3]">{user.name}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-black text-[22px] leading-tight drop-shadow-[0_2px_0_#2b48a3]">{user.name}</h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowEditName(true)}
+                    className="bg-white/20 hover:bg-white/30 p-1 rounded-full transition-colors"
+                    aria-label="Ubah nama"
+                    title="Ubah nama"
+                  >
+                    <Pencil className="w-3.5 h-3.5 text-white" strokeWidth={3} />
+                  </button>
+                </div>
                 <p className="font-medium text-blue-100 text-xs mt-0.5 opacity-90 truncate max-w-[150px] sm:max-w-none">{user.email}</p>
                 <div className="inline-block mt-2 bg-[#2b48a3]/60 px-3 py-1 rounded-full text-[10px] font-black tracking-wider uppercase border border-white/20 shadow-inner">
                   Siswa IdeTech
@@ -2186,6 +2208,89 @@ function StudentProfileModal({
           </section>
         </div>
       </section>
+
+      {showEditName && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200" role="dialog" aria-modal="true" aria-label="Ubah nama">
+          <div className="absolute inset-0" onClick={() => { if (!savingName) { setShowEditName(false); setEditError(null); } }} />
+          <div className="relative w-full max-w-md bg-[#2b2b2b] rounded-2xl p-5 shadow-[0_12px_0_#1a1a1a,0_25px_30px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-300 border border-white/10">
+            <button
+              type="button"
+              onClick={() => { if (!savingName) { setShowEditName(false); setEditError(null); } }}
+              className="absolute top-3 right-3 text-slate-400 hover:text-white transition-colors p-1.5 rounded-full hover:bg-white/10"
+              aria-label="Tutup"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="font-black text-white text-lg mb-1">Ubah Nama</h3>
+            <p className="text-xs text-slate-400 mb-4">Nama akan ditampilkan di profil dan leaderboard.</p>
+
+            {editError && (
+              <div className="mb-3 p-2 bg-rose-500/20 border border-rose-400/30 rounded-lg text-rose-200 text-xs">
+                {editError}
+              </div>
+            )}
+
+            <label className="flex flex-col w-full mb-4">
+              <span className="text-xs font-bold text-slate-300 mb-1">Nama Lengkap</span>
+              <input
+                type="text"
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+                maxLength={100}
+                className="w-full bg-[#1a1a1a] border border-[#444] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                placeholder="Masukkan nama lengkap"
+                disabled={savingName}
+              />
+            </label>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => { setShowEditName(false); setEditError(null); }}
+                disabled={savingName}
+                className="flex-1 px-4 py-2.5 rounded-lg border border-[#444] text-slate-300 text-sm font-bold hover:bg-white/5 transition-colors disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const trimmed = editedName.trim();
+                  if (trimmed.length < 3) {
+                    setEditError("Nama minimal 3 karakter.");
+                    return;
+                  }
+                  if (!/^[a-zA-Z\s.'’`]+$/.test(trimmed)) {
+                    setEditError("Nama hanya boleh mengandung huruf, spasi, titik, atau tanda petik.");
+                    return;
+                  }
+                  setSavingName(true);
+                  setEditError(null);
+                  try {
+                    await api("/api/profile", {
+                      method: "PATCH",
+                      body: JSON.stringify({ fullName: trimmed })
+                    });
+                    if (onUserUpdate) {
+                      onUserUpdate({ name: trimmed, fullName: trimmed });
+                    }
+                    setShowEditName(false);
+                  } catch (err) {
+                    setEditError(err instanceof Error ? err.message : "Gagal menyimpan nama.");
+                  } finally {
+                    setSavingName(false);
+                  }
+                }}
+                disabled={savingName}
+                className="flex-1 bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold text-sm px-4 py-2.5 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
+              >
+                {savingName ? "Menyimpan..." : "Simpan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -10344,6 +10449,11 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
   const [searchQuery, setSearchQuery] = useState("");
   const [filterClass, setFilterClass] = useState("all");
   const [filterRisk, setFilterRisk] = useState("all");
+  const [sortBy, setSortBy] = useState<"name" | "progress" | "late" | "completion">("name");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [editingQuestId, setEditingQuestId] = useState<string | null>(null);
+  const itemsPerPage = 5;
 
   const filteredData = React.useMemo(() => {
     return data.filter(student => {
@@ -10361,7 +10471,47 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
     });
   }, [data, searchQuery, filterClass, filterRisk]);
 
+  const sortedAndPaginatedData = React.useMemo(() => {
+    const result = [...filteredData].sort((a, b) => {
+      let comparison = 0;
+      switch (sortBy) {
+        case "name":
+          comparison = a.studentName.localeCompare(b.studentName);
+          break;
+        case "progress": {
+          const aTasks = [...a.materials, ...a.quests];
+          const bTasks = [...b.materials, ...b.quests];
+          const aAvg = aTasks.length ? aTasks.reduce((s, t) => s + t.progress, 0) / aTasks.length : 0;
+          const bAvg = bTasks.length ? bTasks.reduce((s, t) => s + t.progress, 0) / bTasks.length : 0;
+          comparison = aAvg - bAvg;
+          break;
+        }
+        case "late": {
+          const aLate = [...a.materials, ...a.quests].filter(t => t.progress >= 100 && t.isLate).length;
+          const bLate = [...b.materials, ...b.quests].filter(t => t.progress >= 100 && t.isLate).length;
+          comparison = aLate - bLate;
+          break;
+        }
+        case "completion": {
+          const aCompleted = [...a.materials, ...a.quests].filter(t => t.progress >= 100).length;
+          const bCompleted = [...b.materials, ...b.quests].filter(t => t.progress >= 100).length;
+          comparison = aCompleted - bCompleted;
+          break;
+        }
+      }
+      return sortOrder === "asc" ? comparison : -comparison;
+    });
+    return result;
+  }, [filteredData, sortBy, sortOrder]);
+
+  const totalPages = Math.ceil(sortedAndPaginatedData.length / itemsPerPage);
+  const paginatedData = sortedAndPaginatedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
   const uniqueClasses = Array.from(new Set(data.map(s => s.className)));
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterClass, filterRisk, sortBy, sortOrder]);
 
   useEffect(() => {
     async function fetchProgress() {
@@ -10505,6 +10655,31 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
         </div>
       )}
 
+      {!loading && data.length > 0 && (
+        <div className="flex flex-col sm:flex-row gap-3 mb-6 bg-[rgba(5,29,83,0.28)] p-3 rounded-xl border border-[rgba(125,211,252,0.15)] animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-2 flex-1">
+            <span className="text-xs text-[rgba(226,245,255,0.76)] shrink-0">Urutkan:</span>
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as any)}
+              className="flex-1 px-3 py-2 bg-[#0a1f5c] border border-[rgba(125,211,252,0.22)] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+            >
+              <option value="name">Nama Siswa</option>
+              <option value="progress">Rata-rata Progres</option>
+              <option value="completion">Jumlah Selesai</option>
+              <option value="late">Jumlah Terlambat</option>
+            </select>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSortOrder(prev => prev === "asc" ? "desc" : "asc")}
+            className="px-3 py-2 bg-[#0a1f5c] border border-[rgba(125,211,252,0.22)] rounded-lg text-white text-sm hover:bg-[rgba(5,29,83,0.6)] transition-colors flex items-center justify-center gap-1"
+          >
+            {sortOrder === "asc" ? "↑ Naik" : "↓ Turun"}
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex flex-col items-center justify-center py-12">
           <div className="w-8 h-8 border-4 border-amber-400 border-t-transparent rounded-full animate-spin mb-4" />
@@ -10544,22 +10719,22 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
 
             return (
               <div key={`${student.studentId}-${student.classId}`} className="bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] rounded-xl p-4 shadow-sm hover:border-amber-400/50 transition-all">
-                <div className="flex items-center gap-3 mb-3 border-b border-[rgba(125,211,252,0.22)] pb-3">
+                <div className="flex items-start gap-3 mb-3 border-b border-[rgba(125,211,252,0.22)] pb-3">
                   {student.avatarUrl ? (
-                    <img src={student.avatarUrl} className="w-8 h-8 rounded-full object-cover border border-white/20" alt="" />
+                    <img src={student.avatarUrl} className="w-8 h-8 rounded-full object-cover border border-white/20 shrink-0" alt="" />
                   ) : (
                     <div className="w-8 h-8 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 flex items-center justify-center font-bold text-xs shrink-0">
                       {student.studentName[0].toUpperCase()}
                     </div>
                   )}
-                  <div className="flex-1">
-                    <div className="font-bold text-white text-sm leading-tight">{student.studentName}</div>
-                    <div className="text-xs text-[rgba(226,245,255,0.76)]">{student.className}</div>
-                  </div>
-                  <div className="text-right text-xs text-[rgba(226,245,255,0.5)]">
-                    {student.joinedAt ? (
-                      <>Bergabung {new Date(student.joinedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</>
-                    ) : 'Bergabung -'}
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-white text-sm leading-tight line-clamp-2">{student.studentName}</div>
+                    <div className="text-xs text-[rgba(226,245,255,0.76)] mt-0.5">
+                      {student.className}
+                      {student.joinedAt ? (
+                        <> • Bergabung {new Date(student.joinedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</>
+                      ) : ' • Bergabung -'}
+                    </div>
                   </div>
                 </div>
 
@@ -10579,10 +10754,12 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
                         : 'Belum ada tenggat';
 
                     return (
-                      <div key={item.id || idx} className={`flex items-center gap-2 p-2 rounded-lg text-xs transition-colors ${isCompleted ? 'bg-emerald-500/10 border border-emerald-400/20' : 'bg-[rgba(5,29,83,0.6)] border border-[rgba(125,211,252,0.15)]'}`}>
-                        <span className="shrink-0">{item.icon}</span>
-                        <span className="flex-1 font-medium text-white truncate">{item.title}</span>
-                        <span className={`shrink-0 font-medium ${isCompleted ? 'text-emerald-300' : 'text-[rgba(226,245,255,0.6)]'}`}>
+                      <div key={item.id || idx} className={`flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 p-2 rounded-lg text-xs transition-colors ${isCompleted ? 'bg-emerald-500/10 border border-emerald-400/20' : 'bg-[rgba(5,29,83,0.6)] border border-[rgba(125,211,252,0.15)]'}`}>
+                        <div className="flex items-start gap-2 min-w-0">
+                          <span className="shrink-0 mt-0.5">{item.icon}</span>
+                          <span className="font-medium text-white break-words leading-snug">{item.title}</span>
+                        </div>
+                        <span className={`pl-6 sm:pl-0 sm:ml-auto sm:shrink-0 font-medium ${isCompleted ? 'text-emerald-300' : 'text-[rgba(226,245,255,0.6)]'}`}>
                           {isCompleted ? `✅ ${timeLabel}` : `⏳ ${timeLabel}`}
                         </span>
                       </div>
@@ -10617,63 +10794,93 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
 
                 <div className="flex flex-col gap-4">
                   {completedQuests.map(quest => (
-                    <div key={quest.id} className="bg-[rgba(5,29,83,0.42)] p-4 rounded-lg border border-[rgba(125,211,252,0.22)] shadow-sm">
+                    <div key={quest.id} className="bg-[rgba(5,29,83,0.42)] p-4 rounded-lg border border-[rgba(125,211,252,0.22)] shadow-sm hover:border-amber-400/50 transition-all">
                       <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h4 className="font-bold text-white">{quest.title}</h4>
+                        <div className="min-w-0 flex-1 pr-2">
+                          <h4 className="font-bold text-white break-words">{quest.title}</h4>
                           <span className="text-xs text-[rgba(226,245,255,0.76)]">Dikumpulkan pada: {quest.completedAt ? new Date(quest.completedAt).toLocaleString('id-ID') : '-'}</span>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right shrink-0">
                           <span className="text-sm font-bold text-amber-400">{quest.earnedPoints} / {quest.maxPoints} Poin</span>
                         </div>
                       </div>
 
-                      <div className="mt-3 space-y-3">
-                        {quest.submissionText && (
-                          <div className="text-sm text-white bg-[#0a1f5c] p-3 rounded border border-[rgba(125,211,252,0.22)] whitespace-pre-wrap">
-                            <strong className="text-amber-400">Isian Jawaban:</strong><br/>
-                            {quest.submissionText}
-                          </div>
-                        )}
-                        {quest.submissionFileUrl && (
-                          <div>
-                            <a href={quest.submissionFileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm text-blue-300 bg-blue-500/20 hover:bg-blue-500/30 px-3 py-1.5 rounded-lg border border-blue-400/30 font-bold transition-colors shadow-sm">
-                              Buka File Jawaban PDF
-                            </a>
-                          </div>
-                        )}
-                        {(!quest.submissionText && !quest.submissionFileUrl) && (
-                          <p className="text-xs text-[rgba(226,245,255,0.76)] italic">Diselesaikan tanpa lampiran (versi lawas)</p>
-                        )}
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setEditingQuestId(quest.id)}
+                        className="mt-3 w-full bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 border border-amber-400/30 font-bold text-xs px-3 py-2 rounded-lg transition-colors shadow-sm flex items-center justify-center gap-1.5"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        Mulai Koreksi
+                      </button>
 
-                      <form className="mt-4 flex flex-col gap-2 border-t border-[rgba(125,211,252,0.22)] pt-3" onSubmit={async (e) => {
-                        e.preventDefault();
-                        const formData = new FormData(e.currentTarget);
-                        const newPoints = Number(formData.get("points"));
-                        const feedback = formData.get("feedback") as string;
-                        try {
-                          const res = await api("/api/teacher/student-progress/grade-quest", {
-                            method: "POST",
-                            body: JSON.stringify({ studentId: student.studentId, questId: quest.id, earnedPoints: newPoints, feedback })
-                          });
-                          alert("Koreksi berhasil disimpan!");
-                        } catch (err) {
-                          alert(err instanceof Error ? err.message : "Gagal menyimpan koreksi.");
-                        }
-                      }}>
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-                          <label className="flex flex-col flex-1">
-                            <span className="text-xs font-bold text-[rgba(226,245,255,0.76)] mb-1">Berikan / Ubah Nilai (Max {quest.maxPoints})</span>
-                            <input type="number" name="points" min="0" max={quest.maxPoints} defaultValue={quest.earnedPoints} className="border border-[rgba(125,211,252,0.22)] rounded px-3 py-2 sm:py-1.5 text-sm bg-[#0a1f5c] text-white focus:outline-none focus:ring-2 focus:ring-amber-400" required />
-                          </label>
-                          <label className="flex flex-col flex-[2]">
-                            <span className="text-xs font-bold text-[rgba(226,245,255,0.76)] mb-1">Umpan Balik (Opsional)</span>
-                            <input type="text" name="feedback" defaultValue={quest.teacherFeedback || ""} placeholder="Ketik pesan untuk siswa..." className="border border-[rgba(125,211,252,0.22)] rounded px-3 py-2 sm:py-1.5 text-sm bg-[#0a1f5c] text-white focus:outline-none focus:ring-2 focus:ring-amber-400 placeholder:text-[rgba(226,245,255,0.5)]" />
-                          </label>
-                          <button type="submit" className="mt-1 sm:mt-5 bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold text-sm px-4 py-2.5 sm:py-1.5 rounded-md transition-colors shadow-sm w-full sm:w-auto text-center">Simpan</button>
+                      {editingQuestId === quest.id && (
+                        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200" role="dialog" aria-modal="true" aria-label={`Koreksi ${quest.title}`}>
+                          <div className="absolute inset-0" onClick={() => setEditingQuestId(null)} />
+                          <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[rgba(5,29,83,0.95)] border border-[rgba(125,211,252,0.22)] rounded-2xl p-5 shadow-2xl">
+                            <button
+                              type="button"
+                              onClick={() => setEditingQuestId(null)}
+                              className="absolute top-3 right-3 p-1.5 text-[rgba(226,245,255,0.76)] hover:text-white hover:bg-white/10 rounded-full transition-colors"
+                              aria-label="Tutup modal"
+                            >
+                              <X className="w-5 h-5" />
+                            </button>
+
+                            <h4 className="font-bold text-white text-lg pr-8 mb-1">{quest.title}</h4>
+                            <p className="text-xs text-[rgba(226,245,255,0.76)] mb-4">{student.studentName} • {student.className}</p>
+
+                            <div className="space-y-3 mb-5">
+                              {quest.submissionText && (
+                                <div className="text-sm text-white bg-[#0a1f5c] p-3 rounded border border-[rgba(125,211,252,0.22)] whitespace-pre-wrap">
+                                  <strong className="text-amber-400">Isian Jawaban:</strong><br/>
+                                  {quest.submissionText}
+                                </div>
+                              )}
+                              {quest.submissionFileUrl && (
+                                <div>
+                                  <a href={quest.submissionFileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm text-blue-300 bg-blue-500/20 hover:bg-blue-500/30 px-3 py-1.5 rounded-lg border border-blue-400/30 font-bold transition-colors shadow-sm">
+                                    Buka File Jawaban PDF
+                                  </a>
+                                </div>
+                              )}
+                              {(!quest.submissionText && !quest.submissionFileUrl) && (
+                                <p className="text-xs text-[rgba(226,245,255,0.76)] italic">Diselesaikan tanpa lampiran (versi lawas)</p>
+                              )}
+                            </div>
+
+                            <form className="flex flex-col gap-3" onSubmit={async (e) => {
+                              e.preventDefault();
+                              const formData = new FormData(e.currentTarget);
+                              const newPoints = Number(formData.get("points"));
+                              const feedback = formData.get("feedback") as string;
+                              try {
+                                const res = await api("/api/teacher/student-progress/grade-quest", {
+                                  method: "POST",
+                                  body: JSON.stringify({ studentId: student.studentId, questId: quest.id, earnedPoints: newPoints, feedback })
+                                });
+                                alert("Koreksi berhasil disimpan!");
+                                setEditingQuestId(null);
+                              } catch (err) {
+                                alert(err instanceof Error ? err.message : "Gagal menyimpan koreksi.");
+                              }
+                            }}>
+                              <label className="flex flex-col w-full">
+                                <span className="text-xs font-bold text-[rgba(226,245,255,0.76)] mb-1">Berikan / Ubah Nilai (Max {quest.maxPoints})</span>
+                                <input type="number" name="points" min="0" max={quest.maxPoints} defaultValue={quest.earnedPoints} className="w-full border border-[rgba(125,211,252,0.22)] rounded px-3 py-2 text-sm bg-[#0a1f5c] text-white focus:outline-none focus:ring-2 focus:ring-amber-400" required />
+                              </label>
+                              <label className="flex flex-col w-full">
+                                <span className="text-xs font-bold text-[rgba(226,245,255,0.76)] mb-1">Umpan Balik (Opsional)</span>
+                                <input type="text" name="feedback" defaultValue={quest.teacherFeedback || ""} placeholder="Ketik pesan untuk siswa..." className="w-full border border-[rgba(125,211,252,0.22)] rounded px-3 py-2 text-sm bg-[#0a1f5c] text-white focus:outline-none focus:ring-2 focus:ring-amber-400 placeholder:text-[rgba(226,245,255,0.5)]" />
+                              </label>
+                              <div className="flex gap-2 mt-2">
+                                <button type="button" onClick={() => setEditingQuestId(null)} className="flex-1 px-4 py-2.5 rounded-md border border-[rgba(125,211,252,0.22)] text-[rgba(226,245,255,0.76)] text-sm font-bold hover:bg-white/5 transition-colors">Batal</button>
+                                <button type="submit" className="flex-1 bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold text-sm px-4 py-2.5 rounded-md transition-colors shadow-sm">Simpan</button>
+                              </div>
+                            </form>
+                          </div>
                         </div>
-                      </form>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -10683,37 +10890,36 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
         </div>
       ) : (
         <div className="space-y-6 mt-6">
-          {filteredData.map(student => {
+          {paginatedData.map(student => {
             const allTasks = [...student.materials, ...student.quests];
             const completed = allTasks.filter(t => t.progress >= 100);
             const lateCompleted = completed.filter(t => t.isLate);
             const onTimeCompleted = completed.filter(t => !t.isLate);
 
             return (
-              <div key={`${student.studentId}-${student.classId}`} className="bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] rounded-2xl p-4 md:p-5 shadow-sm hover:border-amber-400/50 transition-all">
-                <div className="flex flex-col gap-3 mb-4">
-                  <div className="flex items-start sm:items-center justify-between gap-4">
-                    <div className="flex items-start sm:items-center gap-4">
-                      {student.avatarUrl ? (
-                        <img src={student.avatarUrl} alt={student.studentName} referrerPolicy="no-referrer" className="w-12 h-12 rounded-full border border-white/20 shadow-sm object-cover shrink-0" />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-blue-500/20 text-blue-300 flex items-center justify-center font-bold text-lg border border-blue-400/30 shadow-sm shrink-0">
-                          {student.studentName.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <div>
-                        <h3 className="font-bold text-white text-lg leading-tight">{student.studentName}</h3>
-                        <p className="text-sm text-[rgba(226,245,255,0.76)]">{student.className} • {student.studentEmail}</p>
+              <div key={`${student.studentId}-${student.classId}`} className="relative bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] rounded-2xl p-4 md:p-5 shadow-sm hover:border-amber-400/50 transition-all">
+                <button
+                  type="button"
+                  onClick={() => removeStudent(student.classId, student.studentId, student.studentName, student.className)}
+                  className="absolute top-3 right-3 md:top-4 md:right-4 p-2 text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 rounded-xl transition-colors border border-rose-500/10 shrink-0 z-10"
+                  title="Keluarkan Siswa"
+                >
+                  <Trash2 className="h-4.5 w-4.5" />
+                </button>
+                <div className="flex flex-col gap-3 mb-4 pr-10">
+                  <div className="flex items-start gap-4">
+                    {student.avatarUrl ? (
+                      <img src={student.avatarUrl} alt={student.studentName} referrerPolicy="no-referrer" className="w-12 h-12 rounded-full border border-white/20 shadow-sm object-cover shrink-0" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-blue-500/20 text-blue-300 flex items-center justify-center font-bold text-lg border border-blue-400/30 shadow-sm shrink-0">
+                        {student.studentName.charAt(0).toUpperCase()}
                       </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-white text-lg leading-tight break-words">{student.studentName}</h3>
+                      <p className="text-sm text-[rgba(226,245,255,0.76)] break-words">{student.className}</p>
+                      <p className="text-xs text-[rgba(226,245,255,0.6)] break-all">{student.studentEmail}</p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => removeStudent(student.classId, student.studentId, student.studentName, student.className)}
-                      className="p-2 text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 rounded-xl transition-colors border border-rose-500/10 shrink-0 self-center"
-                      title="Keluarkan Siswa"
-                    >
-                      <Trash2 className="h-4.5 w-4.5" />
-                    </button>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <div className="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-400/30 rounded-lg text-xs font-bold flex items-center gap-1.5 whitespace-nowrap shadow-sm">
@@ -10791,6 +10997,30 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
               </div>
             );
           })}
+        </div>
+      )}
+
+      {currentMode === "report" && totalPages > 1 && (
+        <div className="flex items-center justify-between mt-6 bg-[rgba(5,29,83,0.42)] p-3 rounded-xl border border-[rgba(125,211,252,0.22)]">
+          <button
+            type="button"
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="px-3 py-1.5 bg-[#0a1f5c] text-white text-sm rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[rgba(5,29,83,0.6)] transition-colors"
+          >
+            ← Sebelumnya
+          </button>
+          <span className="text-sm text-[rgba(226,245,255,0.76)]">
+            Halaman {currentPage} dari {totalPages}
+          </span>
+          <button
+            type="button"
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1.5 bg-[#0a1f5c] text-white text-sm rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[rgba(5,29,83,0.6)] transition-colors"
+          >
+            Berikutnya →
+          </button>
         </div>
       )}
     </div>
