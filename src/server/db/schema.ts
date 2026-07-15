@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   boolean,
   datetime,
@@ -36,6 +36,8 @@ export const users = mysqlTable(
     lastCheckInDate: varchar("last_check_in_date", { length: 10 }), // Format: YYYY-MM-DD
     checkInStreak: int("check_in_streak").notNull().default(0),
     welcomeBonusClaimed: boolean("welcome_bonus_claimed").notNull().default(false),
+    sessionToken: varchar("session_token", { length: 255 }).default(sql`NULL`),
+    sessionTokenCreatedAt: optionalTs("session_token_created_at").default(sql`NULL`),
     createdAt: ts("created_at"),
     updatedAt: ts("updated_at")
   },

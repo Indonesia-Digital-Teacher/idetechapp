@@ -18,9 +18,11 @@ function createDatabasePool(): Pool {
 export const pool = createDatabasePool();
 export const db = drizzle(pool, { schema, mode: "default" });
 
-// Automatically ensure the ai_generation_quotas table exists on startup
+// Automatically ensure the ai_generation_quotas table exists on startup.
+// The FK is added separately so the table can be created even when the
+// `users` table does not exist yet (migrations run after module load).
 async function ensureAiTable() {
-  const sql = `
+  const createSql = `
     CREATE TABLE IF NOT EXISTS ai_generation_quotas (
       id VARCHAR(64) NOT NULL,
       user_id VARCHAR(64) NOT NULL,
@@ -28,15 +30,39 @@ async function ensureAiTable() {
       last_reset_at DATETIME(3) NOT NULL,
       updated_at DATETIME(3) NOT NULL,
       PRIMARY KEY (id),
-      KEY ai_generation_quotas_user_id_users_id_fk (user_id),
-      CONSTRAINT ai_generation_quotas_user_id_users_id_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      KEY ai_generation_quotas_user_id_users_id_fk (user_id)
     );
   `;
   try {
-    await pool.query(sql);
-    console.log("ai_generation_quotas table ensured successfully.");
+    await pool.query(createSql);
   } catch (err) {
     console.error("Failed to ensure ai_generation_quotas table:", err);
+    return;
+  }
+
+  try {
+    const [rows] = (await pool.query(
+      "SHOW TABLES LIKE 'users'"
+    )) as unknown as [Array<Record<string, unknown>>];
+    if (rows.length === 0) {
+      console.log("ai_generation_quotas table ensured (users table not ready, skipping FK).");
+      return;
+    }
+
+    await pool.query(
+      `ALTER TABLE ai_generation_quotas DROP FOREIGN KEY IF EXISTS ai_generation_quotas_user_id_users_id_fk`
+    );
+    await pool.query(
+      `ALTER TABLE ai_generation_quotas DROP INDEX IF EXISTS ai_generation_quotas_user_id_users_id_fk`
+    );
+    await pool.query(`
+      ALTER TABLE ai_generation_quotas
+      ADD CONSTRAINT ai_generation_quotas_user_id_users_id_fk
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    `);
+    console.log("ai_generation_quotas table ensured successfully.");
+  } catch (err) {
+    console.warn("ai_generation_quotas FK setup skipped:", err);
   }
 }
 ensureAiTable();

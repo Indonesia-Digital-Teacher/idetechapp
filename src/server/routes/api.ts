@@ -92,6 +92,49 @@ function getOnlineUsersInThread(threadId: string): string[] {
 
 app.route("/auth", authRoutes);
 
+// Telegram account linking endpoint (for bot integration)
+app.post("/api/auth/telegram-link", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as {
+    telegramUserId: string;
+    email: string;
+  };
+
+  const { telegramUserId, email } = body;
+
+  if (!telegramUserId || !email) {
+    return c.json({ message: "telegramUserId dan email wajib diisi." }, 400);
+  }
+
+  const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+
+  if (!user) {
+    return c.json({ message: "Akun dengan email tersebut tidak ditemukan." }, 404);
+  }
+
+  if (user.status !== "active") {
+    return c.json({ message: "Akun belum aktif atau sudah dinonaktifkan." }, 403);
+  }
+
+  // Generate session token
+  const crypto = await import("node:crypto");
+  const token = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+
+  // Save session token to user
+  await db
+    .update(users)
+    .set({
+      sessionToken: token,
+      sessionTokenCreatedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, user.id));
+
+  return c.json({
+    user: { id: user.id, email: user.email },
+    token,
+  });
+});
+
 app.get("/health", (c) => c.json({ status: "ok", app: "IdeTech", apiBase: "/api" }));
 
 app.use("/dashboard", authRequired);

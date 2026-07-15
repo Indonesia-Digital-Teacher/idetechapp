@@ -948,8 +948,8 @@ function App() {
              {user.status === "pending" ? "Akun Menunggu Verifikasi" : "Akun Dinonaktifkan"}
            </h1>
            <p className="text-slate-600 mb-8 leading-relaxed">
-             {user.status === "pending" 
-               ? "Akun Anda telah berhasil didaftarkan namun saat ini sedang menunggu proses verifikasi oleh Administrator. Harap tunggu atau hubungi pihak sekolah." 
+             {user.status === "pending"
+               ? "Akun Anda telah berhasil didaftarkan namun saat ini sedang menunggu proses verifikasi oleh Administrator. Harap tunggu atau hubungi pihak sekolah."
                : "Akun Anda saat ini dinonaktifkan oleh Administrator. Silakan hubungi pihak sekolah untuk informasi lebih lanjut."}
            </p>
            <div className="flex flex-col gap-3">
@@ -1025,10 +1025,10 @@ function App() {
               <div className="bg-[#2b2b2b] rounded-[32px] p-2 shadow-[0_12px_0_#1a1a1a,0_25px_30px_rgba(0,0,0,0.5)] border-2 border-[#1a1a1a] max-w-sm w-full animate-in zoom-in-95 duration-200">
                 <div className="bg-[#3a3a3a] rounded-[24px] p-6 flex flex-col items-center text-center gap-4">
                   <div className={`w-16 h-16 rounded-full flex items-center justify-center border-2 shadow-[0_4px_0_var(--shadow-color)] ${
-                    globalAlert.type === 'success' 
-                      ? 'bg-gradient-to-b from-[#22c55e] to-[#15803d] border-green-200 text-white [--shadow-color:#166534]' 
-                      : globalAlert.type === 'error' 
-                      ? 'bg-gradient-to-b from-[#ef4444] to-[#b91c1c] border-red-200 text-white [--shadow-color:#991b1b]' 
+                    globalAlert.type === 'success'
+                      ? 'bg-gradient-to-b from-[#22c55e] to-[#15803d] border-green-200 text-white [--shadow-color:#166534]'
+                      : globalAlert.type === 'error'
+                      ? 'bg-gradient-to-b from-[#ef4444] to-[#b91c1c] border-red-200 text-white [--shadow-color:#991b1b]'
                       : 'bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] border-blue-200 text-white [--shadow-color:#1e40af]'
                   }`}>
                     {globalAlert.type === 'success' ? <CheckCircle2 className="w-8 h-8" /> :
@@ -1044,7 +1044,7 @@ function App() {
                       <p className="text-sm text-slate-200 font-bold leading-relaxed whitespace-pre-line">{globalAlert.message}</p>
                     </div>
                   </div>
-                  <button 
+                  <button
                     onClick={() => setGlobalAlert(null)}
                     className="w-full py-3.5 mt-2 bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-yellow-950 font-black rounded-xl border-2 border-yellow-200 shadow-[0_4px_0_#977500] hover:scale-[1.02] active:scale-[0.98] active:translate-y-[2px] active:shadow-[0_2px_0_#977500] transition-all cursor-pointer"
                   >
@@ -1061,10 +1061,10 @@ function App() {
                 <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full -mr-10 -mt-10 blur-3xl pointer-events-none"></div>
                 <div className="flex flex-col items-center text-center gap-4 relative z-10">
                   <div className={`w-16 h-16 rounded-full flex items-center justify-center border ${
-                    globalAlert.type === 'success' 
-                      ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]' 
-                      : globalAlert.type === 'error' 
-                      ? 'bg-rose-500/10 border-rose-400/30 text-rose-400 shadow-[0_0_15px_rgba(251,113,133,0.3)]' 
+                    globalAlert.type === 'success'
+                      ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]'
+                      : globalAlert.type === 'error'
+                      ? 'bg-rose-500/10 border-rose-400/30 text-rose-400 shadow-[0_0_15px_rgba(251,113,133,0.3)]'
                       : 'bg-cyan-500/10 border-cyan-400/30 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.3)]'
                   }`}>
                     {globalAlert.type === 'success' ? <CheckCircle2 className="w-8 h-8" /> :
@@ -1078,7 +1078,7 @@ function App() {
                     </h3>
                     <p className="text-sm text-cyan-100/80 mt-2 font-medium whitespace-pre-line leading-relaxed">{globalAlert.message}</p>
                   </div>
-                  <button 
+                  <button
                     onClick={() => setGlobalAlert(null)}
                     className="w-full py-3.5 mt-2 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-white font-black rounded-xl border border-yellow-300/30 shadow-[0_4px_14px_rgba(245,166,0,0.3)] transition-all active:scale-[0.98] cursor-pointer"
                   >
@@ -1095,10 +1095,10 @@ function App() {
                 <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full -mr-8 -mt-8 blur-2xl pointer-events-none"></div>
                 <div className="flex flex-col items-center text-center gap-4 relative z-10">
                   <div className={`w-16 h-16 rounded-full flex items-center justify-center border ${
-                    globalAlert.type === 'success' 
-                      ? 'bg-[#10b981]/10 border-[#10b981]/30 text-[#34d399] shadow-[0_0_15px_rgba(16,185,129,0.15)]' 
-                      : globalAlert.type === 'error' 
-                      ? 'bg-[#f43f5e]/10 border-[#f43f5e]/30 text-[#fb7185] shadow-[0_0_15px_rgba(244,63,94,0.15)]' 
+                    globalAlert.type === 'success'
+                      ? 'bg-[#10b981]/10 border-[#10b981]/30 text-[#34d399] shadow-[0_0_15px_rgba(16,185,129,0.15)]'
+                      : globalAlert.type === 'error'
+                      ? 'bg-[#f43f5e]/10 border-[#f43f5e]/30 text-[#fb7185] shadow-[0_0_15px_rgba(244,63,94,0.15)]'
                       : 'bg-[#3b82f6]/10 border-[#3b82f6]/30 text-[#60a5fa] shadow-[0_0_15px_rgba(59,130,246,0.15)]'
                   }`}>
                     {globalAlert.type === 'success' ? <CheckCircle2 className="w-8 h-8" /> :
@@ -1112,7 +1112,7 @@ function App() {
                     </h3>
                     <p className="text-sm text-slate-300 mt-2 font-medium whitespace-pre-line leading-relaxed">{globalAlert.message}</p>
                   </div>
-                  <button 
+                  <button
                     onClick={() => setGlobalAlert(null)}
                     className="w-full py-3.5 mt-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold rounded-xl shadow-[0_4px_14px_rgba(59,130,246,0.2)] transition-all active:scale-[0.98] cursor-pointer"
                   >
@@ -1144,7 +1144,7 @@ function App() {
                     </h3>
                     <p className="text-sm text-slate-300 mt-1 whitespace-pre-line leading-relaxed">{globalAlert.message}</p>
                   </div>
-                  <button 
+                  <button
                     onClick={() => setGlobalAlert(null)}
                     className="w-full py-3 mt-2 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-all active:scale-[0.98] cursor-pointer"
                   >
@@ -1162,13 +1162,13 @@ function App() {
 
 function GlobalAnnouncementsBanner({ announcements }: { announcements: any[] }) {
   if (!announcements || announcements.length === 0) return null;
-  
+
   // Ambil pengumuman pertama (yang paling baru/penting)
   const [closed, setClosed] = useState(false);
-  
+
   if (closed) return null;
   const active = announcements[0];
-  
+
   return (
     <div className={`fixed top-0 left-0 w-full z-[100] border-b shadow-sm flex items-center justify-between px-4 py-3 ${
       active.type === 'warning' ? 'bg-orange-50 border-orange-200 text-orange-800' :
@@ -1315,18 +1315,18 @@ function StudentWelcomeModal({ onClaim, busy }: { onClaim: () => void; busy: boo
       <div className="relative bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-500 overflow-hidden text-center">
         <div className="absolute -top-20 -left-20 w-40 h-40 bg-blue-100 rounded-full blur-3xl opacity-50"></div>
         <div className="absolute -bottom-20 -right-20 w-40 h-40 bg-yellow-100 rounded-full blur-3xl opacity-50"></div>
-        
+
         <div className="relative z-10">
           <div className="w-24 h-24 mx-auto mb-6 relative">
             <div className="absolute inset-0 bg-yellow-400 rounded-full animate-ping opacity-20"></div>
             <img src="/karaktergame3d.webp" alt="Karakter" className="w-full h-full object-contain drop-shadow-xl animate-bounce" style={{ animationDuration: '2s' }} />
           </div>
-          
+
           <h2 className="text-3xl font-extrabold text-slate-800 mb-2 font-display">Selamat Bergabung!</h2>
           <p className="text-slate-600 mb-6 leading-relaxed">
             Mulai petualanganmu di IdeTech. Kami telah menyiapkan <strong>100 Koin</strong> sebagai modal awal untukmu!
           </p>
-          
+
           <div className="bg-yellow-50 border-2 border-yellow-200 rounded-2xl p-4 mb-8 transform transition-transform hover:scale-105">
             <div className="flex items-center justify-center gap-3">
               <CircleDollarSign className="w-10 h-10 text-yellow-500" strokeWidth={2.5} />
@@ -1334,8 +1334,8 @@ function StudentWelcomeModal({ onClaim, busy }: { onClaim: () => void; busy: boo
             </div>
             <div className="text-sm font-bold text-yellow-800 mt-1 uppercase tracking-widest opacity-80">Koin Bonus</div>
           </div>
-          
-          <button 
+
+          <button
             onClick={onClaim}
             disabled={busy}
             className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-blue-500/30 transform hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed text-lg"
@@ -1383,7 +1383,7 @@ function StudentCheckInModal({
 
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
   const hasCheckedInToday = user.lastCheckInDate === today;
-  
+
   const days = [
     { day: 1, reward: 10 },
     { day: 2, reward: 40 },
@@ -1419,7 +1419,7 @@ function StudentCheckInModal({
           </div>
           <Ticket className="h-6 w-6 opacity-80" />
         </header>
-        
+
         <div className="px-6 py-4">
           <div className="flex items-center gap-3 text-white">
             <div className="w-9 h-9 rounded-full bg-amber-400 flex items-center justify-center border-2 border-yellow-200 shadow-md">
@@ -1429,7 +1429,7 @@ function StudentCheckInModal({
           </div>
           <div className="flex justify-between items-center mt-3">
             <span className="text-amber-100/90 text-[13px] font-medium">Koin ini tidak akan pernah kadaluwarsa</span>
-            <button 
+            <button
               type="button"
               className="text-sm font-bold text-white flex items-center gap-0.5 opacity-80 hover:opacity-100 transition-opacity"
               onClick={fetchHistory}
@@ -1471,7 +1471,7 @@ function StudentCheckInModal({
             </div>
           ) : (
             <>
-              <button 
+              <button
             type="button"
             onClick={onOpenMissions}
             className="absolute -top-7 left-6 right-6 bg-gradient-to-r from-[#fff9db] to-[#ffefad] rounded-2xl p-3 px-4 flex justify-between items-center shadow-lg border-2 border-amber-200/50 hover:scale-[1.02] hover:shadow-xl transition-all cursor-pointer text-left w-[calc(100%-3rem)]"
@@ -1491,14 +1491,14 @@ function StudentCheckInModal({
             {days.map((d) => {
               const checkInMod = (user.checkInStreak % 7);
               const currentTarget = hasCheckedInToday ? (checkInMod === 0 ? 7 : checkInMod) : (checkInMod + 1);
-              
+
               const isPast = d.day < currentTarget;
               const isToday = d.day === currentTarget;
 
               return (
                 <div key={d.day} className={`flex-none snap-center flex flex-col items-center w-[64px] ${d.isMax ? 'w-[76px]' : ''}`}>
                   <div className={`w-full h-[88px] rounded-xl flex flex-col items-center justify-center border-[3px] relative shadow-sm transition-all
-                    ${isToday ? 'bg-[#402e1a] border-[#f1a823] shadow-[#f1a823]/20 shadow-lg transform -translate-y-1' : 
+                    ${isToday ? 'bg-[#402e1a] border-[#f1a823] shadow-[#f1a823]/20 shadow-lg transform -translate-y-1' :
                       isPast ? 'bg-[#333] border-[#444] opacity-50' : 'bg-white border-[#e5e7eb]'}`}
                   >
                     {d.isMax && (
@@ -1521,7 +1521,7 @@ function StudentCheckInModal({
             })}
           </div>
 
-          <button 
+          <button
             onClick={handleCheckIn}
             disabled={hasCheckedInToday || checkingIn}
             className="w-full bg-gradient-to-b from-[#ff6b4a] to-[#e64a2e] hover:from-[#ff795b] hover:to-[#f05033] text-white font-black py-4 rounded-[20px] text-[17px] shadow-[0_5px_0_#b5331c] disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:transform-none transform active:translate-y-1 active:shadow-none transition-all mt-4"
@@ -1566,7 +1566,7 @@ function StudentCompactDashboard({
   const [studentPanelError, setStudentPanelError] = useState("");
   const [showDailyMissions, setShowDailyMissions] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-  
+
   const todayDateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
   const [showWelcomeModal, setShowWelcomeModal] = useState(user.welcomeBonusClaimed === false);
   const [showCheckInModal, setShowCheckInModal] = useState(user.welcomeBonusClaimed !== false && user.lastCheckInDate !== todayDateStr);
@@ -1846,16 +1846,16 @@ function StudentCompactDashboard({
       ) : null}
 
       <MobileGameNav id="student-tour-4" active={openPanel ?? activeMenu} role="student" notifications={indicators?.nav} onChange={handleChangeMenu} />
-      
+
       {activeOrb && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="absolute inset-0" onClick={() => setActiveOrb(null)} />
-          
+
           <section className="relative w-full max-w-[400px] bg-[#2b2b2b] rounded-[32px] p-2 shadow-[0_12px_0_#1a1a1a,0_25px_30px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-300">
             <button onClick={() => setActiveOrb(null)} className="absolute -top-4 -right-2 bg-red-500 hover:bg-red-400 text-white rounded-full p-2 border-4 border-[#2b2b2b] shadow-[0_4px_0_#991b1b] transition-transform hover:scale-110 active:scale-95 z-20">
               <X className="w-6 h-6" strokeWidth={4} />
             </button>
-            
+
             <div className="bg-[#3a3a3a] rounded-[24px] p-5">
               <div className="bg-gradient-to-b from-[#6b8cff] to-[#4568dc] rounded-[20px] p-1 shadow-[0_6px_0_#2b48a3,0_10px_15px_rgba(0,0,0,0.3)] mb-6">
                 <div className="bg-gradient-to-b from-[#87a3ff] to-[#5a7bed] rounded-[16px] p-4 flex items-center gap-4 border border-white/20">
@@ -1869,7 +1869,7 @@ function StudentCompactDashboard({
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex-1 text-white">
                     <h3 className="font-black text-[20px] leading-tight drop-shadow-[0_2px_0_#2b48a3]">{activeOrb.title}</h3>
                     {activeOrb.targetDate ? (
@@ -1882,7 +1882,7 @@ function StudentCompactDashboard({
                   </div>
                 </div>
               </div>
-              
+
               <div className="bg-[#222] border border-white/5 shadow-inner rounded-[20px] p-5 text-[13px] text-[#ddd] leading-relaxed font-medium">
                 {activeOrb.id === "map" && "Jalur utama petualangan IdeQuest. Terus selesaikan materi dan kuis untuk membuka peta wilayah baru!"}
                 {activeOrb.id === "quest" && "Daftar misi khusus berbatas waktu. Kerjakan secepatnya sebelum waktunya habis untuk mendapat koin ekstra."}
@@ -1891,14 +1891,14 @@ function StudentCompactDashboard({
                 {activeOrb.id === "coins" && "Poin/koin yang sudah kamu kumpulkan dari penyelesaian misi. Bisa ditukarkan dengan hadiah menarik."}
                 {activeOrb.id === "radar" && "Radar Pintar yang memantau performa belajarmu. Jika menyala merah, berarti ada peringatan penting dari guru!"}
               </div>
-              
+
               {activeOrb.badge && (
                 <div className="mt-4 flex items-center justify-center gap-2 bg-gradient-to-r from-yellow-400 to-amber-500 text-yellow-900 py-3 px-4 rounded-xl text-sm font-black border-2 border-yellow-200 shadow-[0_4px_0_#b45309]">
                   <Star className="w-5 h-5 text-white fill-current drop-shadow-md" />
                   <span className="drop-shadow-sm">Badge aktif: {activeOrb.badge}</span>
                 </div>
               )}
-              
+
               <button onClick={() => setActiveOrb(null)} className="mt-6 w-full bg-gradient-to-b from-[#ff7043] to-[#e64a19] text-white font-black text-lg py-3.5 rounded-xl transition-transform hover:scale-[1.02] active:scale-95 shadow-[0_5px_0_#bf360c] border-2 border-[#ffab91]">
                 Tutup Info
               </button>
@@ -1920,8 +1920,8 @@ function StudentCompactDashboard({
       )}
 
       {showCheckInModal && (
-        <StudentCheckInModal 
-          user={localUser} 
+        <StudentCheckInModal
+          user={localUser}
           onClose={() => setShowCheckInModal(false)}
           onCheckInSuccess={(coins, streak, lastDate) => {
             setLocalUser(prev => ({ ...prev, coins, checkInStreak: streak, lastCheckInDate: lastDate }));
@@ -1934,8 +1934,8 @@ function StudentCompactDashboard({
       )}
 
       {showWelcomeModal && (
-        <StudentWelcomeModal 
-          busy={claimingWelcome} 
+        <StudentWelcomeModal
+          busy={claimingWelcome}
           onClaim={async () => {
             setClaimingWelcome(true);
             try {
@@ -1953,7 +1953,7 @@ function StudentCompactDashboard({
             } finally {
               setClaimingWelcome(false);
             }
-          }} 
+          }}
         />
       )}
     </main>
@@ -2101,7 +2101,7 @@ function StudentProfileModal({
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200" role="dialog" aria-modal="true" aria-labelledby="student-profile-title">
       <div className="absolute inset-0" onClick={onClose} />
       <section className="relative w-full max-w-[480px] bg-[#2b2b2b] rounded-[32px] p-2 shadow-[0_12px_0_#1a1a1a,0_25px_30px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-300">
-        
+
         {/* Header/Close Button */}
         <button type="button" className="absolute -top-4 -right-2 bg-red-500 hover:bg-red-400 text-white rounded-full p-2 border-4 border-[#2b2b2b] shadow-[0_4px_0_#991b1b] transition-transform hover:scale-110 active:scale-95 z-20" onClick={onClose} aria-label="Tutup profil">
           <X className="h-6 w-6" strokeWidth={4} />
@@ -2111,7 +2111,7 @@ function StudentProfileModal({
           {/* 3D Profile Card */}
           <div className="bg-gradient-to-b from-[#6b8cff] to-[#4568dc] rounded-[24px] p-1 shadow-[0_6px_0_#2b48a3,0_10px_15px_rgba(0,0,0,0.3)] mb-8 relative">
             <div className="bg-gradient-to-b from-[#87a3ff] to-[#5a7bed] rounded-[20px] p-5 flex items-center gap-4 border border-white/20">
-              
+
               {/* 3D Avatar */}
               <div className="relative">
                 <div className="w-[84px] h-[84px] rounded-full bg-white p-1.5 shadow-[0_5px_0_#3855b5]">
@@ -2136,9 +2136,9 @@ function StudentProfileModal({
               </div>
 
               {/* 3D Level Badge */}
-              <div className="relative flex flex-col items-center justify-start pt-2 pb-5 px-2 w-[72px] h-[84px] shrink-0 transform rotate-3" 
-                   style={{ 
-                     background: '#ffd500', 
+              <div className="relative flex flex-col items-center justify-start pt-2 pb-5 px-2 w-[72px] h-[84px] shrink-0 transform rotate-3"
+                   style={{
+                     background: '#ffd500',
                      clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% 85%, 0 100%)',
                    }}>
                 <div className="absolute inset-x-1.5 top-0 bottom-2 bg-[#1e88e5] flex flex-col items-center pt-2"
@@ -2156,7 +2156,7 @@ function StudentProfileModal({
             <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-b from-[#ff7043] to-[#e64a19] text-white px-5 py-1.5 rounded-full text-[11px] font-black tracking-widest shadow-[0_4px_0_#bf360c] border-2 border-[#ffab91] z-10 uppercase">
               General Stats
             </div>
-            
+
             <div className="bg-[#222] rounded-3xl p-5 pt-7 shadow-inner border border-white/5">
               <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
                 {stats.map((stat, idx) => {
@@ -2219,7 +2219,7 @@ function LeagueLeaderboard({
   return (
     <div className="bg-slate-900 rounded-3xl p-6 text-white mb-8 relative overflow-hidden shadow-2xl shadow-indigo-500/20">
       <div className="absolute -top-24 -right-24 w-64 h-64 bg-indigo-500 rounded-full blur-3xl opacity-20"></div>
-      
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 relative z-10">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-700 to-amber-900 flex items-center justify-center shadow-lg border-2 border-amber-600/50 shrink-0">
@@ -2238,7 +2238,7 @@ function LeagueLeaderboard({
 
       <div className="bg-slate-800/50 rounded-2xl p-2 border border-slate-700/50 relative z-10 backdrop-blur-sm">
         <div className="px-4 py-2 text-xs font-bold text-amber-400 uppercase tracking-wider mb-2 border-b border-slate-700/50">Top 3 Promosi ke Liga Perak</div>
-        
+
         {sorted.map((u, i) => (
           <div key={u.name} className={`flex items-center gap-4 p-3 rounded-xl transition-all ${u.isMe ? 'bg-indigo-600 shadow-lg shadow-indigo-600/30 ring-1 ring-indigo-400' : 'hover:bg-slate-700/30'}`}>
             <div className={`w-8 text-center font-black ${i < 3 ? 'text-amber-400' : 'text-slate-500'}`}>
@@ -2294,7 +2294,7 @@ function StudentContentModal({
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [classCode, setClassCode] = useState("");
   const [showClasses, setShowClasses] = useState(false);
-  
+
   const activeClassId = selectedClassId ?? classes[0]?.id ?? null;
   const activeMaterials = materials.filter(m => !activeClassId || m.classId === activeClassId);
   const activeQuests = quests.filter(q => !activeClassId || !q.classId || q.classId === activeClassId);
@@ -2305,7 +2305,7 @@ function StudentContentModal({
     map: "Jalur belajar yang menghubungkan materi guru ke IdeQuest.",
     quest: "Misi IdeQuest dari guru yang bisa dikumpulkan siswa."
   }[active];
-  
+
   const [taskPage, setTaskPage] = useState(0);
   const [readingProgress, setReadingProgress] = useState(0);
   const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
@@ -2356,9 +2356,9 @@ function StudentContentModal({
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200" role="dialog" aria-modal="true" aria-labelledby="student-content-title">
       <div className="absolute inset-0" onClick={onClose} />
-      
+
       <section className={`relative w-full ${active === "studio" ? 'max-w-4xl' : 'max-w-[480px]'} bg-[#2b2b2b] rounded-[32px] p-2 shadow-[0_12px_0_#1a1a1a,0_25px_30px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]`}>
-        
+
         <button type="button" className="absolute -top-4 -right-2 bg-red-500 hover:bg-red-400 text-white rounded-full p-2 border-4 border-[#2b2b2b] shadow-[0_4px_0_#991b1b] transition-transform hover:scale-110 active:scale-95 z-20 cursor-pointer" onClick={onClose} aria-label={`Tutup ${title}`}>
           <X className="h-6 w-6" strokeWidth={4} />
         </button>
@@ -2373,7 +2373,7 @@ function StudentContentModal({
           {/* Body Wrapper */}
           <div className="p-5 flex-1 flex flex-col overflow-hidden">
             {error ? <div className="bg-red-500 text-white p-3 font-bold text-center text-sm mb-3 rounded-lg shadow-inner">{error}</div> : null}
-            
+
             {/* Inner Dark Board */}
             <div className="bg-[#222] border border-white/5 rounded-[20px] p-5 shadow-inner flex-1 overflow-y-auto custom-scrollbar flex flex-col">
 
@@ -2418,21 +2418,21 @@ function StudentContentModal({
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 flex items-center justify-center">
                       <Star className={`w-6 h-6 drop-shadow-md fill-current ${isDone ? 'text-yellow-400' : 'text-slate-500'}`} />
                     </div>
-                    
+
                     {material && (
                       <div className="absolute top-2 left-0 bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-r-md border border-red-700 shadow-sm z-10">
                         +{isDone ? 1 : 0}
                       </div>
                     )}
-                    
+
                     <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center mt-3 mb-2 border-2 border-white/20 shadow-inner shrink-0 ${isDone ? 'bg-gradient-to-br from-green-400 to-green-600' : isUnavailable ? 'bg-slate-600' : 'bg-gradient-to-br from-blue-400 to-blue-600'}`}>
                       <Icon className="text-white w-6 h-6 sm:w-7 sm:h-7 drop-shadow-md" strokeWidth={2.5} />
                     </div>
-                    
+
                     <strong className="text-white font-black text-[10px] sm:text-[11px] leading-tight text-center drop-shadow-md line-clamp-2 mt-auto w-full">
                       {material?.title ?? "Belum Tersedia"}
                     </strong>
-                    
+
                     <span className="text-[#bbb] text-[9px] font-bold uppercase tracking-wider text-center mt-1.5 bg-black/40 px-2 py-0.5 rounded-full border border-white/10 w-full truncate">
                       {material && !(material as any).isLocked ? (isDone ? "Selesai" : `${material.progress}%`) : "Terkunci"}
                     </span>
@@ -2443,7 +2443,7 @@ function StudentContentModal({
 
             {totalTaskPages > 1 && (
               <div className="flex items-center justify-center gap-4 mt-8">
-                <button 
+                <button
                   type="button"
                   onClick={() => setTaskPage(p => Math.max(0, p - 1))}
                   disabled={taskPage === 0}
@@ -2454,7 +2454,7 @@ function StudentContentModal({
                 <span className="text-sm font-medium text-slate-300">
                   {taskPage + 1} / {totalTaskPages}
                 </span>
-                <button 
+                <button
                   type="button"
                   onClick={() => setTaskPage(p => Math.min(totalTaskPages - 1, p + 1))}
                   disabled={taskPage >= totalTaskPages - 1}
@@ -2489,19 +2489,19 @@ function StudentContentModal({
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 flex items-center justify-center">
                     <Star className={`w-6 h-6 drop-shadow-md fill-current ${isDone ? 'text-amber-400' : 'text-slate-500'}`} />
                   </div>
-                  
+
                   <div className="absolute top-2 left-0 bg-gradient-to-b from-red-500 to-red-600 text-white text-[10px] sm:text-xs font-black px-2.5 py-0.5 rounded-r-md border border-red-700 shadow-sm z-10">
                     +{quest.points}
                   </div>
-                  
+
                   <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mt-4 mb-3 border-2 border-white/20 shadow-inner shrink-0 ${isDone ? 'bg-gradient-to-br from-green-400 to-green-600' : isUnavailable ? 'bg-slate-600' : 'bg-gradient-to-br from-amber-400 to-orange-500'}`}>
                     <Puzzle className="text-white w-7 h-7 sm:w-8 sm:h-8 drop-shadow-md" strokeWidth={2.5} />
                   </div>
-                  
+
                   <strong className="text-white font-black text-[11px] sm:text-[13px] leading-tight text-center drop-shadow-md line-clamp-2 mt-auto w-full">
                     {quest.title}
                   </strong>
-                  
+
                   <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-center mt-2 px-2 py-0.5 rounded-full border w-full truncate ${isDone ? 'bg-green-500/20 text-green-400 border-green-500/30' : isUnavailable ? 'bg-black/40 text-slate-400 border-white/10' : 'bg-amber-500/20 text-amber-400 border-amber-500/30'}`}>
                     {isDone ? "Selesai" : isUnavailable ? "Terkunci" : "Terbuka"}
                   </span>
@@ -2514,14 +2514,14 @@ function StudentContentModal({
         {active === "rank" ? (
           <div className="student-achievement-wrap" style={{ marginTop: '24px' }}>
             <div className="flex bg-slate-800/80 p-1.5 rounded-full mb-2 border border-slate-700/50 shadow-inner">
-              <button 
+              <button
                 type="button"
                 onClick={() => setRankTab("league")}
                 className={`flex-1 py-2.5 px-4 rounded-full text-sm font-bold transition-all ${rankTab === 'league' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
               >
                 Liga & Peringkat
               </button>
-              <button 
+              <button
                 type="button"
                 onClick={() => setRankTab("badges")}
                 className={`flex-1 py-2.5 px-4 rounded-full text-sm font-bold transition-all ${rankTab === 'badges' ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
@@ -2583,8 +2583,8 @@ function StudentContentModal({
                   <strong className="text-white text-base font-black drop-shadow-md block mb-1">Masuk Kelas</strong>
                   <span className="text-slate-400 text-xs font-medium">Masukkan ClassID dari guru untuk membuka materi dan IdeQuest.</span>
                 </div>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setShowClasses(!showClasses)}
                   className="text-[11px] bg-gradient-to-b from-blue-500 to-blue-700 hover:from-blue-400 hover:to-blue-600 text-white px-3 py-1.5 rounded-full font-black ml-2 shrink-0 border-b-[3px] border-[#1e3a8a] shadow-md transition-transform hover:-translate-y-0.5 active:translate-y-0"
                 >
@@ -2598,8 +2598,8 @@ function StudentContentModal({
                   placeholder="IDT-ABC123"
                   onChange={(event) => setClassCode(event.target.value.toUpperCase())}
                 />
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   disabled={busy || !classCode.trim()}
                   className="bg-gradient-to-b from-green-500 to-green-700 text-white font-black px-5 py-2.5 rounded-xl border-b-[4px] border-[#166534] shadow-md transition-all hover:brightness-110 active:border-b-0 active:translate-y-[4px] disabled:opacity-50 disabled:grayscale shrink-0"
                 >
@@ -2617,7 +2617,7 @@ function StudentContentModal({
                         <strong>{kelas.name}</strong>
                         <small>{kelas.subject} - Kelas {kelas.grade} · {kelas.students} siswa</small>
                       </div>
-                      <button 
+                      <button
                         type="button"
                         onClick={() => onSelectClass(kelas.id)}
                         className={`text-xs px-3 py-1.5 rounded-full font-bold ml-3 border-b-2 transition-colors ${activeClassId === kelas.id ? "bg-[#e6b12a] text-white border-[#d69818]" : "bg-white text-[#7d2f0f] border-[#f0c34a] hover:bg-[#fff9e6]"}`}
@@ -2632,11 +2632,11 @@ function StudentContentModal({
 
             <div className="student-map-path-saga">
               {[...activeMaterials, ...activeQuests].length ? null : <p className="student-content-empty">Materi dan IdeQuest akan muncul setelah kamu masuk kelas.</p>}
-              
+
               <div className="flex flex-col items-center py-6 relative">
                 {/* Connecting Line */}
                 <div className="absolute top-0 bottom-0 w-2 bg-[#333] border-x border-[#111] left-1/2 -translate-x-1/2 rounded-full" />
-                
+
                 {(() => {
                   const pathNodes: { type: 'material'|'quest', data: any, id: string, title: string, progress: number }[] = [];
                   activeMaterials.forEach(m => {
@@ -2660,7 +2660,7 @@ function StudentContentModal({
                   return pathNodes.map((node, i) => {
                     const isCompleted = node.progress >= 100;
                     const isLocked = node.data.isLocked;
-                    
+
                     const positions = ['translate-x-0', 'translate-x-12', 'translate-x-0', '-translate-x-12'];
                     const alignClass = positions[i % 4];
 
@@ -2678,7 +2678,7 @@ function StudentContentModal({
                           </div>
                         )}
                         <div className={`relative flex items-center justify-center my-4 ${alignClass} w-full max-w-[200px]`}>
-                          <button 
+                          <button
                             className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center border-4 shadow-[0_6px_0_rgba(0,0,0,0.4)] transition-transform hover:-translate-y-1 active:translate-y-0 relative z-10 ${isCompleted ? 'bg-gradient-to-br from-green-400 to-green-600 border-green-200' : isLocked ? 'bg-[#444] border-[#222] grayscale opacity-70 cursor-not-allowed' : 'bg-gradient-to-br from-blue-400 to-blue-600 border-blue-200 ring-4 ring-yellow-400 ring-offset-2 ring-offset-[#222]'}`}
                             onClick={() => {
                               if (!isLocked) {
@@ -2691,7 +2691,7 @@ function StudentContentModal({
                              <div className="absolute inset-1 rounded-full border-2 border-white/20 pointer-events-none" />
                              {isLocked ? <Lock className="w-6 h-6 sm:w-8 sm:h-8 text-slate-400 drop-shadow-md" /> : (node.type === 'quest' ? <Puzzle className="w-6 h-6 sm:w-8 sm:h-8 text-white drop-shadow-md" /> : <BookOpen className="w-6 h-6 sm:w-8 sm:h-8 text-white drop-shadow-md" />)}
                           </button>
-                          
+
                           <div className={`absolute top-1/2 -translate-y-1/2 ${i % 4 === 1 ? 'right-full mr-4 text-right' : i % 4 === 3 ? 'left-full ml-4 text-left' : (i % 2 === 0 ? (i % 4 === 0 ? 'left-full ml-6' : 'right-full mr-6 text-right') : '')} w-[140px] drop-shadow-md pointer-events-none`}>
                             <small className="block text-yellow-400 font-bold text-[10px] uppercase tracking-wider">{node.type === 'material' ? 'Materi' : 'Quest'}</small>
                             <span className="block text-white font-black text-[12px] sm:text-sm leading-tight">{node.title}</span>
@@ -2734,11 +2734,11 @@ function StudentContentModal({
                 {(selectedTask as any).description || (selectedTask as any).mission}
               </ReactMarkdown>
             </div>
-            
+
             { (selectedTask as any).content && (
               <div className="mt-4 mb-6 bg-slate-50 border border-slate-200 rounded-xl p-4 overflow-hidden shadow-inner">
                 {(selectedTask as any).type === 'lesson' && (
-                  <div 
+                  <div
                     id="lesson-scroll-container"
                     className="prose prose-sm prose-blue max-w-none text-slate-700 overflow-y-auto max-h-[300px] pr-2"
                     onScroll={(e) => {
@@ -2755,7 +2755,7 @@ function StudentContentModal({
                 )}
                 {(selectedTask as any).type === 'video' && (
                   <div className="aspect-video w-full bg-black rounded-lg overflow-hidden relative shadow-md">
-                    <ReactPlayer 
+                    <ReactPlayer
                       url={(selectedTask as any).content}
                       width="100%"
                       height="100%"
@@ -2794,8 +2794,8 @@ function StudentContentModal({
                           <h4 className="font-bold text-lg mb-4 text-slate-800 flex items-center gap-2">
                             <Puzzle className="w-5 h-5 text-yellow-500" /> Kuis Interaktif
                           </h4>
-                          <div 
-                            className="space-y-4 max-h-[300px] overflow-y-auto pr-2" 
+                          <div
+                            className="space-y-4 max-h-[300px] overflow-y-auto pr-2"
                             id="lesson-scroll-container"
                             onScroll={(e) => {
                               const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -2809,7 +2809,7 @@ function StudentContentModal({
                             {data.map((q, i) => {
                                const userAnswer = quizAnswers[i] || "";
                                const isCorrect = showQuizResults ? q.jawaban.some(ans => ans.trim().toLowerCase() === userAnswer.trim().toLowerCase()) : null;
-                               
+
                                return (
                                <div key={i} className={`p-4 rounded-lg border ${showQuizResults ? (isCorrect ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200') : 'bg-slate-50 border-slate-100'}`}>
                                  <div className="font-medium text-slate-700 mb-3 flex items-start gap-2">
@@ -2818,9 +2818,9 @@ function StudentContentModal({
                                      <ReactMarkdown remarkPlugins={[remarkMath, remarkGfm]} rehypePlugins={[rehypeKatex, rehypeRaw]}>{q.soal}</ReactMarkdown>
                                    </div>
                                  </div>
-                                 <input 
-                                   type="text" 
-                                   placeholder="Ketik jawabanmu di sini..." 
+                                 <input
+                                   type="text"
+                                   placeholder="Ketik jawabanmu di sini..."
                                    className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${showQuizResults ? (isCorrect ? 'border-green-300 bg-green-100 text-green-900' : 'border-red-300 bg-red-100 text-red-900') : 'border-slate-200'}`}
                                    value={userAnswer}
                                    onChange={(e) => setQuizAnswers(prev => ({...prev, [i]: e.target.value}))}
@@ -2835,7 +2835,7 @@ function StudentContentModal({
                                       )}
                                       {q.pembahasan && (
                                         <div className="mt-2 p-2 bg-white/60 rounded text-slate-600 text-xs border border-slate-200/50">
-                                          <strong className="block mb-1">Pembahasan:</strong> 
+                                          <strong className="block mb-1">Pembahasan:</strong>
                                           <div className="prose prose-sm prose-blue max-w-none prose-p:my-0">
                                             <ReactMarkdown remarkPlugins={[remarkMath, remarkGfm]} rehypePlugins={[rehypeKatex, rehypeRaw]}>{q.pembahasan}</ReactMarkdown>
                                           </div>
@@ -2849,12 +2849,12 @@ function StudentContentModal({
                           </div>
                           <div className="mt-4 pt-4 border-t border-slate-100 flex justify-end">
                             {!showQuizResults ? (
-                              <button 
-                                type="button" 
-                                className="px-5 py-2 bg-yellow-400 hover:bg-yellow-500 text-yellow-950 font-bold rounded-lg text-sm shadow-sm transition-colors" 
-                                onClick={() => { 
+                              <button
+                                type="button"
+                                className="px-5 py-2 bg-yellow-400 hover:bg-yellow-500 text-yellow-950 font-bold rounded-lg text-sm shadow-sm transition-colors"
+                                onClick={() => {
                                   setShowQuizResults(true);
-                                  setReadingProgress(100); 
+                                  setReadingProgress(100);
                                 }}
                               >
                                 Cek Jawaban & Simpan
@@ -2874,34 +2874,34 @@ function StudentContentModal({
             { 'mission' in selectedTask && selectedTask.progress < 100 && (
               <div className="mt-4 p-4 bg-blue-50/50 rounded-xl border border-blue-100 mb-4">
                 <div className="flex gap-2 mb-3">
-                  <button 
-                    type="button" 
-                    onClick={() => setQuestSubmitMode("text")} 
+                  <button
+                    type="button"
+                    onClick={() => setQuestSubmitMode("text")}
                     className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${questSubmitMode === "text" ? "bg-blue-600 text-white shadow-sm" : "bg-white text-blue-600 border border-blue-200 hover:bg-blue-50"}`}
                   >
                     Kotak Isian
                   </button>
-                  <button 
-                    type="button" 
-                    onClick={() => setQuestSubmitMode("file")} 
+                  <button
+                    type="button"
+                    onClick={() => setQuestSubmitMode("file")}
                     className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${questSubmitMode === "file" ? "bg-blue-600 text-white shadow-sm" : "bg-white text-blue-600 border border-blue-200 hover:bg-blue-50"}`}
                   >
                     Unggah PDF
                   </button>
                 </div>
-                
+
                 {questSubmitMode === "text" ? (
-                  <textarea 
-                    placeholder="Tuliskan jawaban misi kamu di sini..." 
-                    value={questAnswerText} 
-                    onChange={(e) => setQuestAnswerText(e.target.value)} 
-                    className="w-full text-sm p-3 border border-blue-200 rounded-lg min-h-[100px] focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white"
+                  <textarea
+                    placeholder="Tuliskan jawaban misi kamu di sini..."
+                    value={questAnswerText}
+                    onChange={(e) => setQuestAnswerText(e.target.value)}
+                    className="w-full text-sm p-3 border border-blue-200 rounded-lg min-h-[120px] max-h-[220px] overflow-y-auto focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white resize-y"
                   />
                 ) : (
                   <label className="flex flex-col gap-2">
                     <span className="font-bold text-blue-900 text-sm">Unggah File Jawaban (Wajib PDF)</span>
-                    <input 
-                      type="file" 
+                    <input
+                      type="file"
                       accept=".pdf,application/pdf"
                       onChange={(e) => {
                         const file = e.target.files?.[0] || null;
@@ -2911,8 +2911,8 @@ function StudentContentModal({
                           return;
                         }
                         setQuestAnswerFile(file);
-                      }} 
-                      className="text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700" 
+                      }}
+                      className="text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700"
                     />
                   </label>
                 )}
@@ -2922,7 +2922,7 @@ function StudentContentModal({
             { 'mission' in selectedTask && selectedTask.progress >= 100 && (
               <div className="mt-4 p-4 bg-green-50 rounded-xl border border-green-200 mb-4 animate-in fade-in slide-in-from-bottom-2">
                 <h4 className="font-bold text-green-800 text-sm mb-2 flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5" /> 
+                  <CheckCircle2 className="w-5 h-5" />
                   IdeQuest Telah Diselesaikan
                 </h4>
                 <div className="text-sm text-green-700">
@@ -2941,14 +2941,14 @@ function StudentContentModal({
               <span>{((selectedTask as any).type === 'lesson' || (selectedTask as any).type === 'video' || (selectedTask as any).type === 'document' || (selectedTask as any).type === 'quiz') && selectedTask.progress < 100 ? readingProgress : selectedTask.progress}%</span>
               <i style={{ width: `${((selectedTask as any).type === 'lesson' || (selectedTask as any).type === 'video' || (selectedTask as any).type === 'document' || (selectedTask as any).type === 'quiz') && selectedTask.progress < 100 ? readingProgress : selectedTask.progress}%` }} />
             </div>
-            <button 
-              type="button" 
+            <button
+              type="button"
               disabled={busy || selectedTask.progress >= 100}
               className={(((selectedTask as any).type === 'lesson' || (selectedTask as any).type === 'video' || (selectedTask as any).type === 'document' || (selectedTask as any).type === 'quiz') && selectedTask.progress < 100 && readingProgress < 100) ? "opacity-50 grayscale cursor-not-allowed" : ""}
               onClick={(e) => {
                 const isContent = ((selectedTask as any).type === 'lesson' || (selectedTask as any).type === 'video' || (selectedTask as any).type === 'document' || (selectedTask as any).type === 'quiz');
                 const isIncomplete = isContent && selectedTask.progress < 100 && readingProgress < 100;
-                
+
                 if (isIncomplete) {
                   e.preventDefault();
                   if ((selectedTask as any).type === 'lesson') showToast("Baca materi sampai selesai");
@@ -2973,12 +2973,12 @@ function StudentContentModal({
                 }
               }}
             >
-              {selectedTask.progress >= 100 
-                ? "Tugas Selesai" 
-                : ('mission' in selectedTask 
-                  ? "Kumpulkan Quest" 
-                  : ((selectedTask as any).type === "lesson" 
-                     ? "Saya Sudah Membaca Materi Ini" 
+              {selectedTask.progress >= 100
+                ? "Tugas Selesai"
+                : ('mission' in selectedTask
+                  ? "Kumpulkan Quest"
+                  : ((selectedTask as any).type === "lesson"
+                     ? "Saya Sudah Membaca Materi Ini"
                      : ((selectedTask as any).type === "video"
                         ? "Saya Sudah Menonton Video Ini"
                         : ((selectedTask as any).type === "document"
@@ -3159,7 +3159,7 @@ function ProfessionalDashboard({
               "bg-violet-50 border-violet-200"
             ];
             const colorClass = isAdmin ? adminColors[index % adminColors.length] : "";
-            
+
             return (
               <Card key={metric.label} className={`${cardClass} ${isAdmin ? "p-3 md:p-5" : "p-5"} ${colorClass}`}>
                 <p className={`professional-card__label ${isAdmin ? "text-[11px] leading-tight md:text-xs" : ""}`}>{metric.label}</p>
@@ -3274,7 +3274,7 @@ function AdminBottomNav({
   actions: { label: string; view: AdminView; description: string; icon: any }[];
 }) {
   const [showMore, setShowMore] = useState(false);
-  
+
   const shortNames: Record<string, string> = {
     users: "User",
     classes: "Kelas",
@@ -3297,7 +3297,7 @@ function AdminBottomNav({
   return (
     <>
       {showMore && (
-        <div 
+        <div
           className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={() => setShowMore(false)}
         />
@@ -3321,16 +3321,16 @@ function AdminBottomNav({
             })}
           </div>
         )}
-        
+
         <div className="flex items-center justify-around pb-2 pt-2">
-          <button 
+          <button
             className={`flex flex-col items-center gap-1 p-2 flex-1 transition-colors ${activeView === "home" ? "text-blue-400" : "text-slate-400 hover:text-slate-200"}`}
             onClick={() => handleNav("home")}
           >
             <House className="h-5 w-5" />
             <span className="text-[10px] font-bold">Beranda</span>
           </button>
-          
+
           {mainActions.map((action) => {
             const Icon = action.icon;
             const isActive = activeView === action.view;
@@ -3345,8 +3345,8 @@ function AdminBottomNav({
               </button>
             );
           })}
-          
-          <button 
+
+          <button
             className={`flex flex-col items-center gap-1 p-2 flex-1 transition-colors ${showMore ? "text-blue-400" : "text-slate-400 hover:text-slate-200"}`}
             onClick={() => setShowMore(!showMore)}
           >
@@ -3366,7 +3366,7 @@ function AgendaCountdown({ targetDate }: { targetDate: Date }) {
     const calculateTimeLeft = () => {
       const now = new Date();
       const diff = targetDate.getTime() - now.getTime();
-      
+
       if (diff <= 0) {
         setTimeLeft({ days: 0, hours: 0, minutes: 0, isExpired: true });
         return;
@@ -3386,7 +3386,7 @@ function AgendaCountdown({ targetDate }: { targetDate: Date }) {
 
   const { days, hours, minutes, isExpired } = timeLeft;
   const isPulsating = !isExpired && days === 0 && hours === 0 && minutes <= 59;
-  
+
   if (isExpired) {
     return (
       <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-red-50 border border-red-200 rounded-lg text-xs font-bold text-red-600 shadow-sm">
@@ -3426,7 +3426,7 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
   const firstDay = new Date(selectedYear, selectedMonth, 1).getDay();
   const firstDayOffset = (firstDay + 6) % 7; // Monday = 0
   const totalCells = Math.ceil((firstDayOffset + daysInMonth) / 7) * 7;
-  
+
   const gridCells = Array.from({ length: totalCells }, (_, i) => {
     const date = i - firstDayOffset + 1;
     return (date > 0 && date <= daysInMonth) ? date : null;
@@ -3449,7 +3449,7 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
 
   const currentMonthAgendas = useMemo(() => {
     const list: Array<{ type: 'materi' | 'quest', title: string, classId: string, date: Date }> = [];
-    
+
     materials.forEach(m => {
       if (m.options?.dueDate) {
         const d = new Date(m.options.dueDate);
@@ -3458,7 +3458,7 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
         }
       }
     });
-    
+
     quests.forEach(q => {
       if (q.dueDate) {
         const d = new Date(q.dueDate);
@@ -3470,7 +3470,7 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
 
     return list.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [materials, quests, selectedMonth, selectedYear]);
-  
+
   const isCurrentMonth = selectedMonth === currentRealMonth && selectedYear === currentRealYear;
   const activeDate = isCurrentMonth ? todayDay : -1;
 
@@ -3524,8 +3524,8 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
             <div>
               <p className="text-[rgba(226,245,255,0.76)] text-[10px] md:text-xs font-bold tracking-wider mb-1 uppercase">Kalender Agenda</p>
               <div className="flex items-center gap-1 group relative">
-                <select 
-                  value={selectedMonth} 
+                <select
+                  value={selectedMonth}
                   onChange={e => { setSelectedMonth(Number(e.target.value)); setWeekStartIndex(0); }}
                   className="text-xl md:text-2xl font-extrabold text-white tracking-tight bg-transparent border-none focus:ring-0 cursor-pointer p-0 appearance-none outline-none hover:text-[rgba(226,245,255,0.8)] transition-colors z-10"
                 >
@@ -3538,21 +3538,21 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-1">
-                <button 
+                <button
                   type="button"
                   onClick={prevWeek}
                   className="h-9 w-9 md:h-10 md:w-10 rounded-full bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] flex items-center justify-center text-[rgba(226,245,255,0.76)] hover:bg-[rgba(5,29,83,0.6)] hover:text-white transition-colors"
                 >
                   <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
                 </button>
-                <button 
+                <button
                   type="button"
                   onClick={goToCurrentMonth}
                   className="h-9 md:h-10 px-3 md:px-4 rounded-xl border border-[rgba(125,211,252,0.22)] bg-[rgba(5,29,83,0.42)] text-[rgba(226,245,255,0.76)] text-xs md:text-sm font-bold hover:bg-[rgba(5,29,83,0.6)] hover:text-white transition-colors"
                 >
                   Bulan Ini
                 </button>
-                <button 
+                <button
                   type="button"
                   onClick={nextWeek}
                   className="h-9 w-9 md:h-10 md:w-10 rounded-full bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] flex items-center justify-center text-[rgba(226,245,255,0.76)] hover:bg-[rgba(5,29,83,0.6)] hover:text-white transition-colors"
@@ -3560,7 +3560,7 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
                   <ChevronRight className="h-4 w-4 md:h-5 md:w-5" />
                 </button>
               </div>
-              <button 
+              <button
                 type="button"
                 onClick={() => {
                   setSelectedDateForModal(null);
@@ -3572,7 +3572,7 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
               </button>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-7 gap-2 md:gap-4 mb-2">
             {days.map(d => (
               <div key={d} className="text-center text-[10px] md:text-xs font-bold text-[rgba(226,245,255,0.76)] tracking-wider">
@@ -3588,8 +3588,8 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
               const hasEvent = date in eventsMap;
               const isSelected = date === activeDate;
               return (
-                <div 
-                  key={date} 
+                <div
+                  key={date}
                   onClick={() => {
                     if (hasEvent) {
                       setSelectedDateForModal(date);
@@ -3598,8 +3598,8 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
                   }}
                   className={`
                     relative h-14 md:h-20 rounded-xl md:rounded-2xl border p-2 flex flex-col justify-start transition-all ${hasEvent ? 'cursor-pointer' : 'cursor-default'}
-                    ${isSelected 
-                        ? (hasEvent ? "bg-amber-400/20 border-amber-400 shadow-[0_0_0_2px_rgba(251,191,36,0.4)] hover:bg-amber-400/30" : "bg-white/10 border-white/40 shadow-[0_0_0_2px_rgba(255,255,255,0.2)] hover:bg-white/20") 
+                    ${isSelected
+                        ? (hasEvent ? "bg-amber-400/20 border-amber-400 shadow-[0_0_0_2px_rgba(251,191,36,0.4)] hover:bg-amber-400/30" : "bg-white/10 border-white/40 shadow-[0_0_0_2px_rgba(255,255,255,0.2)] hover:bg-white/20")
                         : (hasEvent ? "bg-amber-400/10 border-amber-400/30 hover:bg-amber-400/20" : "bg-[rgba(5,29,83,0.42)] border-[rgba(125,211,252,0.1)] hover:bg-[rgba(5,29,83,0.6)]")}
                   `}
                 >
@@ -3621,20 +3621,20 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="teacher-profile-card border-0 rounded-2xl max-w-3xl w-full p-4 md:p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            <button 
+            <button
               type="button"
-              className="absolute top-4 right-4 text-[rgba(226,245,255,0.76)] hover:text-white bg-[rgba(5,29,83,0.42)] rounded-full p-1 transition-colors z-20" 
+              className="absolute top-4 right-4 text-[rgba(226,245,255,0.76)] hover:text-white bg-[rgba(5,29,83,0.42)] rounded-full p-1 transition-colors z-20"
               onClick={() => setIsModalOpen(false)}
             >
               <X className="h-5 w-5 md:h-6 md:w-6" />
             </button>
-            
+
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 pr-10">
               <div>
                 <p className="text-[rgba(226,245,255,0.76)] text-xs font-bold tracking-wider mb-1 uppercase">Kalender Agenda</p>
                 <div className="flex items-center gap-1 group relative">
-                  <select 
-                    value={selectedMonth} 
+                  <select
+                    value={selectedMonth}
                     onChange={e => { setSelectedMonth(Number(e.target.value)); setWeekStartIndex(0); setSelectedDateForModal(null); }}
                     className="text-2xl md:text-3xl font-extrabold text-white tracking-tight bg-transparent border-none focus:ring-0 cursor-pointer p-0 appearance-none outline-none hover:text-[rgba(226,245,255,0.8)] transition-colors z-10"
                   >
@@ -3657,14 +3657,14 @@ function TeacherAgendaCalendar({ materials, quests, classes }: { materials: Teac
                 </button>
               </div>
             </div>
-            
+
             <div className="mt-2">
               <h4 className="text-lg font-bold text-white mb-4">
-                {selectedDateForModal 
-                  ? `Agenda: ${selectedDateForModal} ${months[selectedMonth]} ${selectedYear}` 
+                {selectedDateForModal
+                  ? `Agenda: ${selectedDateForModal} ${months[selectedMonth]} ${selectedYear}`
                   : `Daftar Agenda (${months[selectedMonth]} ${selectedYear})`}
               </h4>
-              
+
               {(() => {
                 const filteredAgendas = currentMonthAgendas.filter(a => selectedDateForModal === null || a.date.getDate() === selectedDateForModal);
                 if (filteredAgendas.length === 0) {
@@ -3794,7 +3794,7 @@ function DianyssaWidget({ onClose }: { onClose: () => void }) {
             </div>
           ))
         )}
-        
+
         {isLoading && (
           <div className="flex justify-start">
             <div className="w-6 h-6 rounded-full bg-blue-600 flex-shrink-0 mr-2 mt-1 overflow-hidden">
@@ -3830,8 +3830,8 @@ function DianyssaWidget({ onClose }: { onClose: () => void }) {
             rows={1}
             disabled={isLoading}
           />
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={!input.trim() || isLoading}
             className="mb-2 mr-2 p-1.5 rounded-lg bg-blue-600 text-white disabled:opacity-50 disabled:bg-slate-700 transition-colors shrink-0 flex items-center justify-center h-8 w-8"
           >
@@ -4427,7 +4427,7 @@ function TeacherSpaceDashboard({
               {activeMenu === "map" && (
                 <>
                   <TeacherAgendaCalendar materials={materials} quests={ideQuestRows} classes={teacherClasses} />
-                  
+
                   <div className="mb-6 flex flex-col gap-3">
                     <div className="grid grid-cols-3 gap-3">
                       {dashboard.metrics.slice(0, 3).map((metric, index) => (
@@ -4467,7 +4467,7 @@ function TeacherSpaceDashboard({
                     <ChevronRight className="teacher-feature-arrow h-5 w-5" />
                   </button>
                 ))}
-                
+
                 {/* Custom RPP Generator Banner Card */}
                 <button
                   className="teacher-space-planet-card bg-gradient-to-br from-indigo-500 to-purple-600 border-none relative overflow-hidden"
@@ -4606,7 +4606,7 @@ Fitur ini menganalisis semua aktivitas siswa di kelas Anda:
       {showChat ? (
         <DianyssaWidget onClose={() => setShowChat(false)} />
       ) : (
-        <button 
+        <button
           onClick={() => setShowChat(true)}
           className="fixed bottom-24 right-4 z-[999] h-14 w-14 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:bg-blue-700 transition-all hover:scale-105 active:scale-95 border-2 border-white animate-in slide-in-from-bottom-5"
           aria-label="Buka Chat"
@@ -4683,7 +4683,7 @@ function TeacherTodoPanel({
   const [filterCategory, setFilterCategory] = useState<"all" | "rpp" | "grading" | "teaching" | "other">("all");
   const [filterClass, setFilterClass] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"dueDate" | "priority" | "createdAt">("priority");
-  
+
   // AI Suggestions state
   const [showAiSuggestions, setShowAiSuggestions] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<any[]>([]);
@@ -4898,7 +4898,7 @@ function TeacherTodoPanel({
             <h1>Program Semester</h1>
             <p>Dibuat secara otomatis berdasarkan Capaian Pembelajaran & Rentang Tanggal Mengajar</p>
           </div>
-          
+
           <table>
             <thead>
               <tr>
@@ -4912,7 +4912,7 @@ function TeacherTodoPanel({
               ${rowsHtml}
             </tbody>
           </table>
-          
+
           <div class="footer">
             Dibuat dengan ❤️ oleh Dianyssa ${currentYear}
           </div>
@@ -5004,9 +5004,9 @@ function TeacherTodoPanel({
 
   function openAddForm() {
     setEditingTodo(null);
-    setFormTitle(""); 
-    setFormDesc(""); 
-    setFormPriority("medium"); 
+    setFormTitle("");
+    setFormDesc("");
+    setFormPriority("medium");
     setFormDueDate("");
     setFormClassId("");
     setFormCategory("other");
@@ -5142,8 +5142,8 @@ function TeacherTodoPanel({
               <span>{todos.filter(t => t.isCompleted).length} / {todos.length}</span>
             </div>
             <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all duration-500" 
+              <div
+                className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all duration-500"
                 style={{ width: `${todos.length > 0 ? (todos.filter(t => t.isCompleted).length / todos.length) * 100 : 0}%` }}
               />
             </div>
@@ -5389,7 +5389,7 @@ function TeacherTodoPanel({
                   {semesterError}
                 </div>
               ) : null}
-              
+
               <div className="grid grid-cols-2 gap-3">
                 <label className="flex flex-col gap-1.5">
                   <span className="text-[10px] font-black text-white/50 uppercase tracking-wider">Fase *</span>
@@ -5616,11 +5616,11 @@ function TeacherTodoPanel({
                 <Calendar className="w-5 h-5 text-violet-400" />
                 <h3 className="text-white font-black text-base">Pratinjau Jadwal</h3>
               </div>
-              <button 
+              <button
                 onClick={() => {
                   setShowSemesterPreview(false);
                   setShowSemesterGen(true);
-                }} 
+                }}
                 className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center"
               >
                 <X className="w-4 h-4 text-white" />
@@ -5744,7 +5744,7 @@ function TeacherTodoPanel({
             </div>
           </div>
         )}
-        
+
         {showForm && (
           <div className="absolute inset-0 z-10 flex flex-col bg-[#0f1628]/95 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="flex items-center justify-between p-5 border-b border-white/10">
@@ -5836,7 +5836,7 @@ function TeacherTodoPanel({
                   className="todo-form-input"
                 />
               </label>
-              
+
               <button type="submit" disabled={formBusy || !formTitle.trim()} className="mt-auto bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-400 hover:to-indigo-500 text-white font-black rounded-xl py-3 transition-all disabled:opacity-50 shadow-lg shadow-indigo-500/20">
                 {formBusy ? "Menyimpan..." : editingTodo ? "Perbarui Tugas" : "Simpan Tugas"}
               </button>
@@ -6022,10 +6022,10 @@ function TeacherStudioManager({
     const before = text.substring(0, start);
     const selected = text.substring(start, end);
     const after = text.substring(end);
-    
+
     const newText = before + prefix + selected + suffix + after;
     onMaterialFormChange((current) => ({ ...current, content: newText }));
-    
+
     setTimeout(() => {
       if (textareaRef.current) {
         textareaRef.current.focus();
@@ -6056,7 +6056,7 @@ function TeacherStudioManager({
       showToast("Tulis judul materi terlebih dahulu!");
       return;
     }
-    
+
     setIsGeneratingAI(true);
     try {
       const isQuiz = materialForm.type === 'quiz';
@@ -6076,7 +6076,7 @@ Buat struktur: 1. Pendahuluan, 2. Isi Materi, 3. Kesimpulan.`;
         method: "POST",
         body: JSON.stringify({ prompt })
       });
-      
+
       if (data && data.reply) {
         let content = data.reply;
         if (isQuiz) {
@@ -6112,7 +6112,7 @@ Buat struktur: 1. Pendahuluan, 2. Isi Materi, 3. Kesimpulan.`;
       showToast("Tulis topik/judul dasar IdeQuest terlebih dahulu!");
       return;
     }
-    
+
     setIsGeneratingQuestAI(true);
     try {
       const prompt = `Bertindaklah sebagai perancang game edukasi. Buatkan detail quest/petualangan belajar yang epik, kreatif, dan menantang untuk topik pembelajaran: "${questForm.title}".
@@ -6132,16 +6132,16 @@ Langkah Petualangan:
         method: "POST",
         body: JSON.stringify({ prompt })
       });
-      
+
       if (data && data.reply) {
         let content = data.reply;
         const titleMatch = content.match(/Judul:\s*([^\n]+)/i);
         const pointsMatch = content.match(/Poin:\s*(\d+)/i);
         const missionMatch = content.match(/Misi:\s*([\s\S]+)/i);
-        
+
         if (titleMatch && missionMatch) {
-          onQuestFormChange((current) => ({ 
-            ...current, 
+          onQuestFormChange((current) => ({
+            ...current,
             title: titleMatch[1].trim().replace(/["*]/g, ''),
             mission: missionMatch[1].trim(),
             points: pointsMatch ? pointsMatch[1].trim() : current.points
@@ -6164,11 +6164,11 @@ Langkah Petualangan:
   const [showRequestsModal, setShowRequestsModal] = React.useState(false);
   const [bankTab, setBankTab] = React.useState<"material" | "quest" | "rpp">("material");
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
-  
+
   const [bankItems, setBankItems] = React.useState<{ materials: any[]; quests: any[]; lessonPlans: any[] }>({ materials: [], quests: [], lessonPlans: [] });
   const [bankRequests, setBankRequests] = React.useState<{ incoming: any[]; outgoing: any[] }>({ incoming: [], outgoing: [] });
   const [requestTargetClass, setRequestTargetClass] = React.useState<Record<string, string>>({});
-  
+
   const loadBankPublic = async () => {
     try {
       const data = await api<{ materials: any[]; quests: any[]; lessonPlans: any[] }>("/api/teacher/bank-public");
@@ -6237,8 +6237,8 @@ Langkah Petualangan:
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold text-slate-800">Studio Pembuatan</h2>
         <div className="flex gap-2">
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={() => setShowRequestsModal(true)}
             className="flex items-center gap-2 px-3 py-2 bg-white text-slate-700 border border-slate-200 font-bold rounded-lg shadow-sm hover:shadow text-sm transition-all hover:border-blue-300 relative"
           >
@@ -6248,8 +6248,8 @@ Langkah Petualangan:
               <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse border border-white"></span>
             )}
           </button>
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={() => setShowBankModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-lg shadow-sm hover:shadow text-sm transition-all hover:scale-105"
           >
@@ -6331,7 +6331,7 @@ Langkah Petualangan:
           </label>
         </div>
 
-        
+
         {materialForm.type === 'lesson' && (
           <label>
             <div className="flex items-center justify-between w-full mb-2">
@@ -6385,7 +6385,7 @@ Langkah Petualangan:
             />
           </label>
         )}
-        
+
         {materialForm.type === 'video' && (
           <label>
             <span>URL Video (YouTube / Embed)</span>
@@ -6397,7 +6397,7 @@ Langkah Petualangan:
             />
           </label>
         )}
-        
+
         {materialForm.type === 'document' && (
           <label>
             <span>URL Dokumen (PDF)</span>
@@ -6409,7 +6409,7 @@ Langkah Petualangan:
             />
           </label>
         )}
-        
+
         {materialForm.type === 'quiz' && (
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
@@ -6482,7 +6482,7 @@ Langkah Petualangan:
         )}
 
         <div className="mt-2 mb-4">
-          <button 
+          <button
             type="button"
             onClick={() => setShowAdvancedMaterial(!showAdvancedMaterial)}
             className="flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors"
@@ -6490,7 +6490,7 @@ Langkah Petualangan:
             {showAdvancedMaterial ? "Sembunyikan Opsi Lanjutan" : "Tampilkan Opsi Lanjutan"}
             <ChevronDown className={`w-4 h-4 transition-transform ${showAdvancedMaterial ? "rotate-180" : ""}`} />
           </button>
-          
+
           {showAdvancedMaterial && (
             <div className="flex flex-col gap-3 mt-3 p-4 bg-slate-50 border border-slate-200 rounded-lg animate-in fade-in slide-in-from-top-2 duration-200">
               <label className="!mb-0">
@@ -6599,7 +6599,7 @@ Langkah Petualangan:
           />
         </label>
         <div className="mt-2 mb-4">
-          <button 
+          <button
             type="button"
             onClick={() => setShowAdvancedQuest(!showAdvancedQuest)}
             className="flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors"
@@ -6607,7 +6607,7 @@ Langkah Petualangan:
             {showAdvancedQuest ? "Sembunyikan Opsi Lanjutan" : "Tampilkan Opsi Lanjutan"}
             <ChevronDown className={`w-4 h-4 transition-transform ${showAdvancedQuest ? "rotate-180" : ""}`} />
           </button>
-          
+
           {showAdvancedQuest && (
             <div className="flex flex-col gap-3 mt-3 p-4 bg-slate-50 border border-slate-200 rounded-lg animate-in fade-in slide-in-from-top-2 duration-200">
               <label className="!mb-0">
@@ -6855,22 +6855,22 @@ Langkah Petualangan:
               <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-100 text-xs sm:text-sm">
                 <div><strong>**Tebal**</strong></div>
                 <div><span className="font-bold">Tebal</span></div>
-                
+
                 <div><em>*Miring*</em></div>
                 <div><span className="italic">Miring</span></div>
-                
+
                 <div># Heading 1</div>
                 <div className="text-lg font-bold">Heading 1</div>
-                
+
                 <div>## Heading 2</div>
                 <div className="text-base font-bold">Heading 2</div>
-                
+
                 <div>- Item 1<br/>- Item 2</div>
                 <ul className="list-disc pl-4 m-0"><li>Item 1</li><li>Item 2</li></ul>
-                
+
                 <div>[Teks](https://...)</div>
                 <div className="text-blue-500 underline">Teks Tautan</div>
-                
+
                 <div>![Gambar](url)</div>
                 <div className="text-slate-500 flex items-center gap-1"><ImageIcon className="h-3 w-3"/> Gambar</div>
               </div>
@@ -6881,7 +6881,7 @@ Langkah Petualangan:
           </div>
         </div>
       )}
-      
+
       {showBankModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="teacher-profile-card border-0 shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -6894,7 +6894,7 @@ Langkah Petualangan:
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             <div className="flex border-b border-white/10">
               <button
                 type="button"
@@ -6932,7 +6932,7 @@ Langkah Petualangan:
                         <p className="text-sm text-[rgba(226,245,255,0.86)] mt-2 line-clamp-2">{item.description}</p>
                       </div>
                       <div className="flex flex-col gap-2 min-w-[160px]">
-                        <select 
+                        <select
                           className="text-xs font-medium text-white border border-[rgba(125,211,252,0.22)] rounded p-1.5 w-full bg-[#0a1f5c] shadow-sm focus:border-amber-400 focus:ring-1 focus:ring-amber-400 focus:outline-none"
                           value={requestTargetClass[item.id] || ""}
                           onChange={(e) => setRequestTargetClass(prev => ({...prev, [item.id]: e.target.value}))}
@@ -6957,7 +6957,7 @@ Langkah Petualangan:
                         <p className="text-sm text-[rgba(226,245,255,0.86)] mt-2 line-clamp-2">{item.mission}</p>
                       </div>
                       <div className="flex flex-col gap-2 min-w-[160px]">
-                        <select 
+                        <select
                           className="text-xs font-medium text-white border border-[rgba(125,211,252,0.22)] rounded p-1.5 w-full bg-[#0a1f5c] shadow-sm focus:border-amber-400 focus:ring-1 focus:ring-amber-400 focus:outline-none"
                           value={requestTargetClass[item.id] || ""}
                           onChange={(e) => setRequestTargetClass(prev => ({...prev, [item.id]: e.target.value}))}
@@ -6994,7 +6994,7 @@ Langkah Petualangan:
                 )
               )}
             </div>
-            
+
             <div className="p-4 border-t border-white/10 flex justify-end">
               <button type="button" onClick={() => setShowBankModal(false)} className="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold rounded-lg text-sm transition-colors border border-white/10">
                 Tutup Bank
@@ -7016,7 +7016,7 @@ Langkah Petualangan:
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             <div className="p-6 overflow-y-auto flex-1 space-y-6">
               <div>
                 <h4 className="font-bold text-white mb-3 border-b border-white/10 pb-2 flex items-center justify-between">
@@ -7076,7 +7076,7 @@ Langkah Petualangan:
                 )}
               </div>
             </div>
-            
+
             <div className="p-4 border-t border-white/10 flex justify-end">
               <button type="button" onClick={() => setShowRequestsModal(false)} className="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold rounded-lg text-sm transition-colors border border-white/10">
                 Tutup
@@ -7502,11 +7502,11 @@ function LoginScreen({
       { id: 7, title: "Soal Persiapan Ujian Nasional", priceValue: 40000, price: "Rp 40.000", type: "PDF", image: "https://placehold.co/400x300/14b8a6/ffffff?text=Soal+UN", description: "Paket soal simulasi Ujian Nasional dari berbagai tahun ajaran, lengkap dengan kunci jawaban dan pembahasan." },
       { id: 8, title: "Flashcard Edukasi Bahasa Inggris", priceValue: 60000, price: "Rp 60.000", type: "Printable", image: "https://placehold.co/400x300/ef4444/ffffff?text=Flashcard", description: "Kartu pintar yang dapat dicetak untuk mengajarkan kosakata bahasa Inggris dasar kepada anak dengan metode visual yang menyenangkan." }
     ];
-    let filtered = items.filter(item => 
-      item.title.toLowerCase().includes(shopSearch.toLowerCase()) || 
+    let filtered = items.filter(item =>
+      item.title.toLowerCase().includes(shopSearch.toLowerCase()) ||
       item.type.toLowerCase().includes(shopSearch.toLowerCase())
     );
-    
+
     filtered.sort((a, b) => {
       if (shopSort === "asc") return a.priceValue - b.priceValue;
       return b.priceValue - a.priceValue;
@@ -7592,7 +7592,7 @@ function LoginScreen({
               </div>
               {error ? <ErrorBanner message={error} /> : null}
             </div>
-            
+
             <div className="flex flex-col gap-4 w-full max-w-md mx-auto lg:ml-auto lg:mr-0 relative z-10 pt-12 lg:pt-0">
               <div className="flex items-center justify-between mb-2">
                 <div className="bg-white/90 backdrop-blur-md px-4 py-2 rounded-xl shadow-md border border-slate-200/50">
@@ -7602,13 +7602,13 @@ function LoginScreen({
                   + Tulis Testimoni
                 </button>
               </div>
-              
+
               <div className="relative group">
                 <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl border border-slate-200/50 shadow-xl relative overflow-hidden min-h-[180px] flex flex-col justify-center">
                   <div className="absolute top-0 right-0 p-4 opacity-10 text-slate-800 pointer-events-none">
                     <MessageCircle className="w-20 h-20" />
                   </div>
-                  
+
                   <div className="flex items-center gap-4 mb-4">
                     <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl shadow-md">
                       {testimonials[activeTestimoniIndex].name.charAt(0)}
@@ -7620,7 +7620,7 @@ function LoginScreen({
                   </div>
                   <p className="text-slate-700 text-base leading-relaxed italic relative z-10">"{testimonials[activeTestimoniIndex].message}"</p>
                 </div>
-                
+
                 {/* Navigation arrows */}
                 <div className="flex items-center justify-center gap-4 mt-4">
                   <button onClick={prevTestimoni} className="p-2 rounded-full bg-white/80 hover:bg-white text-slate-700 shadow-sm border border-slate-200/50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -7644,7 +7644,7 @@ function LoginScreen({
                   <button onClick={() => setShowTestimoniModal(false)} className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors">
                     <X className="w-5 h-5" />
                   </button>
-                  
+
                   {testimoniStatus === "submitted" ? (
                     <div className="flex flex-col items-center justify-center py-8 text-center">
                       <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
@@ -7657,7 +7657,7 @@ function LoginScreen({
                     <>
                       <h3 className="text-xl font-black text-slate-800 mb-1">Tulis Testimoni</h3>
                       <p className="text-sm text-slate-500 mb-6">Bagikan pengalaman Anda menggunakan IdeTech.</p>
-                      
+
                       <form onSubmit={handleTestimoniSubmit} className="flex flex-col gap-4">
                         <div>
                           <label className="block text-sm font-bold text-slate-700 mb-1">Nama Lengkap</label>
@@ -7695,20 +7695,20 @@ function LoginScreen({
                 <p className="landing-demo-panel__eyebrow !mb-0">IdeTech Shop</p>
                 <ShoppingCart className="h-5 w-5 text-slate-700" />
               </div>
-              
+
               <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto sm:ml-auto">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input 
-                    type="text" 
-                    placeholder="Cari lembar kerja..." 
+                  <input
+                    type="text"
+                    placeholder="Cari lembar kerja..."
                     className="w-full sm:w-64 bg-white/80 border border-slate-200 rounded-lg pl-9 pr-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     value={shopSearch}
                     onChange={(e) => setShopSearch(e.target.value)}
                   />
                 </div>
                 <div className="relative">
-                  <select 
+                  <select
                     className="w-full sm:w-auto appearance-none bg-white/80 border border-slate-200 rounded-lg pl-4 pr-10 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 cursor-pointer"
                     value={shopSort}
                     onChange={(e) => setShopSort(e.target.value as "asc" | "desc")}
@@ -7720,7 +7720,7 @@ function LoginScreen({
                 </div>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-2">
               {shopItems.length > 0 ? shopItems.map((item) => (
                 <div key={item.id} className="border border-slate-200/50 rounded-2xl bg-white/60 backdrop-blur-sm flex flex-col hover:shadow-lg transition-shadow overflow-hidden">
@@ -7765,7 +7765,7 @@ function LoginScreen({
                     </div>
                     <h2 className="text-xl font-black text-slate-900 mb-2">{selectedShopItem.title}</h2>
                     <p className="text-slate-600 text-sm leading-relaxed mb-6">{selectedShopItem.description}</p>
-                    
+
                     <div className="flex items-center justify-between pt-4 border-t border-slate-100">
                       <span className="text-2xl font-black text-blue-600">{selectedShopItem.price}</span>
                       <button className="flex items-center gap-2 text-sm font-bold text-white bg-blue-600 px-6 py-2.5 rounded-xl hover:bg-blue-700 transition-colors shadow-sm shadow-blue-200">
@@ -7789,7 +7789,7 @@ function LoginScreen({
               <h2 className="text-2xl font-black text-slate-800 mt-2">Kabar dan Artikel Terbaru</h2>
               <p className="text-slate-600">Simak berita, tips, dan informasi terbaru seputar pendidikan dan inovasi pembelajaran.</p>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-2">
               {publicBlogsBusy ? (
                 <div className="col-span-full text-center py-10 text-slate-500">Memuat artikel terbaru...</div>
@@ -7825,8 +7825,8 @@ function LoginScreen({
             <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-4 leading-tight">{readingBlog.title}</h1>
             <p className="text-sm font-semibold text-slate-500 mb-10 flex items-center gap-2">
               <Calendar className="w-4 h-4" />
-              {new Date(readingBlog.createdAt).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' })} 
-              <span className="text-slate-300 mx-2">•</span> 
+              {new Date(readingBlog.createdAt).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' })}
+              <span className="text-slate-300 mx-2">•</span>
               Dipublikasikan oleh Tim IdeTech
             </p>
             <div className="prose prose-slate max-w-none prose-img:rounded-2xl prose-img:shadow-sm prose-headings:text-slate-800 prose-a:text-blue-600 hover:prose-a:text-blue-700 prose-h1:text-3xl prose-h2:text-2xl prose-h2:mt-10 prose-p:leading-relaxed">
@@ -8550,12 +8550,12 @@ function AdminUserVerificationGrid({
       <div className="flex flex-col md:flex-row gap-4 bg-black/20 backdrop-blur p-4 rounded-xl border border-white/10">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input 
-            type="text" 
-            placeholder="Cari nama atau email..." 
-            value={searchQuery} 
-            onChange={(e) => setSearchQuery(e.target.value)} 
-            className="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500" 
+          <input
+            type="text"
+            placeholder="Cari nama atau email..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
         <div className="flex gap-4">
@@ -8590,7 +8590,7 @@ function AdminUserVerificationGrid({
               </div>
               <span className="text-sm text-slate-400 font-mono">{item.email}</span>
             </div>
-            
+
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-slate-300">Status</label>
               <Select
@@ -8752,15 +8752,15 @@ function AdminClassManager({
             <p className="professional-card__hint">{filteredClasses.length} kelas sesuai kriteria.</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-            <input 
-              type="text" 
-              placeholder="Cari nama guru..." 
+            <input
+              type="text"
+              placeholder="Cari nama guru..."
               value={searchGuru}
               onChange={(e) => setSearchGuru(e.target.value)}
               className="border border-white/10 rounded-xl px-3 py-1.5 text-sm w-full sm:w-48 bg-[#27272a] text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <Select 
-              value={searchJenjang} 
+            <Select
+              value={searchJenjang}
               onChange={(e) => setSearchJenjang(e.target.value)}
               className="w-full sm:w-40 professional-select"
               style={{ minHeight: "34px", padding: "4px 8px" }}
@@ -8823,24 +8823,24 @@ function AdminClassCard({
   return (
     <Card className="professional-card p-4 flex flex-col gap-4">
       <div className="flex flex-col gap-1 border-b border-white/10 pb-3 mb-1">
-        <input 
-          className="w-full text-xl font-extrabold text-white bg-transparent border-transparent hover:bg-white/5 focus:bg-white/10 rounded-md px-2 py-1 transition-all outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 placeholder-slate-500" 
-          value={draft.name} 
-          placeholder="Nama Kelas (Misal: IPA 7A)" 
-          onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} 
+        <input
+          className="w-full text-xl font-extrabold text-white bg-transparent border-transparent hover:bg-white/5 focus:bg-white/10 rounded-md px-2 py-1 transition-all outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 placeholder-slate-500"
+          value={draft.name}
+          placeholder="Nama Kelas (Misal: IPA 7A)"
+          onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
         />
         <div className="flex items-center gap-1.5 px-2">
           <BookOpen className="h-4 w-4 text-blue-400 opacity-80" />
-          <input 
-            className="w-full text-sm font-semibold text-blue-400 bg-transparent border-transparent hover:bg-white/5 focus:bg-white/10 rounded-md px-1 py-0.5 transition-all outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 placeholder-blue-300/30" 
-            value={draft.subject} 
-            placeholder="Mata Pelajaran" 
-            aria-label={`Mapel ${kelas.name}`} 
-            onChange={(event) => setDraft((current) => ({ ...current, subject: event.target.value }))} 
+          <input
+            className="w-full text-sm font-semibold text-blue-400 bg-transparent border-transparent hover:bg-white/5 focus:bg-white/10 rounded-md px-1 py-0.5 transition-all outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 placeholder-blue-300/30"
+            value={draft.subject}
+            placeholder="Mata Pelajaran"
+            aria-label={`Mapel ${kelas.name}`}
+            onChange={(event) => setDraft((current) => ({ ...current, subject: event.target.value }))}
           />
         </div>
       </div>
-      
+
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium text-slate-300">Guru</label>
         <Select className="professional-select w-full" value={draft.teacherUserId} onChange={(event) => setDraft((current) => ({ ...current, teacherUserId: event.target.value }))}>
@@ -8918,11 +8918,11 @@ function AdminClassCard({
   );
 }
 
-function AdminSystemConfig({ 
+function AdminSystemConfig({
   access,
   globalBusy,
   onUpdateRolePermissions
-}: { 
+}: {
   access: AdminAccess | null;
   globalBusy: boolean;
   onUpdateRolePermissions: (role: RoleName, permissions: string[]) => void;
@@ -8931,7 +8931,7 @@ function AdminSystemConfig({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  
+
   const [adminEmails, setAdminEmails] = useState("");
   const [teacherDomains, setTeacherDomains] = useState("");
   const [studentDomains, setStudentDomains] = useState("");
@@ -8961,7 +8961,7 @@ function AdminSystemConfig({
     try {
       const payload = await api<{ settings: any[] }>("/api/admin/settings");
       setSettings(payload.settings);
-      
+
       const authRules = payload.settings.find(s => s.key === "google.role_rule");
       if (authRules && authRules.value) {
         try {
@@ -9142,7 +9142,7 @@ function AdminSystemConfig({
         <form onSubmit={saveAuthRules} className="flex flex-col gap-4">
           <label className="flex flex-col gap-1.5">
             <span className="text-sm font-semibold text-slate-300">Email Admin (Superuser)</span>
-            <textarea 
+            <textarea
               value={adminEmails}
               onChange={e => setAdminEmails(e.target.value)}
               className="idetech-input min-h-[100px] font-mono text-sm leading-relaxed bg-white/5 border-white/10 text-white placeholder-slate-500"
@@ -9151,7 +9151,7 @@ function AdminSystemConfig({
           </label>
           <label className="flex flex-col gap-1.5">
             <span className="text-sm font-semibold text-slate-300">Domain Email Guru</span>
-            <textarea 
+            <textarea
               value={teacherDomains}
               onChange={e => setTeacherDomains(e.target.value)}
               className="idetech-input min-h-[100px] font-mono text-sm leading-relaxed bg-white/5 border-white/10 text-white placeholder-slate-500"
@@ -9160,7 +9160,7 @@ function AdminSystemConfig({
           </label>
           <label className="flex flex-col gap-1.5">
             <span className="text-sm font-semibold text-slate-300">Domain Email Siswa</span>
-            <textarea 
+            <textarea
               value={studentDomains}
               onChange={e => setStudentDomains(e.target.value)}
               className="idetech-input min-h-[100px] font-mono text-sm leading-relaxed bg-white/5 border-white/10 text-white placeholder-slate-500"
@@ -9185,7 +9185,7 @@ function AdminSystemConfig({
         <form onSubmit={saveGeneralSettings} className="flex flex-col gap-4">
           <label className="flex flex-col gap-1.5">
             <span className="text-sm font-semibold text-slate-300">Nomor WhatsApp Admin</span>
-            <input 
+            <input
               type="text"
               value={adminContactWa}
               onChange={e => setAdminContactWa(e.target.value)}
@@ -9213,7 +9213,7 @@ function AdminSystemConfig({
           <div className="grid grid-cols-2 gap-4">
             <label className="flex flex-col gap-1.5">
               <span className="text-sm font-semibold text-slate-300">Batas Pesan (Pesan)</span>
-              <input 
+              <input
                 type="number"
                 min="0"
                 value={chatLimit}
@@ -9223,7 +9223,7 @@ function AdminSystemConfig({
             </label>
             <label className="flex flex-col gap-1.5">
               <span className="text-sm font-semibold text-slate-300">Waktu Reset (Jam)</span>
-              <input 
+              <input
                 type="number"
                 min="1"
                 value={chatWindowHours}
@@ -9251,7 +9251,7 @@ function AdminSystemConfig({
           <div className="flex flex-col md:flex-row gap-4">
             <label className="flex flex-col gap-1.5 w-full md:w-1/2">
               <span className="text-sm font-semibold text-slate-300">Batas Penggunaan Default per Hari</span>
-              <input 
+              <input
                 type="number"
                 min="0"
                 value={aiDefaultLimit}
@@ -9262,7 +9262,7 @@ function AdminSystemConfig({
           </div>
           <label className="flex flex-col gap-1.5">
             <span className="text-sm font-semibold text-slate-300">Pengecualian Guru (Overrides)</span>
-            <textarea 
+            <textarea
               value={aiOverridesText}
               onChange={e => setAiOverridesText(e.target.value)}
               className="idetech-input min-h-[100px] font-mono text-sm leading-relaxed bg-white/5 border-white/10 text-white placeholder-slate-500"
@@ -9415,10 +9415,10 @@ function FullScreenState({ text }: { text: string }) {
         <div className="relative flex items-center justify-center">
           <div className="absolute inset-0 rounded-3xl bg-blue-500/40 blur-2xl animate-pulse"></div>
           <div className="relative h-28 w-28 overflow-hidden rounded-3xl bg-slate-950 p-5 shadow-2xl ring-1 ring-white/10 transition-transform hover:scale-105">
-            <img 
-              src="/logoidetech.webp" 
-              alt="IdeTech Loading" 
-              className="h-full w-full object-contain animate-pulse" 
+            <img
+              src="/logoidetech.webp"
+              alt="IdeTech Loading"
+              className="h-full w-full object-contain animate-pulse"
               style={{ animationDuration: '2s' }}
             />
           </div>
@@ -9496,7 +9496,7 @@ function TeacherProfileView({ user }: { user: AuthUser }) {
             </p>
             <p className="font-black text-lg text-white">{user.schoolName || "-"}</p>
           </div>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div className="teacher-class-auto-id p-4 border border-[rgba(125,211,252,0.22)] bg-[rgba(5,29,83,0.42)] rounded-[18px]">
               <p className="text-[12px] font-bold text-[rgba(226,245,255,0.76)] mb-1.5 flex items-center gap-1.5">
@@ -9634,7 +9634,7 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || "Gagal menyimpan jurnal");
       }
-      
+
       localStorage.removeItem("teacher_journal_draft");
       setAlertMsg({ type: "success", text: "Jurnal berhasil disimpan!" });
     } catch (err) {
@@ -9665,7 +9665,7 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
             <p className="text-[10px] font-bold tracking-widest uppercase text-blue-200">{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
           </div>
         </div>
-        <button 
+        <button
           onClick={() => setView(view === "form" ? "history" : "form")}
           className="text-xs font-bold uppercase tracking-wider text-emerald-300 hover:text-emerald-200 bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-full transition-colors"
         >
@@ -9715,13 +9715,13 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
           {history.filter(h => h.showModal).map(selectedJournal => (
             <div key={`modal-${selectedJournal.id}`} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
               <div className="bg-slate-900 border border-white/10 rounded-3xl p-6 w-full max-w-md max-h-[80vh] overflow-y-auto shadow-2xl relative">
-                <button 
+                <button
                   onClick={() => setHistory(history.map(h => h.id === selectedJournal.id ? { ...h, showModal: false } : h))}
                   className="absolute top-4 right-4 h-8 w-8 rounded-full bg-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-colors"
                 >
                   <X size={16} />
                 </button>
-                
+
                 <h3 className="text-lg font-bold text-white mb-1">Detail Jurnal</h3>
                 <p className="text-xs text-blue-300 font-medium mb-6">
                   {new Date(selectedJournal.createdAt).toLocaleDateString('id-ID', { dateStyle: 'full' })}
@@ -9818,21 +9818,21 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
           <div className="flex flex-col gap-4">
             <div>
               <label className="text-[11px] font-bold text-emerald-300 mb-1.5 block">Momen/Metode yang berhasil:</label>
-              <textarea 
+              <textarea
                 value={reflection.success}
                 onChange={e => setReflection({...reflection, success: e.target.value})}
-                className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm font-medium text-white focus:ring-2 focus:ring-emerald-400 focus:outline-none placeholder-blue-100/30 transition-all" 
-                rows={2} 
+                className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm font-medium text-white focus:ring-2 focus:ring-emerald-400 focus:outline-none placeholder-blue-100/30 transition-all"
+                rows={2}
                 placeholder="Contoh: Kuis interaktif membuat anak lebih fokus..."
               />
             </div>
             <div>
               <label className="text-[11px] font-bold text-rose-300 mb-1.5 block">Kendala / Yang perlu diperbaiki:</label>
-              <textarea 
+              <textarea
                 value={reflection.improvement}
                 onChange={e => setReflection({...reflection, improvement: e.target.value})}
-                className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm font-medium text-white focus:ring-2 focus:ring-rose-400 focus:outline-none placeholder-blue-100/30 transition-all" 
-                rows={2} 
+                className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm font-medium text-white focus:ring-2 focus:ring-rose-400 focus:outline-none placeholder-blue-100/30 transition-all"
+                rows={2}
                 placeholder="Contoh: Manajemen waktu saat kerja kelompok..."
               />
             </div>
@@ -9841,18 +9841,18 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
 
         <section className="bg-white/10 backdrop-blur-xl rounded-2xl p-5 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.12)] relative z-20">
           <h3 className="text-[11px] font-bold text-blue-200 mb-4 uppercase tracking-wider">3. Catatan Insiden/Siswa</h3>
-          <textarea 
+          <textarea
             ref={textareaRef}
             value={anecdote}
             onChange={handleAnecdoteChange}
-            className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm font-medium text-white focus:ring-2 focus:ring-blue-400 focus:outline-none placeholder-blue-100/30 transition-all" 
-            rows={3} 
+            className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm font-medium text-white focus:ring-2 focus:ring-blue-400 focus:outline-none placeholder-blue-100/30 transition-all"
+            rows={3}
             placeholder="Ketik catatan... (misal: @Hafy sangat aktif di sesi tanya jawab @Budi perlu lebih fokus)"
           />
           {mentionQuery && mentionSuggestions.length > 0 && (
             <div className="absolute left-5 right-5 mt-1 max-h-48 overflow-y-auto bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-50 animate-in fade-in slide-in-from-top-2">
               {mentionSuggestions.map((student) => (
-                <div 
+                <div
                   key={student.id}
                   className="px-4 py-3 hover:bg-slate-700 cursor-pointer flex items-center gap-3 border-b border-slate-700/50 last:border-0 transition-colors"
                   onClick={() => {
@@ -9891,12 +9891,12 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
               </div>
             ))}
             <div className="flex items-center gap-2 mt-2">
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={newTodo}
                 onChange={e => setNewTodo(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && addTodo()}
-                placeholder="Tambah tugas baru..." 
+                placeholder="Tambah tugas baru..."
                 className="flex-1 bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-medium text-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 placeholder-blue-100/30 transition-all"
               />
               <button onClick={addTodo} className="bg-blue-500/80 text-white p-2.5 rounded-xl hover:bg-blue-500 transition-colors">
@@ -9923,14 +9923,14 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
         </section>
 
         <div className="grid grid-cols-2 gap-3 mt-2">
-          <button 
-            onClick={saveDraftLocal} 
+          <button
+            onClick={saveDraftLocal}
             className="w-full bg-slate-800 text-slate-300 font-bold text-sm py-4 rounded-xl border border-slate-700 hover:bg-slate-700 transition-all"
           >
             Simpan Draft Lokal
           </button>
-          <button 
-            onClick={() => setShowPreview(true)} 
+          <button
+            onClick={() => setShowPreview(true)}
             disabled={isSaving}
             className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 disabled:opacity-50 text-white font-bold text-sm py-4 rounded-xl shadow-[0_8px_16px_-4px_rgba(59,130,246,0.5)] hover:from-blue-400 hover:to-indigo-400 transition-all"
           >
@@ -9944,7 +9944,7 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
           <div className="bg-slate-900 border border-white/10 rounded-3xl p-6 w-full max-w-md max-h-[80vh] overflow-y-auto shadow-2xl relative">
             <h3 className="text-lg font-bold text-white mb-6">Pratinjau Draft Jurnal</h3>
-            
+
             <div className="space-y-5">
               {mood && (
                 <div>
@@ -10005,8 +10005,8 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
             <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full -mr-10 -mt-10 blur-3xl pointer-events-none"></div>
             <div className="flex flex-col items-center text-center gap-4 relative z-10">
               <div className={`w-16 h-16 rounded-full flex items-center justify-center border ${
-                alertMsg.type === 'success' 
-                  ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]' 
+                alertMsg.type === 'success'
+                  ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]'
                   : 'bg-rose-500/10 border-rose-400/30 text-rose-400 shadow-[0_0_15px_rgba(251,113,133,0.3)]'
               }`}>
                 {alertMsg.type === 'success' ? <CheckCircle2 className="w-8 h-8" /> : <XCircle className="w-8 h-8" />}
@@ -10017,7 +10017,7 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
                 </h3>
                 <p className="text-sm text-cyan-100/80 mt-2 font-medium whitespace-pre-line leading-relaxed">{alertMsg.text}</p>
               </div>
-              <button 
+              <button
                 onClick={closeAlert}
                 className="w-full py-3.5 mt-2 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-white font-black rounded-xl border border-yellow-300/30 shadow-[0_4px_14px_rgba(245,166,0,0.3)] transition-all active:scale-[0.98] cursor-pointer"
               >
@@ -10098,7 +10098,7 @@ function TeacherChatWidget({ isOpen, onClose }: { isOpen: boolean; onClose: () =
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userMessage, history })
       });
-      
+
       if (!response.ok) {
         const text = await response.text().catch(() => "");
         throw new Error(`HTTP ${response.status}: ${text.slice(0, 100)}`);
@@ -10320,13 +10320,13 @@ type StudentProgressReport = {
   className: string;
   joinedAt: string | null;
   materials: { id: string; title: string; type: string; progress: number; completedAt: string | null; dueDate: string | null; isLate: boolean }[];
-  quests: { 
-    id: string; 
-    title: string; 
-    type: string; 
-    progress: number; 
-    completedAt: string | null; 
-    dueDate: string | null; 
+  quests: {
+    id: string;
+    title: string;
+    type: string;
+    progress: number;
+    completedAt: string | null;
+    dueDate: string | null;
     isLate: boolean;
     earnedPoints?: number;
     maxPoints?: number;
@@ -10340,14 +10340,14 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
   const [currentMode, setCurrentMode] = useState<"radar" | "report" | "koreksi">(mode);
   const [data, setData] = useState<StudentProgressReport[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   const [searchQuery, setSearchQuery] = useState("");
   const [filterClass, setFilterClass] = useState("all");
   const [filterRisk, setFilterRisk] = useState("all");
 
   const filteredData = React.useMemo(() => {
     return data.filter(student => {
-      const matchSearch = student.studentName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      const matchSearch = student.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           student.studentEmail.toLowerCase().includes(searchQuery.toLowerCase());
       if (!matchSearch) return false;
       if (filterClass !== "all" && student.className !== filterClass) return false;
@@ -10391,18 +10391,18 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
 
   const exportToCSV = () => {
     if (filteredData.length === 0) return;
-    
+
     const headers = ["Nama Siswa", "Email", "Kelas", "Materi Selesai Tepat Waktu", "Materi Terlambat", "Materi Belum Selesai", "IdeQuest Selesai Tepat Waktu", "IdeQuest Terlambat", "IdeQuest Belum Selesai"];
-    
+
     const rows = filteredData.map(student => {
       const matCompleted = student.materials.filter(m => m.progress >= 100 && !m.isLate).length;
       const matLate = student.materials.filter(m => m.progress >= 100 && m.isLate).length;
       const matIncomplete = student.materials.filter(m => m.progress < 100).length;
-      
+
       const qCompleted = student.quests.filter(q => q.progress >= 100 && !q.isLate).length;
       const qLate = student.quests.filter(q => q.progress >= 100 && q.isLate).length;
       const qIncomplete = student.quests.filter(q => q.progress < 100).length;
-      
+
       return [
         `"${student.studentName}"`,
         `"${student.studentEmail}"`,
@@ -10415,7 +10415,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
         qIncomplete
       ].join(",");
     });
-    
+
     const csvContent = [headers.join(","), ...rows].join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -10430,15 +10430,15 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
   return (
     <div className="teacher-profile-card border-0 rounded-t-3xl min-h-[60vh] p-4 md:p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] relative mt-4 animate-in slide-in-from-bottom-10">
       <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-[rgba(226,245,255,0.3)] rounded-full" />
-      
+
       <div className="flex justify-between items-center mt-4 mb-2">
         <div>
           <h2 className="text-xl font-bold text-white">{currentMode === "report" ? "Laporan Hasil Belajar" : "Radar Pintar (Progres Siswa)"}</h2>
           <p className="text-sm text-[rgba(226,245,255,0.76)]">{currentMode === "report" ? "Rekapitulasi persentase penyelesaian tugas siswa" : "Analisis progres belajar, intervensi, dan risiko siswa"}</p>
         </div>
         <div className="flex items-center gap-2">
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={exportToCSV}
             disabled={loading || filteredData.length === 0}
             className="flex items-center gap-2 px-4 py-2 bg-amber-400/20 text-amber-400 hover:bg-amber-400/30 font-bold rounded-lg transition-colors border border-amber-400/30 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
@@ -10451,21 +10451,21 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
           </button>
         </div>
       </div>
-      
+
       <div className="flex gap-2 p-1 bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] rounded-lg mb-6 w-full overflow-x-auto hide-scrollbar">
-        <button 
+        <button
           onClick={() => setCurrentMode("radar")}
           className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${currentMode === "radar" ? "bg-[rgba(5,29,83,0.8)] border border-[rgba(125,211,252,0.22)] text-amber-400 shadow-sm" : "text-[rgba(226,245,255,0.76)] hover:text-white hover:bg-white/5"}`}
         >
           Radar Pintar
         </button>
-        <button 
+        <button
           onClick={() => setCurrentMode("report")}
           className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${currentMode === "report" ? "bg-[rgba(5,29,83,0.8)] border border-[rgba(125,211,252,0.22)] text-amber-400 shadow-sm" : "text-[rgba(226,245,255,0.76)] hover:text-white hover:bg-white/5"}`}
         >
           Laporan Hasil Belajar
         </button>
-        <button 
+        <button
           onClick={() => setCurrentMode("koreksi")}
           className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${currentMode === "koreksi" ? "bg-[rgba(5,29,83,0.8)] border border-[rgba(125,211,252,0.22)] text-amber-400 shadow-sm" : "text-[rgba(226,245,255,0.76)] hover:text-white hover:bg-white/5"}`}
         >
@@ -10477,24 +10477,24 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
         <div className="flex flex-col sm:flex-row gap-3 mb-6 bg-[rgba(5,29,83,0.42)] p-3 rounded-xl border border-[rgba(125,211,252,0.22)] animate-in fade-in slide-in-from-top-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgba(226,245,255,0.76)]" />
-            <input 
-              type="text" 
-              placeholder="Cari nama atau email siswa..." 
+            <input
+              type="text"
+              placeholder="Cari nama atau email siswa..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-[#0a1f5c] border border-[rgba(125,211,252,0.22)] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition-all placeholder:text-[rgba(226,245,255,0.5)]"
             />
           </div>
-          <select 
-            value={filterClass} 
+          <select
+            value={filterClass}
             onChange={e => setFilterClass(e.target.value)}
             className="px-3 py-2 bg-[#0a1f5c] border border-[rgba(125,211,252,0.22)] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
           >
             <option value="all">Semua Kelas</option>
             {uniqueClasses.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-          <select 
-            value={filterRisk} 
+          <select
+            value={filterRisk}
             onChange={e => setFilterRisk(e.target.value)}
             className="px-3 py-2 bg-[#0a1f5c] border border-[rgba(125,211,252,0.22)] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
           >
@@ -10598,7 +10598,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
           {filteredData.map(student => {
             const completedQuests = student.quests.filter(q => q.progress >= 100);
             if (completedQuests.length === 0) return null;
-            
+
             return (
               <div key={student.studentId} className="bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] rounded-xl p-4 shadow-sm hover:border-amber-400/50 transition-all">
                 <div className="flex items-center gap-3 mb-4 border-b border-[rgba(125,211,252,0.22)] pb-3">
@@ -10614,7 +10614,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
                     <div className="text-xs text-[rgba(226,245,255,0.76)]">{student.className}</div>
                   </div>
                 </div>
-                
+
                 <div className="flex flex-col gap-4">
                   {completedQuests.map(quest => (
                     <div key={quest.id} className="bg-[rgba(5,29,83,0.42)] p-4 rounded-lg border border-[rgba(125,211,252,0.22)] shadow-sm">
@@ -10627,7 +10627,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
                           <span className="text-sm font-bold text-amber-400">{quest.earnedPoints} / {quest.maxPoints} Poin</span>
                         </div>
                       </div>
-                      
+
                       <div className="mt-3 space-y-3">
                         {quest.submissionText && (
                           <div className="text-sm text-white bg-[#0a1f5c] p-3 rounded border border-[rgba(125,211,252,0.22)] whitespace-pre-wrap">
@@ -10646,7 +10646,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
                           <p className="text-xs text-[rgba(226,245,255,0.76)] italic">Diselesaikan tanpa lampiran (versi lawas)</p>
                         )}
                       </div>
-                      
+
                       <form className="mt-4 flex flex-col gap-2 border-t border-[rgba(125,211,252,0.22)] pt-3" onSubmit={async (e) => {
                         e.preventDefault();
                         const formData = new FormData(e.currentTarget);
@@ -10688,7 +10688,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
             const completed = allTasks.filter(t => t.progress >= 100);
             const lateCompleted = completed.filter(t => t.isLate);
             const onTimeCompleted = completed.filter(t => !t.isLate);
-            
+
             return (
               <div key={`${student.studentId}-${student.classId}`} className="bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] rounded-2xl p-4 md:p-5 shadow-sm hover:border-amber-400/50 transition-all">
                 <div className="flex flex-col gap-3 mb-4">
@@ -10758,7 +10758,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
                       {student.materials.length === 0 && <p className="text-sm text-[rgba(226,245,255,0.76)] italic p-2">Belum ada materi</p>}
                     </div>
                   </details>
-                  
+
                   <details className="group">
                     <summary className="flex justify-between items-center cursor-pointer text-xs font-bold text-amber-400 uppercase tracking-wider bg-[#0a1f5c] p-3 rounded-xl border border-[rgba(125,211,252,0.22)] shadow-sm hover:bg-[rgba(5,29,83,0.6)] transition-colors list-none [&::-webkit-details-marker]:hidden">
                       <div className="flex items-center gap-2">
@@ -10874,6 +10874,7 @@ function WelcomeGreetingModal({
   teacherHasClasses?: boolean;
 }) {
   const role = user.activeRole as "teacher" | "student" | "parent";
+  const compact = role === "teacher";
   const displayName = user.fullName?.split(" ")[0] || user.name?.split(" ")[0] || "Kamu";
   const now = new Date();
 
@@ -10974,13 +10975,13 @@ function WelcomeGreetingModal({
 
       {/* Modal card */}
       <div
-        className={`relative w-full max-w-md welcome-greeting-card bg-gradient-to-br ${roleConfig.cardBg} border border-white/10 rounded-2xl md:rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col`}
+        className={`relative w-full ${compact ? "max-w-sm" : "max-w-md"} welcome-greeting-card bg-gradient-to-br ${roleConfig.cardBg} border border-white/10 ${compact ? "rounded-xl md:rounded-2xl" : "rounded-2xl md:rounded-3xl"} shadow-2xl overflow-hidden max-h-[90vh] flex flex-col`}
         style={{ boxShadow: `0 0 80px ${roleConfig.glow}, 0 25px 50px rgba(0,0,0,0.6)` }}
       >
         {/* Gradient top bar */}
-        <div className={`h-1.5 w-full bg-gradient-to-r ${roleConfig.accent} flex-shrink-0`} />
+        <div className={`${compact ? "h-1" : "h-1.5"} w-full bg-gradient-to-r ${roleConfig.accent} flex-shrink-0`} />
 
-        <div className="p-5 md:p-7 overflow-y-auto flex-1 scrollbar-thin">
+        <div className={`${compact ? "p-4 md:p-5" : "p-5 md:p-7"} overflow-y-auto flex-1 scrollbar-thin`}>
           {/* Close button */}
           <button
             onClick={onClose}
@@ -10991,133 +10992,114 @@ function WelcomeGreetingModal({
           </button>
 
           {/* Emoji + greeting */}
-          <div className="flex flex-col items-center text-center mb-4 md:mb-6">
+          <div className={`flex flex-col items-center text-center ${compact ? "mb-3 md:mb-4" : "mb-4 md:mb-6"}`}>
             <div
-              className="text-4xl md:text-6xl mb-2 md:mb-4 welcome-emoji-bounce"
+              className={`${compact ? "text-3xl md:text-4xl mb-1.5 md:mb-2" : "text-4xl md:text-6xl mb-2 md:mb-4"} welcome-emoji-bounce`}
               role="img"
               aria-label="emoji"
             >
               {roleConfig.emoji}
             </div>
 
-            <span className={`text-[11px] md:text-xs font-bold px-3 py-1 rounded-full mb-2 md:mb-3 ${roleConfig.badgeColor}`}>
+            <span className={`${compact ? "text-[10px] px-2.5 py-0.5 mb-1.5 md:mb-2" : "text-[11px] md:text-xs px-3 py-1 mb-2 md:mb-3"} font-bold rounded-full ${roleConfig.badgeColor}`}>
               {roleConfig.badge}
             </span>
 
-            <h2 className="text-xl md:text-2xl font-black text-white mb-1 welcome-title-slide">
+            <h2 className={`${compact ? "text-lg md:text-xl" : "text-xl md:text-2xl"} font-black text-white mb-1 welcome-title-slide`}>
               {greeting},
             </h2>
-            <h1 className={`text-2xl md:text-3xl font-black bg-gradient-to-r ${roleConfig.accent} bg-clip-text text-transparent welcome-name-slide leading-tight`}>
+            <h1 className={`${compact ? "text-xl md:text-2xl" : "text-2xl md:text-3xl"} font-black bg-gradient-to-r ${roleConfig.accent} bg-clip-text text-transparent welcome-name-slide leading-tight`}>
               {displayName}!
             </h1>
 
             {/* Tanggal */}
-            <div className="flex items-center gap-2 mt-2 md:mt-3 text-slate-400 text-xs md:text-sm">
-              <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4" />
+            <div className={`flex items-center gap-2 ${compact ? "mt-1.5 md:mt-2" : "mt-2 md:mt-3"} text-slate-400 ${compact ? "text-[10px] md:text-xs" : "text-xs md:text-sm"}`}>
+              <Calendar className={`${compact ? "w-3 h-3 md:w-3.5 md:h-3.5" : "w-3.5 h-3.5 md:w-4 md:h-4"}`} />
               <span>{dayStr}</span>
             </div>
           </div>
 
           {/* Divider */}
-          <div className={`h-px w-full bg-gradient-to-r ${roleConfig.accent} opacity-30 mb-3 md:mb-5`} />
+          <div className={`h-px w-full bg-gradient-to-r ${roleConfig.accent} opacity-30 ${compact ? "mb-2 md:mb-3" : "mb-3 md:mb-5"}`} />
 
           {/* Quote */}
           {quote ? (
-            <div className="bg-white/5 rounded-xl md:rounded-2xl p-3 md:p-4 mb-4 md:mb-6 text-center border border-white/8 welcome-quote-fade">
-              <p className="text-slate-200 text-xs md:text-sm leading-relaxed italic line-clamp-2">
+            <div className={`bg-white/5 ${compact ? "rounded-lg md:rounded-xl p-2.5 md:p-3 mb-3 md:mb-4" : "rounded-xl md:rounded-2xl p-3 md:p-4 mb-4 md:mb-6"} text-center border border-white/8 welcome-quote-fade`}>
+              <p className={`text-slate-200 ${compact ? "text-[11px] md:text-xs" : "text-xs md:text-sm"} leading-relaxed italic line-clamp-2`}>
                 &ldquo;{quote.text}&rdquo;
               </p>
               {quote.author && (
-                <p className={`text-[11px] md:text-xs mt-1.5 md:mt-2 font-semibold bg-gradient-to-r ${roleConfig.accent} bg-clip-text text-transparent`}>
+                <p className={`${compact ? "text-[10px] mt-1" : "text-[11px] md:text-xs mt-1.5 md:mt-2"} font-semibold bg-gradient-to-r ${roleConfig.accent} bg-clip-text text-transparent`}>
                   — {quote.author}
                 </p>
               )}
             </div>
           ) : (
-            <div className="mb-4 md:mb-6" />
+            <div className={`${compact ? "mb-3 md:mb-4" : "mb-4 md:mb-6"}`} />
           )}
 
           {/* AI Quota Information for Teachers/Admins */}
           {role === "teacher" && aiQuota && (
-            <div className="bg-indigo-950/40 border border-indigo-500/20 rounded-xl md:rounded-2xl p-3 md:p-4 mb-4 md:mb-6 text-center welcome-quote-fade flex flex-col gap-1.5 md:gap-2">
+            <div className={`bg-indigo-950/40 border border-indigo-500/20 ${compact ? "rounded-lg md:rounded-xl p-2.5 md:p-3 mb-3 md:mb-4" : "rounded-xl md:rounded-2xl p-3 md:p-4 mb-4 md:mb-6"} text-center welcome-quote-fade flex flex-col ${compact ? "gap-1" : "gap-1.5 md:gap-2"}`}>
               <div className="flex items-center justify-center gap-1.5 md:gap-2">
                 <span className="text-indigo-400 text-sm md:text-base">⚡</span>
-                <h4 className="text-[10px] md:text-xs font-extrabold tracking-wider uppercase text-indigo-300">
-                  Kuota AI Generator Anda
+                <h4 className={`${compact ? "text-[10px]" : "text-[10px] md:text-xs"} font-extrabold tracking-wider uppercase text-indigo-300`}>
+                  Kuota AI
                 </h4>
               </div>
-              <p className="text-xl md:text-2xl font-black text-white">
-                {aiQuota.remaining} <span className="text-[11px] md:text-xs font-normal text-slate-400">dari {aiQuota.limit} tersedia</span>
+              <p className={`${compact ? "text-lg md:text-xl" : "text-xl md:text-2xl"} font-black text-white`}>
+                {aiQuota.remaining} <span className={`${compact ? "text-[10px]" : "text-[11px] md:text-xs"} font-normal text-slate-400`}>/ {aiQuota.limit}</span>
               </p>
               {aiQuota.limit === 3 ? (
-                <p className="text-[10px] text-indigo-300 bg-indigo-500/10 py-1 px-2 rounded-lg border border-indigo-500/20 inline-block self-center">
-                  🎉 Hari Pertama: Kuota Ekstra 3x untuk Eksplorasi!
+                <p className={`${compact ? "text-[9px]" : "text-[10px]"} text-indigo-300 bg-indigo-500/10 py-0.5 px-2 rounded border border-indigo-500/20 inline-block self-center`}>
+                  🎉 Hari pertama: kuota ekstra
                 </p>
               ) : aiQuota.resetAt ? (
-                <p className="text-[10px] text-indigo-300 bg-indigo-500/10 py-1 px-2 rounded-lg border border-indigo-500/20 inline-block self-center">
-                  🔄 Reset otomatis pukul {new Date(aiQuota.resetAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                <p className={`${compact ? "text-[9px]" : "text-[10px]"} text-indigo-300 bg-indigo-500/10 py-0.5 px-2 rounded border border-indigo-500/20 inline-block self-center`}>
+                  🔄 Reset {new Date(aiQuota.resetAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
                 </p>
               ) : (
-                <p className="text-[10px] text-slate-400">
-                  Kuota direset otomatis setiap 3 jam.
+                <p className={`${compact ? "text-[9px]" : "text-[10px]"} text-slate-400`}>
+                  Reset otomatis tiap 3 jam
                 </p>
               )}
               <a
                 href={`https://wa.me/${adminContact}?text=Halo%20Admin%20IdeTech%2C%20saya%20ingin%20membeli%20tambahan%20kuota%20AI%20Generator.`}
                 target="_blank"
                 rel="noreferrer"
-                className="text-[10px] md:text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors flex items-center justify-center gap-1"
+                className={`${compact ? "text-[9px] md:text-[10px]" : "text-[10px] md:text-[11px]"} font-bold text-emerald-400 hover:text-emerald-300 transition-colors flex items-center justify-center gap-1`}
               >
-                💬 Hubungi Admin untuk kuota tambahan (berbayar)
+                💬 Beli kuota tambahan
               </a>
             </div>
           )}
 
           {role === "teacher" && !teacherHasClasses && (
-            <div className="mb-4 md:mb-6 p-3 md:p-4 bg-white/[0.03] border border-dashed border-amber-400/30 rounded-xl md:rounded-2xl">
-              <h4 className="text-[11px] md:text-xs font-extrabold tracking-wider uppercase text-amber-300 mb-2 md:mb-3">
-                🎯 Mulai dari sini, Guru!
+            <div className={`${compact ? "mb-3 md:mb-4 p-2.5 md:p-3 rounded-lg md:rounded-xl" : "mb-4 md:mb-6 p-3 md:p-4 rounded-xl md:rounded-2xl"} bg-white/[0.03] border border-dashed border-amber-400/30`}>
+              <h4 className={`${compact ? "text-[10px] mb-1.5 md:mb-2" : "text-[11px] md:text-xs mb-2 md:mb-3"} font-extrabold tracking-wider uppercase text-amber-300`}>
+                🎯 Mulai dari sini
               </h4>
-              <div className="flex flex-col gap-1.5 md:gap-2">
-                <a
-                  href="#"
-                  onClick={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent("idetech:open-semester")); onClose(); }}
-                  className="flex items-center gap-2 px-2.5 md:px-3 py-1.5 md:py-2 bg-white/[0.04] hover:bg-amber-400/10 rounded-lg md:rounded-xl border border-white/5 hover:border-amber-400/30 transition-all text-[11px] md:text-xs"
-                >
-                  <span className="w-5 h-5 md:w-6 md:h-6 flex items-center justify-center rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px] flex-shrink-0">1</span>
-                  <span className="flex-1 text-slate-200 font-medium">Buat Program Semester</span>
-                  <span className="text-amber-300">→</span>
-                </a>
-                <a
-                  href="#"
-                  onClick={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent("idetech:open-rpp")); onClose(); }}
-                  className="flex items-center gap-2 px-2.5 md:px-3 py-1.5 md:py-2 bg-white/[0.04] hover:bg-amber-400/10 rounded-lg md:rounded-xl border border-white/5 hover:border-amber-400/30 transition-all text-[11px] md:text-xs"
-                >
-                  <span className="w-5 h-5 md:w-6 md:h-6 flex items-center justify-center rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px] flex-shrink-0">2</span>
-                  <span className="flex-1 text-slate-200 font-medium">Buat RPP per Pertemuan</span>
-                  <span className="text-amber-300">→</span>
-                </a>
-                <a
-                  href="#"
-                  onClick={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent("idetech:open-ide-studio")); onClose(); }}
-                  className="flex items-center gap-2 px-2.5 md:px-3 py-1.5 md:py-2 bg-white/[0.04] hover:bg-amber-400/10 rounded-lg md:rounded-xl border border-white/5 hover:border-amber-400/30 transition-all text-[11px] md:text-xs"
-                >
-                  <span className="w-5 h-5 md:w-6 md:h-6 flex items-center justify-center rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px] flex-shrink-0">3</span>
-                  <span className="flex-1 text-slate-200 font-medium">Buat Materi Pembelajaran (IdeStudio)</span>
-                  <span className="text-amber-300">→</span>
-                </a>
-                <a
-                  href="#"
-                  onClick={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent("idetech:open-ide-quest")); onClose(); }}
-                  className="flex items-center gap-2 px-2.5 md:px-3 py-1.5 md:py-2 bg-white/[0.04] hover:bg-amber-400/10 rounded-lg md:rounded-xl border border-white/5 hover:border-amber-400/30 transition-all text-[11px] md:text-xs"
-                >
-                  <span className="w-5 h-5 md:w-6 md:h-6 flex items-center justify-center rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px] flex-shrink-0">4</span>
-                  <span className="flex-1 text-slate-200 font-medium">Buat IdeQuest (Kuis/Tugas Belajar)</span>
-                  <span className="text-amber-300">→</span>
-                </a>
+              <div className={`flex flex-col ${compact ? "gap-1 md:gap-1.5" : "gap-1.5 md:gap-2"}`}>
+                {[
+                  { event: "idetech:open-semester", label: "Program Semester" },
+                  { event: "idetech:open-rpp", label: "RPP per Pertemuan" },
+                  { event: "idetech:open-ide-studio", label: "Materi (IdeStudio)" },
+                  { event: "idetech:open-ide-quest", label: "IdeQuest (Kuis/Tugas)" },
+                ].map((item, idx) => (
+                  <a
+                    key={item.event}
+                    href="#"
+                    onClick={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent(item.event)); onClose(); }}
+                    className={`flex items-center gap-2 ${compact ? "px-2 py-1 rounded-md md:rounded-lg" : "px-2.5 md:px-3 py-1.5 md:py-2 rounded-lg md:rounded-xl"} bg-white/[0.04] hover:bg-amber-400/10 border border-white/5 hover:border-amber-400/30 transition-all ${compact ? "text-[10px] md:text-xs" : "text-[11px] md:text-xs"}`}
+                  >
+                    <span className={`${compact ? "w-4 h-4 text-[9px]" : "w-5 h-5 md:w-6 md:h-6 text-[10px]"} flex items-center justify-center rounded-full bg-amber-500/20 text-amber-300 font-bold flex-shrink-0`}>{idx + 1}</span>
+                    <span className="flex-1 text-slate-200 font-medium">{item.label}</span>
+                    <span className="text-amber-300">→</span>
+                  </a>
+                ))}
               </div>
-              <p className="text-[10px] text-slate-500 mt-1.5 md:mt-2 text-center">
-                Ikuti langkah-langkah ini untuk memulai pengajaran!
+              <p className={`${compact ? "text-[9px] mt-1 md:mt-1.5" : "text-[10px] mt-1.5 md:mt-2"} text-slate-500 text-center`}>
+                Ikuti langkah di atas untuk memulai
               </p>
             </div>
           )}
@@ -11126,7 +11108,7 @@ function WelcomeGreetingModal({
           <button
             id="welcome-greeting-start-btn"
             onClick={onClose}
-            className={`w-full py-3 md:py-3.5 px-6 rounded-xl md:rounded-2xl font-bold text-white text-sm md:text-base bg-gradient-to-r ${roleConfig.btnGradient} transition-all shadow-lg hover:shadow-xl active:scale-95 welcome-btn-pulse`}
+            className={`w-full ${compact ? "py-2.5 md:py-3 px-4 rounded-lg md:rounded-xl text-xs md:text-sm" : "py-3 md:py-3.5 px-6 rounded-xl md:rounded-2xl text-sm md:text-base"} font-bold text-white bg-gradient-to-r ${roleConfig.btnGradient} transition-all shadow-lg hover:shadow-xl active:scale-95 welcome-btn-pulse`}
           >
             {roleConfig.btnText} →
           </button>
@@ -11298,7 +11280,7 @@ function AdvancedAnnouncements() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [type, setType] = useState("info");
-  
+
   const load = async () => {
     try {
       const res = await api<{ announcements: any[] }>("/api/admin/announcements");
@@ -11309,7 +11291,7 @@ function AdvancedAnnouncements() {
       setLoading(false);
     }
   };
-  
+
   useEffect(() => { load(); }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -11328,7 +11310,7 @@ function AdvancedAnnouncements() {
       alert("Gagal menambahkan pengumuman");
     }
   };
-  
+
   const handleDelete = async (id: string) => {
     if (!confirm("Hapus pengumuman ini?")) return;
     try {
@@ -11354,9 +11336,9 @@ function AdvancedAnnouncements() {
           <button type="submit" disabled={!title || !content} className="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 disabled:opacity-50">Kirim Pengumuman</button>
         </div>
       </form>
-      
+
       <div className="space-y-3">
-        {loading ? <div className="text-center text-slate-500 py-4">Memuat pengumuman...</div> : 
+        {loading ? <div className="text-center text-slate-500 py-4">Memuat pengumuman...</div> :
           data.length === 0 ? <div className="text-center text-slate-500 py-4 italic">Belum ada pengumuman</div> :
           data.map(a => (
             <div key={a.id} className={`p-4 rounded-xl border ${a.type === 'warning' ? 'bg-orange-950/30 border-orange-500/30' : a.type === 'success' ? 'bg-green-950/30 border-green-500/30' : 'bg-blue-950/30 border-blue-500/30'}`}>
@@ -11380,7 +11362,7 @@ function AdvancedMasterData() {
   const [subjects, setSubjects] = useState<any[]>([]);
   const [grades, setGrades] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   const [newSubj, setNewSubj] = useState("");
   const [newGrade, setNewGrade] = useState("");
 
@@ -11395,7 +11377,7 @@ function AdvancedMasterData() {
       setLoading(false);
     }
   };
-  
+
   useEffect(() => { load(); }, []);
 
   const handleAdd = async (type: "subjects" | "grades", name: string, setName: any) => {
@@ -11440,7 +11422,7 @@ function AdvancedMasterData() {
           ))}
         </div>
       </div>
-      
+
       <div className="border border-white/10 rounded-xl overflow-hidden bg-black/20">
         <div className="bg-white/5 p-4 border-b border-white/10">
           <h3 className="font-bold text-slate-200">Master Tingkatan Kelas</h3>
@@ -11770,15 +11752,15 @@ function AdminParentStudents({ users }: { users: AdminUser[] }) {
           <h2 className="professional-card__title">Tambahkan Relasi</h2>
           <Users className="h-5 w-5 text-slate-400" />
         </div>
-        
+
         {error ? <ErrorBanner message={error} /> : null}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <label className="flex flex-col gap-1.5">
               <span className="text-sm font-semibold text-slate-300">Akun Orang Tua</span>
-              <Select 
-                value={form.parentUserId} 
+              <Select
+                value={form.parentUserId}
                 onChange={e => setForm(current => ({ ...current, parentUserId: e.target.value }))}
                 className="w-full professional-select"
                 disabled={busy}
@@ -11791,8 +11773,8 @@ function AdminParentStudents({ users }: { users: AdminUser[] }) {
             </label>
             <label className="flex flex-col gap-1.5">
               <span className="text-sm font-semibold text-slate-300">Akun Siswa</span>
-              <Select 
-                value={form.studentUserId} 
+              <Select
+                value={form.studentUserId}
                 onChange={e => setForm(current => ({ ...current, studentUserId: e.target.value }))}
                 className="w-full professional-select"
                 disabled={busy}
@@ -11805,7 +11787,7 @@ function AdminParentStudents({ users }: { users: AdminUser[] }) {
             </label>
             <label className="flex flex-col gap-1.5">
               <span className="text-sm font-semibold text-slate-300">Hubungan</span>
-              <input 
+              <input
                 type="text"
                 placeholder="Ayah / Ibu / Wali"
                 value={form.relationship}
@@ -11815,9 +11797,9 @@ function AdminParentStudents({ users }: { users: AdminUser[] }) {
               />
             </label>
           </div>
-          <button 
-            type="submit" 
-            disabled={busy || !form.parentUserId || !form.studentUserId || !form.relationship} 
+          <button
+            type="submit"
+            disabled={busy || !form.parentUserId || !form.studentUserId || !form.relationship}
             className="mt-2 self-start rounded-xl bg-blue-600 px-6 py-2.5 font-bold text-white shadow-sm hover:bg-blue-700 active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition-all"
           >
             {busy ? "Menyimpan..." : "Tambahkan"}
@@ -11868,7 +11850,7 @@ function AdminParentStudents({ users }: { users: AdminUser[] }) {
                     </span>
                   </td>
                   <td className="p-4 text-center">
-                    <button 
+                    <button
                       onClick={() => handleDelete(item.id)}
                       disabled={busy}
                       className="text-red-400 hover:text-red-300 hover:bg-red-500/20 p-2 rounded-md transition-colors"
@@ -11991,7 +11973,7 @@ function AdminBlogManager() {
             <label className="block text-sm font-medium mb-1">Kutipan Pendek (Excerpt)</label>
             <textarea className="idetech-input w-full bg-white/5 border-white/10 text-white placeholder-slate-500" rows={2} value={form.excerpt} onChange={e => setForm({...form, excerpt: e.target.value})} placeholder="Ringkasan singkat untuk halaman depan..." />
           </div>
-          
+
           <div className="p-4 bg-blue-950/30 border border-blue-500/30 rounded-lg">
             <h4 className="font-semibold text-blue-400 flex items-center gap-2 mb-2"><Wand2 className="w-4 h-4"/> AI Writer</h4>
             <div className="flex gap-2">
@@ -12007,7 +11989,7 @@ function AdminBlogManager() {
             <label className="block text-sm font-medium mb-1">Konten (Markdown)</label>
             <textarea required className="idetech-input w-full font-mono text-sm bg-white/5 border-white/10 text-white placeholder-slate-500" rows={12} value={form.content} onChange={e => setForm({...form, content: e.target.value})} placeholder="# Judul Besar&#10;&#10;Isi tulisan..." />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium mb-1">Status Publikasi</label>
             <select className="idetech-input w-full bg-white/5 border-white/10 text-white" value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
@@ -12015,7 +11997,7 @@ function AdminBlogManager() {
               <option value="published">Publikasi Terbuka</option>
             </select>
           </div>
-          
+
           <button type="submit" disabled={busy} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors w-full flex justify-center">Simpan Artikel</button>
         </form>
       </div>
@@ -12033,7 +12015,7 @@ function AdminBlogManager() {
       </div>
 
       <ErrorAlert />
-      
+
       {busy && blogs.length === 0 ? (
         <p className="text-center text-slate-500">Memuat data blog...</p>
       ) : blogs.length === 0 ? (
