@@ -10441,8 +10441,8 @@ type StudentProgressReport = {
   }[];
 };
 
-function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mode?: "radar" | "report" | "koreksi" }) {
-  const [currentMode, setCurrentMode] = useState<"radar" | "report" | "koreksi">(mode);
+function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mode?: "radar" | "report" | "koreksi" | "peringkat" }) {
+  const [currentMode, setCurrentMode] = useState<"radar" | "report" | "koreksi" | "peringkat">(mode);
   const [data, setData] = useState<StudentProgressReport[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -10453,7 +10453,15 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [currentPage, setCurrentPage] = useState(1);
   const [editingQuestId, setEditingQuestId] = useState<string | null>(null);
+  const [rankingClassId, setRankingClassId] = useState<string>("");
+  const [rankingMetric, setRankingMetric] = useState<"points" | "progress" | "completion">("points");
   const itemsPerPage = 5;
+
+  const uniqueClassIds = React.useMemo(() => {
+    const obj: Record<string, string> = {};
+    data.forEach(s => { if (s.classId) obj[s.classId] = s.className; });
+    return Object.entries(obj).map(([id, name]) => ({ id, name }));
+  }, [data]);
 
   const filteredData = React.useMemo(() => {
     return data.filter(student => {
@@ -10508,6 +10516,36 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
   const paginatedData = sortedAndPaginatedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const uniqueClasses = Array.from(new Set(data.map(s => s.className)));
+
+  // Peringkat per kelas (hanya quest yang sudah dinilai / earnedPoints tersedia)
+  const rankingByClass = React.useMemo(() => {
+    const computeMetric = (student: StudentProgressReport, metric: "points" | "progress" | "completion") => {
+      const allTasks = [...student.materials, ...student.quests];
+      if (metric === "points") {
+        return student.quests
+          .filter(q => q.progress >= 100 && typeof q.earnedPoints === "number")
+          .reduce((sum, q) => sum + (q.earnedPoints ?? 0), 0);
+      }
+      if (metric === "progress") {
+        if (allTasks.length === 0) return 0;
+        return allTasks.reduce((sum, t) => sum + (t.progress ?? 0), 0) / allTasks.length;
+      }
+      return allTasks.filter(t => t.progress >= 100).length;
+    };
+    const obj: Record<string, Record<string, number>> = {};
+    data.forEach(student => {
+      if (!student.classId) return;
+      if (!obj[student.classId]) obj[student.classId] = {};
+      obj[student.classId][student.studentId] = computeMetric(student, "points");
+    });
+    Object.values(obj).forEach(students => {
+      const sorted = Object.entries(students).sort((a, b) => Number(b[1]) - Number(a[1]));
+      sorted.forEach(([sid], idx) => {
+        students[sid] = idx + 1;
+      });
+    });
+    return obj;
+  }, [data]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -10583,8 +10621,15 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
 
       <div className="flex justify-between items-center mt-4 mb-2">
         <div>
-          <h2 className="text-xl font-bold text-white">{currentMode === "report" ? "Laporan Hasil Belajar" : "Radar Pintar (Progres Siswa)"}</h2>
-          <p className="text-sm text-[rgba(226,245,255,0.76)]">{currentMode === "report" ? "Rekapitulasi persentase penyelesaian tugas siswa" : "Analisis progres belajar, intervensi, dan risiko siswa"}</p>
+          <h2 className="text-xl font-bold text-white">
+            {currentMode === "report" ? "Laporan Hasil Belajar" : currentMode === "peringkat" ? "Peringkat Siswa" : currentMode === "koreksi" ? "Koreksi IdeQuest" : "Radar Pintar (Progres Siswa)"}
+          </h2>
+          <p className="text-sm text-[rgba(226,245,255,0.76)]">
+            {currentMode === "report" ? "Rekapitulasi persentase penyelesaian tugas siswa"
+              : currentMode === "peringkat" ? "Lihat peringkat siswa per kelas berdasarkan poin dan progres"
+              : currentMode === "koreksi" ? "Beri nilai dan umpan balik untuk IdeQuest yang sudah dikumpulkan"
+              : "Analisis progres belajar, intervensi, dan risiko siswa"}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -10620,6 +10665,12 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
           className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${currentMode === "koreksi" ? "bg-[rgba(5,29,83,0.8)] border border-[rgba(125,211,252,0.22)] text-amber-400 shadow-sm" : "text-[rgba(226,245,255,0.76)] hover:text-white hover:bg-white/5"}`}
         >
           Koreksi IdeQuest
+        </button>
+        <button
+          onClick={() => setCurrentMode("peringkat")}
+          className={`hidden sm:inline-flex px-4 py-2 text-sm font-semibold rounded-md transition-colors ${currentMode === "peringkat" ? "bg-[rgba(5,29,83,0.8)] border border-[rgba(125,211,252,0.22)] text-amber-400 shadow-sm" : "text-[rgba(226,245,255,0.76)] hover:text-white hover:bg-white/5"}`}
+        >
+          Peringkat
         </button>
       </div>
 
@@ -10692,6 +10743,154 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
           </div>
           <p className="text-white">Belum ada siswa di kelas Anda.</p>
         </div>
+      ) : currentMode === "peringkat" ? (
+        (() => {
+          const effectiveClassId = rankingClassId || uniqueClassIds[0]?.id || "";
+          const classStudents = data.filter(s => s.classId === effectiveClassId);
+
+          const computeMetric = (student: StudentProgressReport, metric: "points" | "progress" | "completion") => {
+            const allTasks = [...student.materials, ...student.quests];
+            if (metric === "points") {
+              return student.quests
+                .filter(q => q.progress >= 100 && typeof q.earnedPoints === "number")
+                .reduce((sum, q) => sum + (q.earnedPoints ?? 0), 0);
+            }
+            if (metric === "progress") {
+              if (allTasks.length === 0) return 0;
+              return allTasks.reduce((sum, t) => sum + (t.progress ?? 0), 0) / allTasks.length;
+            }
+            return allTasks.filter(t => t.progress >= 100).length;
+          };
+
+          const ranked = classStudents
+            .map(s => ({ student: s, value: computeMetric(s, rankingMetric) }))
+            .sort((a, b) => b.value - a.value);
+
+          const metricLabel: Record<typeof rankingMetric, string> = {
+            points: "Total Poin",
+            progress: "Rata-rata Progres",
+            completion: "Jumlah Selesai"
+          };
+          const metricSuffix: Record<typeof rankingMetric, string> = {
+            points: " pts",
+            progress: "%",
+            completion: ""
+          };
+          const formatValue = (v: number) => {
+            if (rankingMetric === "progress") return `${Math.round(v)}%`;
+            if (rankingMetric === "points") return `${v} pts`;
+            return `${v}`;
+          };
+
+          if (classStudents.length === 0) {
+            return (
+              <div className="flex flex-col items-center justify-center py-12 text-center bg-[rgba(5,29,83,0.42)] rounded-2xl border-2 border-dashed border-[rgba(226,245,255,0.4)]">
+                <div className="w-16 h-16 bg-white/10 text-[rgba(226,245,255,0.76)] rounded-full flex items-center justify-center mb-4 border border-white/20">
+                  <Trophy className="h-8 w-8" />
+                </div>
+                <p className="text-white">Belum ada siswa untuk ditampilkan.</p>
+              </div>
+            );
+          }
+
+          const [first, second, third] = ranked;
+          const others = ranked.slice(3);
+
+          return (
+            <div className="mt-6 flex flex-col gap-6 animate-in fade-in slide-in-from-top-2">
+              {/* Controls */}
+              <div className="flex flex-col sm:flex-row gap-3 bg-[rgba(5,29,83,0.42)] p-3 rounded-xl border border-[rgba(125,211,252,0.22)]">
+                <div className="flex items-center gap-2 flex-1">
+                  <span className="text-xs text-[rgba(226,245,255,0.76)] shrink-0">Kelas:</span>
+                  <select
+                    value={effectiveClassId}
+                    onChange={e => setRankingClassId(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-[#0a1f5c] border border-[rgba(125,211,252,0.22)] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  >
+                    {uniqueClassIds.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2 flex-1">
+                  <span className="text-xs text-[rgba(226,245,255,0.76)] shrink-0">Metrik:</span>
+                  <select
+                    value={rankingMetric}
+                    onChange={e => setRankingMetric(e.target.value as any)}
+                    className="flex-1 px-3 py-2 bg-[#0a1f5c] border border-[rgba(125,211,252,0.22)] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  >
+                    <option value="points">Total Poin</option>
+                    <option value="progress">Rata-rata Progres</option>
+                    <option value="completion">Jumlah Selesai</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Podium */}
+              <div className="grid grid-cols-3 gap-3 sm:gap-4 items-end">
+                {second && (
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-full bg-gradient-to-b from-slate-300/30 to-slate-400/10 border border-slate-300/40 rounded-xl p-3 text-center shadow-md">
+                      <div className="text-2xl sm:text-3xl mb-1">🥈</div>
+                      <div className="font-black text-white text-sm truncate w-full">{second.student.studentName}</div>
+                      <div className="text-xs text-slate-200 font-bold mt-1">{formatValue(second.value)}</div>
+                    </div>
+                    <div className="bg-slate-300/20 border border-slate-300/40 rounded-t-lg px-3 py-2 text-slate-200 font-black text-sm">#2</div>
+                  </div>
+                )}
+                {first && (
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-full bg-gradient-to-b from-amber-300/30 to-amber-500/10 border border-amber-400/50 rounded-xl p-3 sm:p-4 text-center shadow-lg">
+                      <div className="text-3xl sm:text-4xl mb-1">🥇</div>
+                      <div className="font-black text-white text-sm truncate w-full">{first.student.studentName}</div>
+                      <div className="text-sm sm:text-base text-amber-200 font-black mt-1">{formatValue(first.value)}</div>
+                    </div>
+                    <div className="bg-amber-400/30 border border-amber-400/60 rounded-t-lg px-3 py-2 text-amber-200 font-black text-sm">#1</div>
+                  </div>
+                )}
+                {third && (
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-full bg-gradient-to-b from-orange-400/30 to-orange-600/10 border border-orange-400/40 rounded-xl p-3 text-center shadow-md">
+                      <div className="text-2xl sm:text-3xl mb-1">🥉</div>
+                      <div className="font-black text-white text-sm truncate w-full">{third.student.studentName}</div>
+                      <div className="text-xs text-orange-200 font-bold mt-1">{formatValue(third.value)}</div>
+                    </div>
+                    <div className="bg-orange-400/20 border border-orange-400/40 rounded-t-lg px-3 py-2 text-orange-200 font-black text-sm">#3</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Full list */}
+              {others.length > 0 && (
+                <div className="bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] rounded-xl overflow-hidden">
+                  <div className="px-4 py-2.5 bg-[rgba(5,29,83,0.6)] border-b border-[rgba(125,211,252,0.22)] text-xs font-bold text-amber-300 uppercase tracking-wider">
+                    Peringkat {classStudents[0]?.className || ""} • {metricLabel[rankingMetric]}
+                  </div>
+                  <div className="divide-y divide-[rgba(125,211,252,0.12)]">
+                    {others.map(({ student, value }, idx) => {
+                      const rank = idx + 4;
+                      return (
+                        <div key={`${student.studentId}-${student.classId}`} className="flex items-center gap-3 px-4 py-3">
+                          <span className="shrink-0 w-8 h-8 rounded-full bg-white/5 border border-white/10 text-white font-black text-sm flex items-center justify-center">#{rank}</span>
+                          {student.avatarUrl ? (
+                            <img src={student.avatarUrl} alt={student.studentName} referrerPolicy="no-referrer" className="w-8 h-8 rounded-full object-cover border border-white/20 shrink-0" />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 flex items-center justify-center font-bold text-xs shrink-0">
+                              {student.studentName[0].toUpperCase()}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="font-bold text-white text-sm truncate">{student.studentName}</div>
+                            <div className="text-xs text-[rgba(226,245,255,0.76)] truncate">{student.className}</div>
+                          </div>
+                          <span className="shrink-0 font-black text-amber-300 text-sm">{formatValue(value)}{metricSuffix[rankingMetric]}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()
       ) : filteredData.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center bg-[rgba(5,29,83,0.42)] rounded-2xl border-2 border-dashed border-[rgba(226,245,255,0.4)]">
           <div className="w-16 h-16 bg-white/10 text-[rgba(226,245,255,0.76)] rounded-full flex items-center justify-center mb-4 border border-white/20">
@@ -10716,6 +10915,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
 
             const totalCompleted = allItems.filter(i => i.progress >= 100).length;
             const totalItems = allItems.length;
+            const studentRank = rankingByClass[student.classId]?.[student.studentId] ?? null;
 
             return (
               <div key={`${student.studentId}-${student.classId}`} className="bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] rounded-xl p-4 shadow-sm hover:border-amber-400/50 transition-all">
@@ -10728,7 +10928,14 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <div className="font-bold text-white text-sm leading-tight line-clamp-2">{student.studentName}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="font-bold text-white text-sm leading-tight line-clamp-2">{student.studentName}</div>
+                      {studentRank !== null && (
+                        <span className={`shrink-0 inline-flex items-center justify-center min-w-[28px] h-6 px-1.5 rounded-full text-[10px] font-black border sm:hidden ${studentRank === 1 ? "bg-amber-400/20 text-amber-300 border-amber-400/40" : studentRank === 2 ? "bg-slate-300/20 text-slate-200 border-slate-300/40" : studentRank === 3 ? "bg-orange-500/20 text-orange-300 border-orange-400/40" : "bg-white/5 text-[rgba(226,245,255,0.76)] border-white/15"}`}>
+                          #{studentRank}
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-[rgba(226,245,255,0.76)] mt-0.5">
                       {student.className}
                       {student.joinedAt ? (
@@ -10916,7 +11123,18 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-white text-lg leading-tight break-words">{student.studentName}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-white text-lg leading-tight break-words">{student.studentName}</h3>
+                        {(() => {
+                          const reportRank = rankingByClass[student.classId]?.[student.studentId] ?? null;
+                          if (reportRank === null) return null;
+                          return (
+                            <span className={`shrink-0 inline-flex items-center justify-center min-w-[32px] h-7 px-2 rounded-full text-[11px] font-black border sm:hidden ${reportRank === 1 ? "bg-amber-400/20 text-amber-300 border-amber-400/40" : reportRank === 2 ? "bg-slate-300/20 text-slate-200 border-slate-300/40" : reportRank === 3 ? "bg-orange-500/20 text-orange-300 border-orange-400/40" : "bg-white/5 text-[rgba(226,245,255,0.76)] border-white/15"}`}>
+                              #{reportRank}
+                            </span>
+                          );
+                        })()}
+                      </div>
                       <p className="text-sm text-[rgba(226,245,255,0.76)] break-words">{student.className}</p>
                       <p className="text-xs text-[rgba(226,245,255,0.6)] break-all">{student.studentEmail}</p>
                     </div>
