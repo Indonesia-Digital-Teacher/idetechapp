@@ -44,6 +44,15 @@ import authRoutes from "./auth";
 
 const app = new Hono<AppEnv>();
 
+// CYBRA may take more than a minute for long educational prompts. Keep this
+// configurable while preventing an invalid environment value from disabling
+// request cancellation altogether.
+function getCybraTimeoutMs(): number {
+  const configured = Number(process.env.CYBRA_TIMEOUT_MS);
+  if (!Number.isFinite(configured)) return 180_000;
+  return Math.min(Math.max(configured, 45_000), 300_000);
+}
+
 // ─── Real-Time Chat Infrastructure (SSE) ─────────────────────────────────────
 // threadId → Set of SSE response controllers
 type SseController = { enqueue: (data: string) => void; close: () => void };
@@ -1365,7 +1374,7 @@ Ingat: hanya kembalikan array JSON murni saja agar bisa diparse dengan JSON.pars
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: prompt, history: [] }),
-      signal: AbortSignal.timeout(45_000)
+      signal: AbortSignal.timeout(getCybraTimeoutMs())
     });
 
     if (!aiRes.ok) {
@@ -1733,7 +1742,7 @@ Format keluaran HARUS berupa array JSON murni, jangan sertakan tag pembungkus ma
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: prompt, history: [] }),
-      signal: AbortSignal.timeout(45_000)
+      signal: AbortSignal.timeout(getCybraTimeoutMs())
     });
 
     let meetings = [];
@@ -2438,7 +2447,7 @@ app.post("/teacher/chat", requireRole(["teacher", "admin"]), requirePermission("
         "User-Agent": "Mozilla/5.0 (IdeTech Server) AppleWebKit/537.36"
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(45_000)
+      signal: AbortSignal.timeout(getCybraTimeoutMs())
     });
 
     if (!response.ok) {
@@ -2521,7 +2530,7 @@ Gunakan outline ini sebagai referensi kurikulum.`;
         "User-Agent": "Mozilla/5.0 (IdeTech Server) AppleWebKit/537.36"
       },
       body: JSON.stringify({ message: enrichedPrompt, history: [] }),
-      signal: AbortSignal.timeout(45_000)
+      signal: AbortSignal.timeout(getCybraTimeoutMs())
     });
 
     if (!response.ok) {
@@ -4919,7 +4928,7 @@ Artikel harus memiliki judul utama (H1), pendahuluan yang menarik, 2-3 poin pemb
         "User-Agent": "Mozilla/5.0 (IdeTech Server) AppleWebKit/537.36"
       },
       body: JSON.stringify({ message }),
-      signal: AbortSignal.timeout(45_000)
+      signal: AbortSignal.timeout(getCybraTimeoutMs())
     });
 
     if (!response.ok) {
