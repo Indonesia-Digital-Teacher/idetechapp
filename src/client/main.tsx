@@ -1369,7 +1369,7 @@ function StudentCheckInModal({
     setShowHistory(true);
     setLoadingHistory(true);
     try {
-      const res = await fetch("/api/student/coins/history");
+      const res = await fetch("/api/student/coins/history", { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setHistory(data);
@@ -1398,7 +1398,7 @@ function StudentCheckInModal({
     setCheckingIn(true);
     setError("");
     try {
-      const response = await fetch("/api/student/check-in", { method: "POST" });
+      const response = await fetch("/api/student/check-in", { method: "POST", credentials: "include" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || "Gagal klaim koin");
       onCheckInSuccess(data.coins, data.streak, data.checkInDate);
@@ -1707,11 +1707,16 @@ function StudentCompactDashboard({
       if (answerText) formData.append("answerText", answerText);
       if (file) formData.append("file", file);
 
+      const headers: Record<string, string> = {};
+      const token = localStorage.getItem("token");
+      if (token && token !== "null" && token !== "undefined") {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       const res = await fetch(`/api/student/quests/${questId}/complete`, {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        },
+        credentials: "include",
+        headers,
         body: formData
       });
       if (!res.ok) {
@@ -1939,7 +1944,7 @@ function StudentCompactDashboard({
           onClaim={async () => {
             setClaimingWelcome(true);
             try {
-              const res = await fetch("/api/student/claim-welcome", { method: "POST" });
+              const res = await fetch("/api/student/claim-welcome", { method: "POST", credentials: "include" });
               if (res.ok) {
                 const data = await res.json();
                 setLocalUser(prev => ({ ...prev, welcomeBonusClaimed: true, coins: prev.coins + data.bonus }));
@@ -4116,7 +4121,7 @@ function TeacherSpaceDashboard({
     const initialTimer = window.setTimeout(() => {
       loadConsultationUnreadCount();
     }, 1200);
-    const es = new EventSource("/api/teacher/consultations/events", { withCredentials: true });
+    const es = new EventSource("/api/teacher/consultations/stream", { withCredentials: true });
     const refresh = () => {
       if (!showConsultationModal) {
         loadConsultationUnreadCount();
@@ -9859,6 +9864,7 @@ function TeacherJournalView({ onClose }: { onClose: () => void }) {
 
       const response = await fetch("/api/teacher/journals", {
         method: "POST",
+        credentials: "include",
         body: formData,
       });
 

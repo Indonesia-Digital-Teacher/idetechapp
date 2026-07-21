@@ -3,7 +3,7 @@ import { eq, inArray } from "drizzle-orm";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import app from "./api";
 import { db } from "../db/client";
-import { users, roles, permissions, rolePermissions, userRoles, parentStudents, activityLogs, systemSettings, classes, materials, studentMaterialProgress } from "../db/schema";
+import { users, roles, permissions, rolePermissions, userRoles, parentStudents, activityLogs, systemSettings, classes, materials, studentMaterialProgress, aiGenerationQuotas } from "../db/schema";
 import type { RoleName } from "../db/schema";
 import { nanoid } from "nanoid";
 import { sessionCookieName, createSession } from "../lib/auth";
@@ -113,6 +113,31 @@ describeIfDb("Backend API Endpoints", () => {
 
     const { token } = await createSession(userId, "teacher");
     testUserToken = token;
+  });
+
+  afterAll(async () => {
+    // Kembalikan permission catalog bawaan setelah pengujian selesai agar database tidak 403 Forbidden di dev environment
+    await db.delete(rolePermissions);
+    const allRoles = await db.select().from(roles);
+    const allPermissions = await db.select().from(permissions);
+    const now = new Date();
+
+    for (const [roleName, permissionNames] of Object.entries(catalogRolePermissions)) {
+      const role = allRoles.find((item) => item.name === roleName);
+      if (!role) continue;
+
+      for (const permissionName of permissionNames) {
+        const permission = allPermissions.find((item) => item.name === permissionName);
+        if (!permission) continue;
+
+        await db.insert(rolePermissions).ignore().values({
+          id: `rp_${nanoid(12)}`,
+          roleId: role.id,
+          permissionId: permission.id,
+          createdAt: now
+        });
+      }
+    }
   });
 
   describe("GET /api/health", () => {
@@ -1695,7 +1720,19 @@ describeIfDb("Backend API Endpoints", () => {
           }), { headers: { "content-type": "application/json" } });
         }) as any;
 
-        const { token } = await createUserWithPermissions("teacher", []);
+        const { token, userId } = await createUserWithPermissions("teacher", []);
+
+        await db.insert(classes).values({
+          id: `cls_${nanoid(12)}`,
+          teacherUserId: userId,
+          name: "Test Class",
+          subject: "Test Subject",
+          grade: "10",
+          nextSession: "",
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+
         const res = await requestWithToken(token, "/teacher/todos/suggest", "POST");
         expect(res.status).toBe(200);
         const json = await res.json();
@@ -1814,6 +1851,160 @@ describeIfDb("Backend API Endpoints", () => {
         expect(json.meetings[0].title).toContain("Pertemuan 1");
         expect(json.meetings[0].dueDate).toBe("2026-07-14");
         expect(json.meetings[1].dueDate).toBe("2026-07-21");
+      });
+    });
+
+    describe("Teacher RPP & AI Generator", () => {
+      let originalFetch: typeof globalThis.fetch;
+
+      beforeAll(() => {
+        originalFetch = globalThis.fetch;
+      });
+
+      afterAll(() => {
+        globalThis.fetch = originalFetch;
+      });
+
+      test("Harus mengembalikan 401 jika belum login", async () => {
+        const res = await app.request(new Request("http://localhost/teacher/generate-ai", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ prompt: "Buat RPP" })
+        }));
+        expect(res.status).toBe(401);
+      });
+
+      test("Harus mengembalikan 403 jika user tidak memiliki permission chat.use", async () => {
+        const { token } = await createUserWithPermissions("student", []); // Student doesn't have chat.use
+        const res = await requestWithToken(token, "/teacher/generate-ai", "POST", {
+          prompt: "Buat RPP"
+        });
+        expect(res.status).toBe(403);
+      });
+
+      test("Harus mengembalikan 400 jika prompt kosong", async () => {
+        const { token } = await createUserWithPermissions("teacher", ["chat.use"]);
+        const res = await requestWithToken(token, "/teacher/generate-ai", "POST", {
+          prompt: ""
+        });
+        expect(res.status).toBe(400);
+      });
+
+      test("Harus berhasil menggenerasikan RPP dengan AI jika request valid", async () => {
+        globalThis.fetch = (async (input: any, init: any) => {
+          const body = JSON.parse(init.body);
+          expect(body.message).toContain("Buatkan Rencana Pelaksanaan Pembelajaran");
+          return new Response(JSON.stringify({
+            reply: "Ini adalah draft RPP lengkap buatan AI."
+          }), { headers: { "content-type": "application/json" } });
+        }) as any;
+
+        const { token } = await createUserWithPermissions("teacher", ["chat.use"]);
+        const res = await requestWithToken(token, "/teacher/generate-ai", "POST", {
+          prompt: "Buatkan Rencana Pelaksanaan Pembelajaran Matematika Kelas 10"
+        });
+
+        expect(res.status).toBe(200);
+        const json = await res.json();
+        expect(json.reply).toBe("Ini adalah draft RPP lengkap buatan AI.");
+      });
+
+      test("Harus mengembalikan 429 jika kuota AI habis", async () => {
+        const { token, userId } = await createUserWithPermissions("teacher", ["chat.use"]);
+        
+        // Simulasikan kuota terpakai habis dengan memasukkan entri kuota yang melebihi limit ke DB
+        const now = new Date();
+        await db.delete(aiGenerationQuotas).where(eq(aiGenerationQuotas.userId, userId));
+        await db.insert(aiGenerationQuotas).values({
+          id: `aig_${nanoid(12)}`,
+          userId: userId,
+          generationsCount: 100, // Very high
+          lastResetAt: now,
+          updatedAt: now
+        });
+
+        const res = await requestWithToken(token, "/teacher/generate-ai", "POST", {
+          prompt: "Buatkan Rencana Pelaksanaan Pembelajaran"
+        });
+
+        expect(res.status).toBe(429);
+        const json = await res.json();
+        expect(json.message).toContain("Kuota untuk Generate AI");
+      });
+
+      test("Harus menginjeksi materi BSKAP/ATP jika parameter materi resmi diberikan", async () => {
+        let sentMessage = "";
+        globalThis.fetch = (async (input: any, init: any) => {
+          const body = JSON.parse(init.body);
+          sentMessage = body.message;
+          return new Response(JSON.stringify({
+            reply: "Ini adalah RPP dengan materi resmi."
+          }), { headers: { "content-type": "application/json" } });
+        }) as any;
+
+        const { token } = await createUserWithPermissions("teacher", ["chat.use"]);
+        const res = await requestWithToken(token, "/teacher/generate-ai", "POST", {
+          prompt: "Buatkan Rencana Pelaksanaan Pembelajaran",
+          mapel: "bindo",
+          fase: "E",
+          semester: "ganjil",
+          pertemuanKe: 2
+        });
+
+        expect(res.status).toBe(200);
+        const json = await res.json();
+        expect(json.reply).toBe("Ini adalah RPP dengan materi resmi.");
+        expect(sentMessage).toContain("KONTEN MATERI RESMI UNTUK RPP INI:");
+        expect(sentMessage).toContain("Bahasa Indonesia");
+        expect(sentMessage).toContain("Unit 1: Laporan Hasil Observasi (LHO)");
+      });
+
+      test("Harus mengembalikan RPP lokal fallback jika AI Cybra error/timeout", async () => {
+        globalThis.fetch = (async () => {
+          throw new Error("Timeout/connection refused to AI");
+        }) as any;
+
+        const { token } = await createUserWithPermissions("teacher", ["chat.use"]);
+        const res = await requestWithToken(token, "/teacher/generate-ai", "POST", {
+          prompt: "Buatkan Rencana Pelaksanaan Pembelajaran",
+          mapel: "bindo",
+          fase: "E",
+          semester: "ganjil",
+          pertemuanKe: 2
+        });
+
+        expect(res.status).toBe(200);
+        const json = await res.json();
+        expect(json.reply).toContain("# Rencana Pelaksanaan Pembelajaran (RPP) / Modul Ajar");
+        expect(json.reply).toContain("Laporan Hasil Observasi");
+        expect(json.fallback).toBe(true);
+        expect(json.message).toContain("Layanan AI CYBRA sedang tidak tersedia");
+      });
+
+      test("Harus mengembalikan RPP lokal fallback jika AI Cybra mengembalikan status non-2xx", async () => {
+        globalThis.fetch = (async () => {
+          return {
+            ok: false,
+            status: 502,
+            text: async () => "Bad Gateway"
+          };
+        }) as any;
+
+        const { token } = await createUserWithPermissions("teacher", ["chat.use"]);
+        const res = await requestWithToken(token, "/teacher/generate-ai", "POST", {
+          prompt: "Buatkan Rencana Pelaksanaan Pembelajaran",
+          mapel: "bindo",
+          fase: "E",
+          semester: "ganjil",
+          pertemuanKe: 2
+        });
+
+        expect(res.status).toBe(200);
+        const json = await res.json();
+        expect(json.reply).toContain("# Rencana Pelaksanaan Pembelajaran (RPP) / Modul Ajar");
+        expect(json.reply).toContain("Laporan Hasil Observasi");
+        expect(json.fallback).toBe(true);
+        expect(json.message).toContain("Status 502");
       });
     });
   });

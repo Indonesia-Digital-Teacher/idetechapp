@@ -59,15 +59,53 @@ export function clearSessionCookie(c: Context) {
 export async function getSessionUser(token?: string): Promise<AuthUser | null> {
   if (!token) return null;
 
+  // 1. Cek di tabel sessions (untuk web session normal)
   const [session] = await db
     .select()
     .from(sessions)
     .where(and(eq(sessions.sessionToken, token), gt(sessions.expiresAt, new Date())))
     .limit(1);
 
-  if (!session) return null;
+  let userId: string;
+  let activeRole: RoleName;
 
-  const [user] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
+  if (session) {
+    userId = session.userId;
+    activeRole = session.activeRole as RoleName;
+  } else {
+    // 2. Cek di tabel users (untuk telegram link token)
+    const [userByToken] = await db
+      .select()
+      .from(users)
+      .where(eq(users.sessionToken, token))
+      .limit(1);
+
+    if (!userByToken) return null;
+
+    // Cek kadaluarsa session token (default 30 hari)
+    if (userByToken.sessionTokenCreatedAt) {
+      const expiry = new Date(userByToken.sessionTokenCreatedAt.getTime() + 1000 * 60 * 60 * 24 * 30);
+      if (new Date() > expiry) return null;
+    }
+
+    userId = userByToken.id;
+    
+    // Cari role pertama user untuk menentukan activeRole default
+    const roleRows = await db
+      .select({ name: roles.name })
+      .from(userRoles)
+      .innerJoin(roles, eq(userRoles.roleId, roles.id))
+      .where(eq(userRoles.userId, userId));
+    const userRoleNames = roleRows.map((row) => row.name as RoleName);
+    
+    activeRole = userRoleNames.includes("admin")
+      ? "admin"
+      : userRoleNames.includes("teacher")
+      ? "teacher"
+      : (userRoleNames[0] ?? "student");
+  }
+
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (!user) return null;
 
   const roleRows = await db
@@ -77,9 +115,12 @@ export async function getSessionUser(token?: string): Promise<AuthUser | null> {
     .where(eq(userRoles.userId, user.id));
 
   const userRoleNames = roleRows.map((row) => row.name as RoleName);
-  const activeRole = userRoleNames.includes(session.activeRole as RoleName)
-    ? (session.activeRole as RoleName)
-    : (userRoleNames[0] ?? "student");
+  
+  if (session) {
+    activeRole = userRoleNames.includes(session.activeRole as RoleName)
+      ? (session.activeRole as RoleName)
+      : (userRoleNames[0] ?? "student");
+  }
 
   const activeRoleRows = activeRole
     ? await db
@@ -250,7 +291,19 @@ async function syncUserRoles(userId: string, roleNames: RoleName[], now: Date) {
 }
 
 export async function authRequired(c: Context<AppEnv>, next: Next) {
-  const user = await getSessionUser(getCookie(c, sessionCookieName));
+  let token = getCookie(c, sessionCookieName);
+
+  if (!token) {
+    const authHeader = c.req.header("Authorization");
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const t = authHeader.substring(7);
+      if (t && t !== "null" && t !== "undefined") {
+        token = t;
+      }
+    }
+  }
+
+  const user = await getSessionUser(token);
   if (!user) {
     return c.json({ message: "Belum login." }, 401);
   }

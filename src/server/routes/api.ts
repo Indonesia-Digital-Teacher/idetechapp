@@ -2533,6 +2533,28 @@ Gunakan outline ini sebagai referensi kurikulum.`;
         resourceType: "ai_generate",
         details: { status: response.status, errorText, prompt: body.prompt?.slice(0, 200) }
       }).catch(() => {});
+
+      // Fallback RPP lokal dari materi resmi jika CYBRA mengembalikan status non-2xx
+      if (body.mapel && body.fase && body.semester) {
+        const fallback = generateFallbackRPP({
+          mapel: body.mapel,
+          fase: body.fase,
+          semester: body.semester,
+          pertemuanKe: body.pertemuanKe,
+          topic: body.prompt?.slice(0, 120),
+          grade: undefined,
+          duration: undefined,
+          model: undefined
+        });
+        if (fallback) {
+          return c.json({
+            reply: fallback,
+            fallback: true,
+            message: `Layanan AI CYBRA sedang tidak tersedia (Status ${response.status}). RPP ini dibuat otomatis dari materi resmi.`
+          });
+        }
+      }
+
       return c.json({ message: `Gagal terhubung ke AI Dianyssa. Status: ${response.status}` }, 502);
     }
 
@@ -3943,7 +3965,7 @@ app.get("/teacher/consultations", requireRole(["teacher"]), async (c) => {
   return c.json({ threads });
 });
 
-app.get("/teacher/consultations/events", requireRole(["teacher"]), async (c) => {
+app.get("/teacher/consultations/stream", requireRole(["teacher"]), async (c) => {
   const user = c.get("authUser");
   const controller = { enqueue: (_: string) => {}, close: () => {} };
 
