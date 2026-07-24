@@ -6405,7 +6405,10 @@ Langkah Petualangan:
 
   const [bankItems, setBankItems] = React.useState<{ materials: any[]; quests: any[]; lessonPlans: any[] }>({ materials: [], quests: [], lessonPlans: [] });
   const [libraryItems, setLibraryItems] = React.useState<{ packages: any[]; materials: any[]; quests: any[] }>({ packages: [], materials: [], quests: [] });
-  const [selectedLibrarySubject, setSelectedLibrarySubject] = React.useState("Semua");
+  const [selectedLibrarySubject, setSelectedLibrarySubject] = React.useState<string | null>(null);
+  const [showLibrarySearch, setShowLibrarySearch] = React.useState(false);
+  const [librarySearchQuery, setLibrarySearchQuery] = React.useState("");
+  const [selectedLibraryPackage, setSelectedLibraryPackage] = React.useState<any | null>(null);
   const [bankRequests, setBankRequests] = React.useState<{ incoming: any[]; outgoing: any[] }>({ incoming: [], outgoing: [] });
   const [requestTargetClass, setRequestTargetClass] = React.useState<Record<string, string>>({});
 
@@ -6498,10 +6501,24 @@ Langkah Petualangan:
   };
 
   const pendingIncomingRequests = bankRequests.incoming.filter(r => r.status === 'pending').length;
-  const librarySubjects = ["Semua", ...Array.from(new Set(libraryItems.packages.map((item) => item.subject || "Umum")))];
-  const visiblePackages = selectedLibrarySubject === "Semua"
-    ? libraryItems.packages
-    : libraryItems.packages.filter((item) => (item.subject || "Umum") === selectedLibrarySubject);
+  const librarySubjects = Array.from(new Set(libraryItems.packages.map((item) => item.subject || "Umum")));
+  const subjectCards = librarySubjects.map((subject) => {
+    const packages = libraryItems.packages.filter((item) => (item.subject || "Umum") === subject);
+    return {
+      subject,
+      packages,
+      materialCount: packages.length,
+      questCount: packages.reduce((total, item) => total + item.quests.length, 0),
+      grades: Array.from(new Set(packages.map((item) => item.grade).filter(Boolean)))
+    };
+  });
+  const visiblePackages = selectedLibrarySubject
+    ? libraryItems.packages.filter((item) => (item.subject || "Umum") === selectedLibrarySubject)
+    : [];
+  const librarySearchResults = libraryItems.packages.filter((item) => {
+    const query = librarySearchQuery.trim().toLowerCase();
+    return Boolean(query) && (!selectedLibrarySubject || (item.subject || "Umum") === selectedLibrarySubject) && [item.title, item.subject, item.material.description, item.contributorName].some((value) => String(value || "").toLowerCase().includes(query));
+  });
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -6512,8 +6529,8 @@ Langkah Petualangan:
     <section className="teacher-studio-manager">
       <div className="flex justify-between items-center mb-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">Paket Pembelajaran</h2>
-          <p className="text-sm text-slate-500">Pilih paket terkurasi, gunakan di kelas, lalu fokus pada proses belajar.</p>
+          <h2 className="text-xl font-bold text-white">Paket Pembelajaran</h2>
+          <p className="text-sm text-white/80">Pilih paket terkurasi, gunakan di kelas, lalu fokus pada proses belajar.</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -6534,30 +6551,44 @@ Langkah Petualangan:
         </div>
       </div>
 
-      <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-          {librarySubjects.map((subject) => (
-            <button key={subject} type="button" onClick={() => setSelectedLibrarySubject(subject)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold transition-colors ${selectedLibrarySubject === subject ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-700"}`}>{subject}</button>
-          ))}
-        </div>
-        {visiblePackages.length === 0 ? (
-          <p className="py-8 text-center text-sm text-slate-500">Belum ada paket terkurasi untuk kategori ini.</p>
+      <div className="mb-6 rounded-2xl border border-[rgba(125,211,252,0.28)] bg-[rgba(5,29,83,0.58)] p-4 shadow-lg shadow-blue-950/20">
+        {selectedLibrarySubject === null ? (
+          <>
+            <div className="mb-4"><h3 className="font-bold text-white">Pilih mata pelajaran</h3><p className="text-sm text-[rgba(226,245,255,0.76)]">Paket disusun oleh kontributor dan siap dipakai di kelas Anda.</p></div>
+            {subjectCards.length === 0 ? <p className="py-8 text-center text-sm text-[rgba(226,245,255,0.76)]">Belum ada paket pembelajaran terkurasi.</p> : (
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {subjectCards.map((card) => (
+                  <button key={card.subject} type="button" onClick={() => setSelectedLibrarySubject(card.subject)} className="rounded-xl border border-[rgba(125,211,252,0.24)] bg-[rgba(12,52,121,0.52)] p-4 text-left transition hover:-translate-y-0.5 hover:border-sky-300/70 hover:bg-[rgba(20,80,165,0.60)] hover:shadow-lg hover:shadow-blue-950/30">
+                    <div className="mb-3 flex items-start justify-between gap-2"><strong className="text-base text-white">{card.subject}</strong><span className="rounded-full border border-sky-300/30 bg-sky-400/15 px-2 py-0.5 text-[10px] font-bold text-sky-200">{card.packages.length} paket</span></div>
+                    <div className="grid grid-cols-2 gap-2 text-xs"><span className="rounded-lg border border-white/10 bg-[rgba(5,29,83,0.48)] p-2 text-[rgba(226,245,255,0.76)]"><b className="block text-sm text-white">{card.materialCount}</b>materi</span><span className="rounded-lg border border-white/10 bg-[rgba(5,29,83,0.48)] p-2 text-[rgba(226,245,255,0.76)]"><b className="block text-sm text-white">{card.questCount}</b>IdeQuest</span></div>
+                    <p className="mt-3 text-xs text-[rgba(226,245,255,0.66)]">{card.grades.length ? `Kelas ${card.grades.join(", ")}` : "Beragam jenjang"}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
         ) : (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {visiblePackages.map((item) => (
-              <article key={item.id} className="flex flex-col rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <div className="mb-2 flex items-start justify-between gap-2"><h3 className="font-bold text-slate-800">{item.title}</h3><span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">{item.quests.length} quest</span></div>
-                <p className="mb-2 text-xs font-semibold text-blue-600">{item.subject}{item.grade ? ` · Kelas ${item.grade}` : ""}</p>
-                <p className="mb-3 line-clamp-3 flex-1 text-sm text-slate-600">{item.material.description}</p>
-                <p className="mb-3 text-xs text-slate-500">Kontributor: {item.contributorName}</p>
-                <select className="mb-2 rounded-lg border border-slate-200 bg-white p-2 text-xs text-slate-700" value={requestTargetClass[`library-${item.id}`] || ""} onChange={(event) => setRequestTargetClass((current) => ({ ...current, [`library-${item.id}`]: event.target.value }))}>
-                  <option value="">Pilih kelas tujuan</option>
-                  {classes.map((classItem) => <option key={classItem.id} value={classItem.id}>{classItem.name}</option>)}
-                </select>
-                <button type="button" onClick={() => adoptLibraryItem("package", item.id)} className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700">Gunakan untuk Kelas Saya</button>
-              </article>
-            ))}
-          </div>
+          <>
+            <div><button type="button" onClick={() => { setSelectedLibrarySubject(null); setShowLibrarySearch(false); setLibrarySearchQuery(""); }} className="text-xs font-bold text-sky-300 hover:text-white">← Semua mata pelajaran</button><h3 className="mt-1 font-bold text-white">{selectedLibrarySubject}</h3></div>
+            <div className="mx-auto flex min-h-[310px] max-w-xl flex-col items-center justify-center py-8 text-center">
+              <div className="mb-5 rounded-full border border-sky-300/25 bg-sky-400/10 p-4 text-sky-200"><Search className="h-7 w-7" /></div>
+              <h4 className="text-xl font-bold text-white">Cari materi {selectedLibrarySubject}</h4>
+              <p className="mt-2 max-w-sm text-sm text-[rgba(226,245,255,0.72)]">Temukan paket pembelajaran yang siap digunakan di kelas Anda.</p>
+              {!showLibrarySearch ? (
+                <button type="button" onClick={() => setShowLibrarySearch(true)} className="mt-6 inline-flex items-center gap-2 rounded-xl border border-sky-300/35 bg-sky-400/15 px-5 py-3 text-sm font-bold text-sky-100 transition hover:bg-sky-400/25"><Search className="h-4 w-4" />Cari materi</button>
+              ) : (
+                <div className="relative mt-6 w-full text-left">
+                  <Search className="absolute left-4 top-4 h-5 w-5 text-sky-200" />
+                  <input autoFocus value={librarySearchQuery} onChange={(event) => setLibrarySearchQuery(event.target.value)} placeholder={`Cari materi ${selectedLibrarySubject}...`} className="w-full rounded-xl border border-sky-300/35 bg-[rgba(5,29,83,0.62)] py-3.5 pl-12 pr-10 text-sm text-white placeholder:text-white/45 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-300/20" />
+                  <button type="button" onClick={() => { setShowLibrarySearch(false); setLibrarySearchQuery(""); }} className="absolute right-3 top-2.5 rounded-full p-1.5 text-white/55 hover:bg-white/10 hover:text-white" aria-label="Tutup pencarian"><X className="h-4 w-4" /></button>
+                  {librarySearchQuery.trim() && <div className="absolute z-10 mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-sky-300/25 bg-[#08235f] p-1.5 shadow-2xl">
+                    {librarySearchResults.length === 0 ? <p className="p-4 text-center text-sm text-white/65">Materi tidak ditemukan.</p> : librarySearchResults.map((item) => <button key={item.id} type="button" onClick={() => { setSelectedLibraryPackage(item); setShowLibrarySearch(false); setLibrarySearchQuery(""); }} className="w-full rounded-lg px-3 py-2.5 text-left hover:bg-sky-400/15"><strong className="block text-sm text-white">{item.title}</strong><span className="mt-0.5 block text-xs text-sky-200">{item.grade ? `Kelas ${item.grade}` : "Beragam jenjang"} · {item.quests.length} IdeQuest</span></button>)}
+                  </div>}
+                </div>
+              )}
+              <p className="mt-5 text-xs text-white/55">{visiblePackages.length} paket tersedia</p>
+            </div>
+          </>
         )}
       </div>
 
@@ -6950,7 +6981,7 @@ Langkah Petualangan:
 
       </>}
 
-      <div id="tour-step-3" className="teacher-studio-board">
+      {showCreator && <div id="tour-step-3" className="teacher-studio-board">
         <div>
           <div className="flex items-center justify-between mb-4">
             <h3 className="!mb-0">Materi Terbit</h3>
@@ -7057,7 +7088,38 @@ Langkah Petualangan:
             ))}
           </div>
         </div>
-      </div>
+      </div>}
+      {selectedLibraryPackage && (
+        <div className="fixed inset-0 z-[102] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-[rgba(125,211,252,0.28)] bg-[#08235f] p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold text-sky-200">{selectedLibraryPackage.subject || "Umum"}{selectedLibraryPackage.grade ? ` · Kelas ${selectedLibraryPackage.grade}` : ""}</p><h3 className="mt-1 text-lg font-bold text-white">{selectedLibraryPackage.title}</h3></div><button type="button" onClick={() => setSelectedLibraryPackage(null)} className="rounded-full p-1.5 text-white/70 hover:bg-white/10 hover:text-white" aria-label="Tutup"><X className="h-5 w-5" /></button></div>
+            <p className="mt-3 text-sm text-[rgba(226,245,255,0.78)]">{selectedLibraryPackage.material.description || "Paket pembelajaran siap digunakan."}</p>
+            <p className="mt-3 text-xs text-white/60">Kontributor: {selectedLibraryPackage.contributorName} · {selectedLibraryPackage.quests.length} IdeQuest</p>
+            <select className="mt-5 w-full rounded-lg border border-sky-300/25 bg-[rgba(5,29,83,0.55)] p-2.5 text-sm text-white" value={requestTargetClass[`library-${selectedLibraryPackage.id}`] || ""} onChange={(event) => setRequestTargetClass((current) => ({ ...current, [`library-${selectedLibraryPackage.id}`]: event.target.value }))}><option value="">Pilih kelas tujuan</option>{classes.map((classItem) => <option key={classItem.id} value={classItem.id}>{classItem.name}</option>)}</select>
+            <button type="button" onClick={() => { adoptLibraryItem("package", selectedLibraryPackage.id); setSelectedLibraryPackage(null); }} className="mt-3 w-full rounded-lg bg-emerald-600 px-3 py-2.5 text-sm font-bold text-white hover:bg-emerald-700">Gunakan untuk Kelas Saya</button>
+          </div>
+        </div>
+      )}
+      {showLibrarySearch && !selectedLibrarySubject && (
+        <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-sm">
+          <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-[rgba(125,211,252,0.28)] bg-[#08235f] shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 p-4">
+              <div><h3 className="font-bold text-white">Cari paket pembelajaran</h3><p className="text-xs text-[rgba(226,245,255,0.72)]">Cari berdasarkan topik, mapel, atau kontributor.</p></div>
+              <button type="button" onClick={() => { setShowLibrarySearch(false); setLibrarySearchQuery(""); }} className="rounded-full p-1.5 text-white/70 hover:bg-white/10 hover:text-white"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="p-4">
+              <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sky-200" /><input autoFocus value={librarySearchQuery} onChange={(event) => setLibrarySearchQuery(event.target.value)} placeholder="Contoh: stoikiometri, kelas 11…" className="w-full rounded-xl border border-sky-300/25 bg-[rgba(5,29,83,0.55)] py-3 pl-10 pr-4 text-sm text-white placeholder:text-white/40 outline-none focus:border-sky-300" /></div>
+              <div className="mt-4 max-h-[50vh] space-y-2 overflow-y-auto">
+                {librarySearchResults.length === 0 ? <p className="py-8 text-center text-sm text-white/65">Paket tidak ditemukan.</p> : librarySearchResults.map((item) => (
+                  <button key={item.id} type="button" onClick={() => { setSelectedLibrarySubject(item.subject || "Umum"); setShowLibrarySearch(false); setLibrarySearchQuery(""); }} className="w-full rounded-xl border border-white/10 bg-white/5 p-3 text-left hover:bg-sky-400/10 hover:border-sky-300/30">
+                    <strong className="block text-sm text-white">{item.title}</strong><span className="mt-1 block text-xs text-sky-200">{item.subject || "Umum"}{item.grade ? ` · Kelas ${item.grade}` : ""} · {item.quests.length} quest</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {isSearchModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="teacher-profile-card border-0 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
