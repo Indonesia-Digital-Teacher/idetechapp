@@ -15,6 +15,7 @@ export type AuthUser = {
   email: string;
   avatarUrl: string | null;
   fullName: string | null;
+  honorific: "Pak" | "Bu" | null;
   schoolName: string | null;
   contactChannel: "wa" | "telegram" | null;
   contactValue: string | null;
