@@ -10741,6 +10741,8 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
   const [searchQuery, setSearchQuery] = useState("");
   const [filterClass, setFilterClass] = useState("all");
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [showStudentSearch, setShowStudentSearch] = useState(false);
   const [filterRisk, setFilterRisk] = useState("all");
   const [sortBy, setSortBy] = useState<"name" | "progress" | "late" | "completion">("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
@@ -10788,6 +10790,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
                           student.studentEmail.toLowerCase().includes(searchQuery.toLowerCase());
       if (!matchSearch) return false;
       if (selectedClassId && student.classId !== selectedClassId) return false;
+      if (selectedStudentId && student.studentId !== selectedStudentId) return false;
       if (filterClass !== "all" && student.className !== filterClass) return false;
       if (filterRisk !== "all") {
         const allTasks = [...student.materials, ...student.quests];
@@ -10797,7 +10800,13 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
       }
       return true;
     });
-  }, [data, searchQuery, filterClass, filterRisk, selectedClassId]);
+  }, [data, searchQuery, filterClass, filterRisk, selectedClassId, selectedStudentId]);
+
+  const studentSearchResults = React.useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query || !selectedClassId) return [];
+    return data.filter((student) => student.classId === selectedClassId && [student.studentName, student.studentEmail].some((value) => String(value || "").toLowerCase().includes(query))).slice(0, 8);
+  }, [data, searchQuery, selectedClassId]);
 
   const sortedAndPaginatedData = React.useMemo(() => {
     const result = [...filteredData].sort((a, b) => {
@@ -10959,7 +10968,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
           {requiresClassSelection && selectedClassId && (
             <button
               type="button"
-              onClick={() => { setSelectedClassId(null); setSearchQuery(""); setFilterRisk("all"); }}
+              onClick={() => { setSelectedClassId(null); setSelectedStudentId(null); setShowStudentSearch(false); setSearchQuery(""); setFilterRisk("all"); }}
               className="hidden sm:inline-flex items-center gap-2 px-3 py-2 bg-white/10 text-sky-100 hover:bg-white/15 font-bold rounded-lg transition-colors border border-white/15 text-sm"
             >
               Ganti Kelas
@@ -11023,7 +11032,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
             <div className="mb-5 text-center"><h3 className="text-lg font-bold text-white">Pilih kelas</h3><p className="mt-1 text-sm text-[rgba(226,245,255,0.76)]">Pilih satu kelas untuk melihat {currentMode === "koreksi" ? "IdeQuest yang perlu dikoreksi" : currentMode === "report" ? "laporan hasil belajar" : "progres dan risiko siswa"}.</p></div>
             <div className="grid gap-3 sm:grid-cols-2">
               {classChoices.map((classItem) => (
-                <button key={classItem.id} type="button" onClick={() => { setSelectedClassId(classItem.id); setFilterClass("all"); setSearchQuery(""); setFilterRisk("all"); }} className="rounded-xl border border-[rgba(125,211,252,0.24)] bg-[rgba(5,29,83,0.42)] p-4 text-left transition hover:-translate-y-0.5 hover:border-sky-300/70 hover:bg-[rgba(20,80,165,0.48)] hover:shadow-lg hover:shadow-blue-950/30">
+                <button key={classItem.id} type="button" onClick={() => { setSelectedClassId(classItem.id); setSelectedStudentId(null); setShowStudentSearch(false); setFilterClass("all"); setSearchQuery(""); setFilterRisk("all"); }} className="rounded-xl border border-[rgba(125,211,252,0.24)] bg-[rgba(5,29,83,0.42)] p-4 text-left transition hover:-translate-y-0.5 hover:border-sky-300/70 hover:bg-[rgba(20,80,165,0.48)] hover:shadow-lg hover:shadow-blue-950/30">
                   <div className="flex items-start justify-between gap-3"><div><strong className="block text-base text-white">{classItem.name}</strong><span className="mt-1 block text-xs text-sky-200">{[classItem.subject, classItem.grade ? `Kelas ${classItem.grade}` : ""].filter(Boolean).join(" · ") || "Kelas aktif"}</span></div><span className="rounded-full border border-sky-300/30 bg-sky-400/15 px-2 py-0.5 text-[10px] font-bold text-sky-200">{classItem.studentCount} siswa</span></div>
                   <span className="mt-4 inline-flex text-xs font-bold text-white/75">Lihat kelas →</span>
                 </button>
@@ -11031,6 +11040,25 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
             </div>
           </div>
         )
+      ) : <>
+      {requiresClassSelection && selectedClassId && selectedStudentId === null ? (
+        <div className="mx-auto flex min-h-[310px] max-w-xl flex-col items-center justify-center py-8 text-center">
+          <div className="mb-5 rounded-full border border-sky-300/25 bg-sky-400/10 p-4 text-sky-200"><Search className="h-7 w-7" /></div>
+          <h3 className="text-xl font-bold text-white">Cari siswa</h3>
+          <p className="mt-2 max-w-sm text-sm text-[rgba(226,245,255,0.76)]">Pilih siswa untuk melihat {currentMode === "koreksi" ? "IdeQuest dan memberikan koreksi" : currentMode === "report" ? "laporan hasil belajarnya" : "progres belajarnya"}.</p>
+          {!showStudentSearch ? (
+            <button type="button" onClick={() => setShowStudentSearch(true)} className="mt-6 inline-flex items-center gap-2 rounded-xl border border-sky-300/35 bg-sky-400/15 px-5 py-3 text-sm font-bold text-sky-100 transition hover:bg-sky-400/25"><Search className="h-4 w-4" />Cari siswa</button>
+          ) : (
+            <div className="relative mt-6 w-full text-left">
+              <Search className="absolute left-4 top-4 h-5 w-5 text-sky-200" />
+              <input autoFocus value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Ketik nama atau email siswa..." className="w-full rounded-xl border border-sky-300/35 bg-[rgba(5,29,83,0.62)] py-3.5 pl-12 pr-10 text-sm text-white placeholder:text-white/45 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-300/20" />
+              <button type="button" onClick={() => { setShowStudentSearch(false); setSearchQuery(""); }} className="absolute right-3 top-2.5 rounded-full p-1.5 text-white/55 hover:bg-white/10 hover:text-white" aria-label="Tutup pencarian"><X className="h-4 w-4" /></button>
+              {searchQuery.trim() && <div className="absolute z-10 mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-sky-300/25 bg-[#08235f] p-1.5 shadow-2xl">
+                {studentSearchResults.length === 0 ? <p className="p-4 text-center text-sm text-white/65">Siswa tidak ditemukan.</p> : studentSearchResults.map((student) => <button key={`${student.studentId}-${student.classId}`} type="button" onClick={() => { setSelectedStudentId(student.studentId); setShowStudentSearch(false); setSearchQuery(""); }} className="w-full rounded-lg px-3 py-2.5 text-left hover:bg-sky-400/15"><strong className="block text-sm text-white">{student.studentName}</strong><span className="mt-0.5 block text-xs text-sky-200">{student.studentEmail}</span></button>)}
+              </div>}
+            </div>
+          )}
+        </div>
       ) : <>
 
       {!loading && data.length > 0 && (
@@ -11046,6 +11074,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
             />
           </div>
           {requiresClassSelection && selectedClassId && <div className="flex items-center rounded-lg border border-[rgba(125,211,252,0.22)] bg-[#0a1f5c] px-3 py-2 text-sm font-semibold text-sky-100">{classChoices.find((classItem) => classItem.id === selectedClassId)?.name}</div>}
+          {requiresClassSelection && selectedStudentId && <button type="button" onClick={() => { setSelectedStudentId(null); setSearchQuery(""); setFilterRisk("all"); }} className="rounded-lg border border-sky-300/25 bg-sky-400/10 px-3 py-2 text-sm font-bold text-sky-100 hover:bg-sky-400/20">Cari siswa lain</button>}
           <select
             value={filterRisk}
             onChange={e => setFilterRisk(e.target.value)}
@@ -11593,6 +11622,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
           </button>
         </div>
       )}
+      </>}
       </>}
     </div>
   );
