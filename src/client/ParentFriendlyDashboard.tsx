@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { UserCircle2, LogOut, CheckCircle2, User, FileText, Bell, Plus, Loader2, X, Info, Target, BookOpen, Activity, ChevronRight, MessageSquare, Send } from "lucide-react";
+import { UserCircle2, LogOut, CheckCircle2, User, FileText, Bell, Plus, Loader2, X, Info, Target, BookOpen, Activity, ChevronRight, MessageSquare, Send, ThumbsUp, ThumbsDown } from "lucide-react";
 
 async function parentApi<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -51,6 +51,7 @@ export function ParentFriendlyDashboard({
   const [activeThread, setActiveThread] = useState<any>(null);
   const [threadMessages, setThreadMessages] = useState<any[]>([]);
   const [replyContent, setReplyContent] = useState("");
+  const [feedbackBusy, setFeedbackBusy] = useState(false);
 
   // Real-time state
   const [isTeacherOnline, setIsTeacherOnline] = useState(false);
@@ -207,6 +208,23 @@ export function ParentFriendlyDashboard({
       console.error(err);
     } finally {
       setMessagingBusy(false);
+    }
+  };
+
+  const handleConsultationFeedback = async (feedback: "positive" | "negative") => {
+    if (!activeThreadId) return;
+    setFeedbackBusy(true);
+    try {
+      const result = await parentApi<{ feedback: "positive" | "negative"; feedbackAt: string }>(`/api/parent/consultations/${activeThreadId}/feedback`, {
+        method: "PATCH",
+        body: JSON.stringify({ feedback })
+      });
+      setActiveThread((current: any) => current ? { ...current, parentFeedback: result.feedback, parentFeedbackAt: result.feedbackAt } : current);
+      setConsultations((current) => current.map((thread) => thread.id === activeThreadId ? { ...thread, parentFeedback: result.feedback, parentFeedbackAt: result.feedbackAt } : thread));
+    } catch (error) {
+      console.error("Gagal menyimpan feedback konsultasi:", error);
+    } finally {
+      setFeedbackBusy(false);
     }
   };
 
@@ -621,6 +639,15 @@ export function ParentFriendlyDashboard({
                   )}
 
                   <div ref={messagesEndRef} />
+                </div>
+
+                <div className="mx-2 mb-2 rounded-2xl border border-white/10 bg-white/5 p-3.5">
+                  <p className="text-xs font-bold text-slate-300">Apakah konsultasi ini membantu?</p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-slate-500">Feedback Anda membantu guru memahami apakah percakapan sudah diterima dengan baik.</p>
+                  <div className="mt-3 flex gap-2">
+                    <button type="button" disabled={feedbackBusy} onClick={() => handleConsultationFeedback("positive")} className={`flex-1 inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-bold transition-colors disabled:opacity-50 ${activeThread?.parentFeedback === "positive" ? "border-emerald-400/40 bg-emerald-500/20 text-emerald-300" : "border-white/10 bg-[#27272a] text-slate-300 hover:bg-emerald-500/10 hover:text-emerald-300"}`}><ThumbsUp size={15} />Diterima</button>
+                    <button type="button" disabled={feedbackBusy} onClick={() => handleConsultationFeedback("negative")} className={`flex-1 inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-bold transition-colors disabled:opacity-50 ${activeThread?.parentFeedback === "negative" ? "border-rose-400/40 bg-rose-500/20 text-rose-300" : "border-white/10 bg-[#27272a] text-slate-300 hover:bg-rose-500/10 hover:text-rose-300"}`}><ThumbsDown size={15} />Belum diterima</button>
+                  </div>
                 </div>
 
                 {activeThread?.status === 'open' ? (

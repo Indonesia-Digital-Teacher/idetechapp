@@ -3,7 +3,7 @@ import { eq, inArray } from "drizzle-orm";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import app from "./api";
 import { db } from "../db/client";
-import { users, roles, permissions, rolePermissions, userRoles, parentStudents, activityLogs, systemSettings, classes, materials, studentMaterialProgress, aiGenerationQuotas } from "../db/schema";
+import { users, roles, permissions, rolePermissions, userRoles, parentStudents, activityLogs, systemSettings, classes, classStudents, materials, studentMaterialProgress, aiGenerationQuotas } from "../db/schema";
 import type { RoleName } from "../db/schema";
 import { nanoid } from "nanoid";
 import { sessionCookieName, createSession } from "../lib/auth";
@@ -1111,6 +1111,34 @@ describeIfDb("Backend API Endpoints", () => {
             title: "Hacked"
           });
           expect(res.status).toBe(404);
+        });
+      });
+
+      describe("Teacher student name management", () => {
+        test("Teacher dapat mengubah nama siswa di kelasnya", async () => {
+          const { token: teacherToken } = await createUserWithPermissions("teacher", ["class.manage", "report.view"]);
+          const classRes = await requestWithToken(teacherToken, "/teacher/classes", "POST", {
+            name: "Kelas Nama Siswa",
+            subject: "Bahasa Indonesia",
+            grade: "8"
+          });
+          const classId = (await classRes.json()).class.id;
+          const { userId: studentId } = await createUserWithPermissions("student", []);
+
+          await db.insert(classStudents).values({
+            id: `clsstd_${nanoid(12)}`,
+            classId,
+            studentUserId: studentId,
+            createdAt: new Date()
+          });
+
+          const updateRes = await requestWithToken(teacherToken, `/teacher/students/${studentId}/name`, "PATCH", { name: "Siswa Bernama Baru" });
+          expect(updateRes.status).toBe(200);
+          expect((await updateRes.json()).student.name).toBe("Siswa Bernama Baru");
+
+          const [updatedStudent] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
+          expect(updatedStudent.name).toBe("Siswa Bernama Baru");
+          expect(updatedStudent.fullName).toBe("Siswa Bernama Baru");
         });
       });
 

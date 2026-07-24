@@ -449,6 +449,8 @@ export const consultationThreads = mysqlTable("consultation_threads", {
   teacherUserId: fk("teacher_user_id").references(() => users.id, { onDelete: "cascade" }),
   topic: varchar("topic", { length: 255 }).notNull(),
   status: mysqlEnum("status", ["open", "closed"]).notNull().default("open"),
+  parentFeedback: mysqlEnum("parent_feedback", ["positive", "negative"]),
+  parentFeedbackAt: optionalTs("parent_feedback_at"),
   createdAt: ts("created_at"),
   updatedAt: ts("updated_at")
 });

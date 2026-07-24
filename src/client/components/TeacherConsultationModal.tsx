@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { MessageSquare, X, Send, ChevronRight, UserCircle2, Loader2, Plus, ArrowLeft } from "lucide-react";
+import { MessageSquare, X, Send, ChevronRight, UserCircle2, Loader2, Plus, ArrowLeft, ThumbsUp, ThumbsDown } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ChatMessage {
@@ -14,6 +14,7 @@ interface Thread {
   id: string;
   topic: string;
   status: "open" | "closed";
+  parentFeedback?: "positive" | "negative" | null;
   parentName: string;
   parentId?: string;
 }
@@ -73,6 +74,7 @@ export function TeacherConsultationModal({
   const [replyContent, setReplyContent] = useState("");
   const [busy, setBusy] = useState(true);
   const [replyBusy, setReplyBusy] = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
   // New consultation form state
   const [showNewConsultation, setShowNewConsultation] = useState(false);
@@ -270,7 +272,6 @@ export function TeacherConsultationModal({
 
   const handleCloseThread = async () => {
     if (!activeThreadId) return;
-    if (!confirm("Tutup konsultasi ini?")) return;
     await fetch(`/api/teacher/consultations/${activeThreadId}/close`, {
       method: "POST",
       credentials: "include"
@@ -278,6 +279,7 @@ export function TeacherConsultationModal({
     setActiveThread(prev => prev ? { ...prev, status: "closed" } : null);
     const data = await fetch("/api/teacher/consultations").then(r => r.json());
     setThreads(data.threads || []);
+    setShowCloseConfirm(false);
   };
 
   const handleOpenThread = (threadId: string) => {
@@ -558,7 +560,7 @@ export function TeacherConsultationModal({
 
               {activeThread?.status === "open" && (
                 <button
-                  onClick={handleCloseThread}
+                  onClick={() => setShowCloseConfirm(true)}
                   className="text-[10px] font-bold bg-[rgba(5,29,83,0.42)] text-amber-300 border border-amber-400/30 hover:bg-amber-400/20 px-3 py-1.5 rounded-lg shrink-0 transition-colors"
                 >
                   Tutup
@@ -602,6 +604,13 @@ export function TeacherConsultationModal({
               <div ref={messagesEndRef} />
             </div>
 
+            {activeThread?.parentFeedback && (
+              <div className={`mx-4 mb-2 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold ${activeThread.parentFeedback === "positive" ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300" : "border-rose-400/30 bg-rose-500/10 text-rose-300"}`}>
+                {activeThread.parentFeedback === "positive" ? <ThumbsUp size={15} /> : <ThumbsDown size={15} />}
+                Orang tua memberi feedback {activeThread.parentFeedback === "positive" ? "positif" : "negatif"}.
+              </div>
+            )}
+
             {/* Input Area */}
             {activeThread?.status === "open" ? (
               <form onSubmit={handleReply} className="p-3 bg-[#0b1b4f] border-t border-[rgba(125,211,252,0.15)] flex gap-2">
@@ -633,6 +642,14 @@ export function TeacherConsultationModal({
           </>
         )}
       </div>
+      {showCloseConfirm && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[#020817]/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-[rgba(125,211,252,0.25)] bg-[#08235f] shadow-2xl">
+            <div className="border-b border-white/10 p-5"><h3 className="text-lg font-bold text-white">Tutup konsultasi?</h3><p className="mt-2 text-sm leading-relaxed text-[rgba(226,245,255,0.76)]">Percakapan akan ditandai selesai. Orang tua masih dapat memberikan feedback.</p></div>
+            <div className="flex gap-2 bg-[rgba(5,29,83,0.45)] p-4"><button type="button" onClick={() => setShowCloseConfirm(false)} className="flex-1 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-bold text-white/80 hover:bg-white/10">Batal</button><button type="button" onClick={handleCloseThread} className="flex-1 rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-[#07133b] hover:bg-amber-300">Ya, tutup</button></div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1120,6 +1120,42 @@ app.delete("/teacher/classes/:classId/students/:studentId", requireRole(["teache
   return c.json({ ok: true });
 });
 
+app.patch("/teacher/students/:studentId/name", requireRole(["teacher", "admin"]), requirePermission("report.view"), async (c) => {
+  const user = c.get("authUser");
+  const studentId = c.req.param("studentId");
+  const body = (await c.req.json().catch(() => ({}))) as { name?: string };
+  const name = body.name?.trim() ?? "";
+
+  if (!studentId) return c.json({ message: "ID siswa tidak valid." }, 400);
+  if (name.length < 3) return c.json({ message: "Nama siswa minimal 3 karakter." }, 400);
+  if (name.length > 100) return c.json({ message: "Nama siswa maksimal 100 karakter." }, 400);
+  if (!/^[a-zA-Z\s.'’`]+$/.test(name)) return c.json({ message: "Nama siswa hanya boleh mengandung huruf, spasi, titik, atau tanda petik." }, 400);
+
+  if (user.activeRole !== "admin") {
+    const ownedClasses = await db.select({ id: classes.id }).from(classes).where(eq(classes.teacherUserId, user.id));
+    if (ownedClasses.length === 0) return c.json({ message: "Siswa tidak ditemukan di kelas Anda." }, 404);
+
+    const [membership] = await db.select({ id: classStudents.id }).from(classStudents).where(and(
+      eq(classStudents.studentUserId, studentId),
+      inArray(classStudents.classId, ownedClasses.map((item) => item.id))
+    )).limit(1);
+    if (!membership) return c.json({ message: "Siswa tidak ditemukan di kelas Anda." }, 404);
+  }
+
+  const [student] = await db.select({ id: users.id }).from(users).where(eq(users.id, studentId)).limit(1);
+  if (!student) return c.json({ message: "Siswa tidak ditemukan." }, 404);
+
+  await db.update(users).set({ name, fullName: name, updatedAt: new Date() }).where(eq(users.id, studentId));
+  await writeActivityLog({
+    userId: user.id,
+    action: "update_student_name",
+    resourceType: "user",
+    resourceId: studentId,
+    details: { name }
+  });
+  return c.json({ student: { id: studentId, name } });
+});
+
 // ─── Teacher To-Do List ───────────────────────────────────────────────────────
 
 app.get("/teacher/todos", requireRole(["teacher", "admin"]), async (c) => {
@@ -3960,6 +3996,8 @@ app.get("/parent/consultations", requireRole(["parent"]), async (c) => {
     teacherId: consultationThreads.teacherUserId,
     topic: consultationThreads.topic,
     status: consultationThreads.status,
+    parentFeedback: consultationThreads.parentFeedback,
+    parentFeedbackAt: consultationThreads.parentFeedbackAt,
     updatedAt: consultationThreads.updatedAt,
     teacherName: users.name
   })
@@ -4083,6 +4121,26 @@ app.post("/parent/consultations/:id/reply", requireRole(["parent"]), async (c) =
   return c.json({ success: true }, 201);
 });
 
+app.patch("/parent/consultations/:id/feedback", requireRole(["parent"]), async (c) => {
+  const user = c.get("authUser");
+  const threadId = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as { feedback?: "positive" | "negative" };
+  if (body.feedback !== "positive" && body.feedback !== "negative") {
+    return c.json({ message: "Pilih feedback positif atau negatif." }, 400);
+  }
+
+  const [thread] = await db.select({ id: consultationThreads.id, teacherUserId: consultationThreads.teacherUserId })
+    .from(consultationThreads)
+    .where(and(eq(consultationThreads.id, String(threadId)), eq(consultationThreads.parentUserId, user.id)))
+    .limit(1);
+  if (!thread) return c.json({ message: "Konsultasi tidak ditemukan." }, 404);
+
+  const feedbackAt = new Date();
+  await db.update(consultationThreads).set({ parentFeedback: body.feedback, parentFeedbackAt: feedbackAt, updatedAt: feedbackAt }).where(eq(consultationThreads.id, String(threadId)));
+  broadcastToTeacher(thread.teacherUserId, "consultation", { threadId: String(threadId), kind: "feedback", feedback: body.feedback, createdAt: feedbackAt.toISOString() });
+  return c.json({ feedback: body.feedback, feedbackAt });
+});
+
 // Consultation endpoints for Teacher
 app.get("/teacher/consultations", requireRole(["teacher"]), async (c) => {
   const user = c.get("authUser");
@@ -4092,6 +4150,8 @@ app.get("/teacher/consultations", requireRole(["teacher"]), async (c) => {
     parentId: consultationThreads.parentUserId,
     topic: consultationThreads.topic,
     status: consultationThreads.status,
+    parentFeedback: consultationThreads.parentFeedback,
+    parentFeedbackAt: consultationThreads.parentFeedbackAt,
     updatedAt: consultationThreads.updatedAt,
     parentName: users.name
   })
@@ -4341,6 +4401,8 @@ app.post("/teacher/consultations", requireRole(["teacher"]), async (c) => {
     id: consultationThreads.id,
     topic: consultationThreads.topic,
     status: consultationThreads.status,
+    parentFeedback: consultationThreads.parentFeedback,
+    parentFeedbackAt: consultationThreads.parentFeedbackAt,
     parentName: users.name
   })
     .from(consultationThreads)
@@ -4376,6 +4438,8 @@ app.get("/teacher/consultations/:id", requireRole(["teacher"]), async (c) => {
     id: consultationThreads.id,
     topic: consultationThreads.topic,
     status: consultationThreads.status,
+    parentFeedback: consultationThreads.parentFeedback,
+    parentFeedbackAt: consultationThreads.parentFeedbackAt,
     parentName: users.name
   }).from(consultationThreads)
     .innerJoin(users, eq(consultationThreads.parentUserId, users.id))

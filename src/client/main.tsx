@@ -10744,10 +10744,11 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [showStudentSearch, setShowStudentSearch] = useState(false);
   const [filterRisk, setFilterRisk] = useState("all");
-  const [sortBy, setSortBy] = useState<"name" | "progress" | "late" | "completion">("name");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [currentPage, setCurrentPage] = useState(1);
   const [editingQuestId, setEditingQuestId] = useState<string | null>(null);
+  const [editingStudentName, setEditingStudentName] = useState<StudentProgressReport | null>(null);
+  const [studentNameDraft, setStudentNameDraft] = useState("");
+  const [savingStudentName, setSavingStudentName] = useState(false);
   const [rankingClassId, setRankingClassId] = useState<string>("");
   const [rankingMetric, setRankingMetric] = useState<"points" | "progress" | "completion">("points");
   const itemsPerPage = 5;
@@ -10808,38 +10809,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
     return data.filter((student) => student.classId === selectedClassId && [student.studentName, student.studentEmail].some((value) => String(value || "").toLowerCase().includes(query))).slice(0, 8);
   }, [data, searchQuery, selectedClassId]);
 
-  const sortedAndPaginatedData = React.useMemo(() => {
-    const result = [...filteredData].sort((a, b) => {
-      let comparison = 0;
-      switch (sortBy) {
-        case "name":
-          comparison = a.studentName.localeCompare(b.studentName);
-          break;
-        case "progress": {
-          const aTasks = [...a.materials, ...a.quests];
-          const bTasks = [...b.materials, ...b.quests];
-          const aAvg = aTasks.length ? aTasks.reduce((s, t) => s + t.progress, 0) / aTasks.length : 0;
-          const bAvg = bTasks.length ? bTasks.reduce((s, t) => s + t.progress, 0) / bTasks.length : 0;
-          comparison = aAvg - bAvg;
-          break;
-        }
-        case "late": {
-          const aLate = [...a.materials, ...a.quests].filter(t => t.progress >= 100 && t.isLate).length;
-          const bLate = [...b.materials, ...b.quests].filter(t => t.progress >= 100 && t.isLate).length;
-          comparison = aLate - bLate;
-          break;
-        }
-        case "completion": {
-          const aCompleted = [...a.materials, ...a.quests].filter(t => t.progress >= 100).length;
-          const bCompleted = [...b.materials, ...b.quests].filter(t => t.progress >= 100).length;
-          comparison = aCompleted - bCompleted;
-          break;
-        }
-      }
-      return sortOrder === "asc" ? comparison : -comparison;
-    });
-    return result;
-  }, [filteredData, sortBy, sortOrder]);
+  const sortedAndPaginatedData = filteredData;
 
   const totalPages = Math.ceil(sortedAndPaginatedData.length / itemsPerPage);
   const paginatedData = sortedAndPaginatedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -10876,7 +10846,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterClass, filterRisk, sortBy, sortOrder]);
+  }, [searchQuery, filterClass, filterRisk, selectedStudentId]);
 
   useEffect(() => {
     async function fetchProgress() {
@@ -10905,6 +10875,25 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
       setData(prev => prev.filter(s => !(s.studentId === studentId && s.classId === classId)));
     } catch (err) {
       alert(err instanceof Error ? err.message : "Gagal mengeluarkan siswa.");
+    }
+  };
+
+  const saveStudentName = async () => {
+    if (!editingStudentName) return;
+    const name = studentNameDraft.trim();
+    if (!name) return;
+    setSavingStudentName(true);
+    try {
+      const result = await api<{ student: { id: string; name: string } }>(`/api/teacher/students/${editingStudentName.studentId}/name`, {
+        method: "PATCH",
+        body: JSON.stringify({ name })
+      });
+      setData((current) => current.map((student) => student.studentId === result.student.id ? { ...student, studentName: result.student.name } : student));
+      setEditingStudentName(null);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Gagal mengubah nama siswa.");
+    } finally {
+      setSavingStudentName(false);
     }
   };
 
@@ -10947,6 +10936,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
   };
 
   const requiresClassSelection = currentMode === "radar" || currentMode === "report" || currentMode === "koreksi";
+  const selectedStudent = selectedStudentId ? data.find((student) => student.studentId === selectedStudentId) ?? null : null;
 
   return (
     <div className="teacher-profile-card border-0 rounded-t-3xl min-h-[60vh] p-4 md:p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] relative mt-4 animate-in slide-in-from-bottom-10">
@@ -11075,6 +11065,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
           </div>
           {requiresClassSelection && selectedClassId && <div className="flex items-center rounded-lg border border-[rgba(125,211,252,0.22)] bg-[#0a1f5c] px-3 py-2 text-sm font-semibold text-sky-100">{classChoices.find((classItem) => classItem.id === selectedClassId)?.name}</div>}
           {requiresClassSelection && selectedStudentId && <button type="button" onClick={() => { setSelectedStudentId(null); setSearchQuery(""); setFilterRisk("all"); }} className="rounded-lg border border-sky-300/25 bg-sky-400/10 px-3 py-2 text-sm font-bold text-sky-100 hover:bg-sky-400/20">Cari siswa lain</button>}
+          {requiresClassSelection && selectedStudent && <button type="button" onClick={() => { setEditingStudentName(selectedStudent); setStudentNameDraft(selectedStudent.studentName); }} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm font-bold text-amber-300 hover:bg-amber-400/20"><Pencil className="h-4 w-4" />Ubah nama</button>}
           <select
             value={filterRisk}
             onChange={e => setFilterRisk(e.target.value)}
@@ -11084,31 +11075,6 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
             <option value="at-risk">Beresiko (Terlambat)</option>
             <option value="safe">Aman (Tepat Waktu)</option>
           </select>
-        </div>
-      )}
-
-      {!loading && data.length > 0 && (
-        <div className="flex flex-col sm:flex-row gap-3 mb-6 bg-[rgba(5,29,83,0.28)] p-3 rounded-xl border border-[rgba(125,211,252,0.15)] animate-in fade-in slide-in-from-top-2">
-          <div className="flex items-center gap-2 flex-1">
-            <span className="text-xs text-[rgba(226,245,255,0.76)] shrink-0">Urutkan:</span>
-            <select
-              value={sortBy}
-              onChange={e => setSortBy(e.target.value as any)}
-              className="flex-1 px-3 py-2 bg-[#0a1f5c] border border-[rgba(125,211,252,0.22)] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-            >
-              <option value="name">Nama Siswa</option>
-              <option value="progress">Rata-rata Progres</option>
-              <option value="completion">Jumlah Selesai</option>
-              <option value="late">Jumlah Terlambat</option>
-            </select>
-          </div>
-          <button
-            type="button"
-            onClick={() => setSortOrder(prev => prev === "asc" ? "desc" : "asc")}
-            className="px-3 py-2 bg-[#0a1f5c] border border-[rgba(125,211,252,0.22)] rounded-lg text-white text-sm hover:bg-[rgba(5,29,83,0.6)] transition-colors flex items-center justify-center gap-1"
-          >
-            {sortOrder === "asc" ? "↑ Naik" : "↓ Turun"}
-          </button>
         </div>
       )}
 
@@ -11624,6 +11590,17 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
       )}
       </>}
       </>}
+      {editingStudentName && (
+        <div className="fixed inset-0 z-[205] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Ubah nama siswa">
+          <div className="w-full max-w-md rounded-2xl border border-[rgba(125,211,252,0.25)] bg-[rgba(5,29,83,0.96)] p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-3"><div><h3 className="text-lg font-bold text-white">Ubah nama siswa</h3><p className="mt-1 text-sm text-[rgba(226,245,255,0.76)]">Perubahan akan terlihat pada akun dan laporan siswa.</p></div><button type="button" onClick={() => setEditingStudentName(null)} className="rounded-full p-1.5 text-white/70 hover:bg-white/10 hover:text-white" aria-label="Tutup"><X className="h-5 w-5" /></button></div>
+            <form className="mt-5" onSubmit={(event) => { event.preventDefault(); void saveStudentName(); }}>
+              <label className="block text-sm font-semibold text-sky-100">Nama siswa<input autoFocus value={studentNameDraft} onChange={(event) => setStudentNameDraft(event.target.value)} maxLength={100} className="mt-2 w-full rounded-lg border border-sky-300/25 bg-[#0a1f5c] px-3 py-2.5 text-white outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-300/20" /></label>
+              <div className="mt-5 flex gap-2"><button type="button" onClick={() => setEditingStudentName(null)} className="flex-1 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-bold text-white/80 hover:bg-white/10">Batal</button><button type="submit" disabled={savingStudentName || studentNameDraft.trim().length < 3} className="flex-1 rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-amber-950 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50">{savingStudentName ? "Menyimpan..." : "Simpan nama"}</button></div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
