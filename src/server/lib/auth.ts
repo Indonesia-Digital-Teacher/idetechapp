@@ -144,6 +144,7 @@ export async function getSessionUser(token?: string): Promise<AuthUser | null> {
     email: user.email,
     avatarUrl: user.avatarUrl,
     fullName: user.fullName,
+    honorific: user.honorific,
     schoolName: user.schoolName,
     contactChannel: user.contactChannel,
     contactValue: user.contactValue,

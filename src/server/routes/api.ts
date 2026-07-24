@@ -257,6 +257,14 @@ app.patch("/profile", async (c) => {
   return c.json({ ok: true });
 });
 
+app.patch("/profile/honorific", async (c) => {
+  const user = c.get("authUser");
+  const body = (await c.req.json().catch(() => ({}))) as { honorific?: "Pak" | "Bu" };
+  if (body.honorific !== "Pak" && body.honorific !== "Bu") return c.json({ message: "Pilih sapaan Pak atau Bu." }, 400);
+  await db.update(users).set({ honorific: body.honorific, updatedAt: new Date() }).where(eq(users.id, user.id));
+  return c.json({ ok: true, honorific: body.honorific });
+});
+
 app.get("/schools/search", async (c) => {
   const query = c.req.query("q")?.trim() ?? "";
   if (query.length < 2) return c.json({ schools: [] });

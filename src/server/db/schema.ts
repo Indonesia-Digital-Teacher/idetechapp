@@ -26,6 +26,7 @@ export const users = mysqlTable(
     avatarUrl: text("avatar_url"),
     emailVerified: boolean("email_verified").notNull().default(false),
     fullName: varchar("full_name", { length: 255 }),
+    honorific: mysqlEnum("honorific", ["Pak", "Bu"]),
     schoolName: varchar("school_name", { length: 255 }),
     contactChannel: mysqlEnum("contact_channel", ["wa", "telegram"]),
     contactValue: varchar("contact_value", { length: 100 }),

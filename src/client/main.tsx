@@ -109,6 +109,7 @@ type AuthUser = {
   email: string;
   avatarUrl: string | null;
   fullName: string | null;
+  honorific: "Pak" | "Bu" | null;
   schoolName: string | null;
   contactChannel: "wa" | "telegram" | null;
   contactValue: string | null;
@@ -9923,6 +9924,22 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 function TeacherProfileView({ user }: { user: AuthUser }) {
+  const [honorific, setHonorific] = useState<"Pak" | "Bu" | "">(user.honorific ?? "");
+  const [savingHonorific, setSavingHonorific] = useState(false);
+  const [honorificMessage, setHonorificMessage] = useState("");
+  const saveHonorific = async () => {
+    if (honorific !== "Pak" && honorific !== "Bu") return;
+    setSavingHonorific(true);
+    setHonorificMessage("");
+    try {
+      await api("/api/profile/honorific", { method: "PATCH", body: JSON.stringify({ honorific }) });
+      setHonorificMessage("Sapaan disimpan dan akan dipakai pada modal welcome berikutnya.");
+    } catch (error) {
+      setHonorificMessage(error instanceof Error ? error.message : "Gagal menyimpan sapaan.");
+    } finally {
+      setSavingHonorific(false);
+    }
+  };
   return (
     <div className="flex flex-col gap-4 mt-4 md:mt-6">
       <Card className="teacher-profile-card relative overflow-hidden p-6 border-0">
@@ -9969,6 +9986,11 @@ function TeacherProfileView({ user }: { user: AuthUser }) {
                 <p className="font-black capitalize text-white">{user.status}</p>
               </div>
             </div>
+          </div>
+          <div className="teacher-class-auto-id p-4 border border-[rgba(125,211,252,0.22)] bg-[rgba(5,29,83,0.42)] rounded-[18px]">
+            <p className="text-[12px] font-bold text-[rgba(226,245,255,0.76)] mb-2">Sapaan pada welcome screen</p>
+            <div className="flex flex-col gap-2 sm:flex-row"><Select value={honorific} onChange={(event) => setHonorific(event.target.value as "Pak" | "Bu" | "")} className="flex-1 bg-[#0a1f5c] border-[rgba(125,211,252,0.22)] text-white"><option value="">Pilih sapaan</option><option value="Pak">Pak</option><option value="Bu">Bu</option></Select><button type="button" onClick={saveHonorific} disabled={savingHonorific || !honorific} className="rounded-lg bg-amber-400 px-4 py-2 text-sm font-bold text-[#07133b] disabled:opacity-50">{savingHonorific ? "Menyimpan..." : "Simpan"}</button></div>
+            {honorificMessage && <p className="mt-2 text-xs text-sky-200">{honorificMessage}</p>}
           </div>
         </div>
       </Card>
@@ -11776,6 +11798,7 @@ function WelcomeGreetingModal({
   const role = user.activeRole as "teacher" | "student" | "parent";
   const compact = role === "teacher";
   const displayName = user.fullName?.split(" ")[0] || user.name?.split(" ")[0] || "Kamu";
+  const greetedName = role === "teacher" && user.honorific ? `${user.honorific} ${displayName}` : displayName;
   const now = new Date();
 
   // Waktu sapaan dinamis (WIB = UTC+7)
@@ -11893,13 +11916,13 @@ function WelcomeGreetingModal({
 
           {/* Emoji + greeting */}
           <div className={`flex flex-col items-center text-center ${compact ? "mb-3 md:mb-4" : "mb-4 md:mb-6"}`}>
-            <div
-              className={`${compact ? "text-3xl md:text-4xl mb-1.5 md:mb-2" : "text-4xl md:text-6xl mb-2 md:mb-4"} welcome-emoji-bounce`}
-              role="img"
-              aria-label="emoji"
-            >
-              {roleConfig.emoji}
-            </div>
+            {role === "teacher" ? (
+              <div className={`${compact ? "mb-2 h-14 w-14 md:h-16 md:w-16" : "mb-4 h-20 w-20 md:h-24 md:w-24"} overflow-hidden rounded-full border-2 border-white/20 bg-white/10 shadow-lg shadow-indigo-500/20 welcome-emoji-bounce`}>
+                {user.avatarUrl ? <img src={user.avatarUrl} alt={`Foto profil ${displayName}`} referrerPolicy="no-referrer" className="h-full w-full object-cover" /> : <span className="flex h-full w-full items-center justify-center text-xl font-black text-white">{displayName.charAt(0).toUpperCase()}</span>}
+              </div>
+            ) : (
+              <div className={`${compact ? "text-3xl md:text-4xl mb-1.5 md:mb-2" : "text-4xl md:text-6xl mb-2 md:mb-4"} welcome-emoji-bounce`} role="img" aria-label="emoji">{roleConfig.emoji}</div>
+            )}
 
             <span className={`${compact ? "text-[10px] px-2.5 py-0.5 mb-1.5 md:mb-2" : "text-[11px] md:text-xs px-3 py-1 mb-2 md:mb-3"} font-bold rounded-full ${roleConfig.badgeColor}`}>
               {roleConfig.badge}
@@ -11909,7 +11932,7 @@ function WelcomeGreetingModal({
               {greeting},
             </h2>
             <h1 className={`${compact ? "text-xl md:text-2xl" : "text-2xl md:text-3xl"} font-black bg-gradient-to-r ${roleConfig.accent} bg-clip-text text-transparent welcome-name-slide leading-tight`}>
-              {displayName}!
+              {greetedName}!
             </h1>
 
             {/* Tanggal */}
@@ -11938,41 +11961,6 @@ function WelcomeGreetingModal({
             <div className={`${compact ? "mb-3 md:mb-4" : "mb-4 md:mb-6"}`} />
           )}
 
-          {/* AI Quota Information for Teachers/Admins */}
-          {role === "teacher" && aiQuota && (
-            <div className={`bg-indigo-950/40 border border-indigo-500/20 ${compact ? "rounded-lg md:rounded-xl p-2.5 md:p-3 mb-3 md:mb-4" : "rounded-xl md:rounded-2xl p-3 md:p-4 mb-4 md:mb-6"} text-center welcome-quote-fade flex flex-col ${compact ? "gap-1" : "gap-1.5 md:gap-2"}`}>
-              <div className="flex items-center justify-center gap-1.5 md:gap-2">
-                <span className="text-indigo-400 text-sm md:text-base">⚡</span>
-                <h4 className={`${compact ? "text-[10px]" : "text-[10px] md:text-xs"} font-extrabold tracking-wider uppercase text-indigo-300`}>
-                  Kuota AI
-                </h4>
-              </div>
-              <p className={`${compact ? "text-lg md:text-xl" : "text-xl md:text-2xl"} font-black text-white`}>
-                {aiQuota.remaining} <span className={`${compact ? "text-[10px]" : "text-[11px] md:text-xs"} font-normal text-slate-400`}>/ {aiQuota.limit}</span>
-              </p>
-              {aiQuota.limit === 3 ? (
-                <p className={`${compact ? "text-[9px]" : "text-[10px]"} text-indigo-300 bg-indigo-500/10 py-0.5 px-2 rounded border border-indigo-500/20 inline-block self-center`}>
-                  🎉 Hari pertama: kuota ekstra
-                </p>
-              ) : aiQuota.resetAt ? (
-                <p className={`${compact ? "text-[9px]" : "text-[10px]"} text-indigo-300 bg-indigo-500/10 py-0.5 px-2 rounded border border-indigo-500/20 inline-block self-center`}>
-                  🔄 Reset {new Date(aiQuota.resetAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
-                </p>
-              ) : (
-                <p className={`${compact ? "text-[9px]" : "text-[10px]"} text-slate-400`}>
-                  Reset otomatis tiap 3 jam
-                </p>
-              )}
-              <a
-                href={`https://wa.me/${adminContact}?text=Halo%20Admin%20IdeTech%2C%20saya%20ingin%20membeli%20tambahan%20kuota%20AI%20Generator.`}
-                target="_blank"
-                rel="noreferrer"
-                className={`${compact ? "text-[9px] md:text-[10px]" : "text-[10px] md:text-[11px]"} font-bold text-emerald-400 hover:text-emerald-300 transition-colors flex items-center justify-center gap-1`}
-              >
-                💬 Beli kuota tambahan
-              </a>
-            </div>
-          )}
 
           {role === "teacher" && !teacherHasClasses && (
             <div className={`${compact ? "mb-3 md:mb-4 p-2.5 md:p-3 rounded-lg md:rounded-xl" : "mb-4 md:mb-6 p-3 md:p-4 rounded-xl md:rounded-2xl"} bg-white/[0.03] border border-dashed border-amber-400/30`}>
