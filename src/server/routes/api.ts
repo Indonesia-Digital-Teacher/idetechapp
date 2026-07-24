@@ -2773,6 +2773,132 @@ app.get("/teacher/bank-public", requireRole(["teacher", "admin"]), requirePermis
   });
 });
 
+// The library is the read/adopt seam for curated content. It keeps the
+// contributor's source item intact and returns classroom-ready packages made
+// of one material plus its linked IdeQuests.
+app.get("/teacher/library", requireRole(["teacher", "admin"]), requirePermission("bank.manage"), async (c) => {
+  const [materialRows, questRows, userRows] = await Promise.all([
+    db.select().from(materials).where(eq(materials.bankStatus, "approved")).orderBy(desc(materials.updatedAt)),
+    db.select().from(ideQuests).where(eq(ideQuests.bankStatus, "approved")).orderBy(desc(ideQuests.updatedAt)),
+    db.select().from(users)
+  ]);
+  const contributorName = (userId: string) => userRows.find((user) => user.id === userId)?.fullName ?? "Kontributor IdeTech";
+  const publicQuest = (quest: any) => ({ ...quest, contributorName: contributorName(quest.teacherUserId) });
+
+  return c.json({
+    packages: materialRows.map((material) => ({
+      id: material.id,
+      title: material.title,
+      contributorName: contributorName(material.teacherUserId),
+      material: { ...material, contributorName: contributorName(material.teacherUserId) },
+      quests: questRows.filter((quest) => quest.materialId === material.id).map(publicQuest)
+    })),
+    materials: materialRows.map((material) => ({ ...material, contributorName: contributorName(material.teacherUserId) })),
+    quests: questRows.filter((quest) => !quest.materialId).map(publicQuest)
+  });
+});
+
+app.post("/teacher/library/packages/:materialId/adopt", requireRole(["teacher", "admin"]), requirePermission("bank.manage"), async (c) => {
+  const user = c.get("authUser");
+  const materialId = c.req.param("materialId");
+  const body = (await c.req.json().catch(() => ({}))) as { targetClassId?: string };
+  if (!materialId || !body.targetClassId) return c.json({ message: "Paket dan kelas tujuan wajib diisi." }, 400);
+
+  const [[sourceMaterial], [targetClass], sourceQuests] = await Promise.all([
+    db.select().from(materials).where(eq(materials.id, materialId)).limit(1),
+    db.select().from(classes).where(eq(classes.id, body.targetClassId)).limit(1),
+    db.select().from(ideQuests).where(and(eq(ideQuests.materialId, materialId), eq(ideQuests.bankStatus, "approved")))
+  ]);
+  if (!sourceMaterial || sourceMaterial.bankStatus !== "approved") return c.json({ message: "Paket pembelajaran tidak tersedia." }, 404);
+  if (!targetClass || (user.activeRole !== "admin" && targetClass.teacherUserId !== user.id)) return c.json({ message: "Kelas tujuan tidak valid." }, 400);
+
+  const now = new Date();
+  const clonedMaterialId = `mat_${crypto.randomUUID()}`;
+  await db.insert(materials).values({
+    id: clonedMaterialId,
+    teacherUserId: user.id,
+    classId: targetClass.id,
+    title: sourceMaterial.title,
+    type: sourceMaterial.type,
+    description: sourceMaterial.description,
+    content: sourceMaterial.content,
+    options: sourceMaterial.options,
+    status: "published",
+    bankStatus: "none",
+    level: sourceMaterial.level,
+    createdAt: now,
+    updatedAt: now
+  });
+
+  const clonedQuests = [] as Array<{ id: string; sourceId: string }>;
+  for (const sourceQuest of sourceQuests) {
+    const clonedQuestId = `iq_${crypto.randomUUID()}`;
+    await db.insert(ideQuests).values({
+      id: clonedQuestId,
+      teacherUserId: user.id,
+      classId: targetClass.id,
+      materialId: clonedMaterialId,
+      title: sourceQuest.title,
+      mission: sourceQuest.mission,
+      points: sourceQuest.points,
+      dueDate: sourceQuest.dueDate,
+      status: "published",
+      bankStatus: "none",
+      level: sourceQuest.level,
+      createdAt: now,
+      updatedAt: now
+    });
+    clonedQuests.push({ id: clonedQuestId, sourceId: sourceQuest.id });
+  }
+
+  const [material] = await db.select().from(materials).where(eq(materials.id, clonedMaterialId)).limit(1);
+  const quests = clonedQuests.length
+    ? await db.select().from(ideQuests).where(inArray(ideQuests.id, clonedQuests.map((quest) => quest.id)))
+    : [];
+  await writeActivityLog({
+    userId: user.id,
+    action: "adopt",
+    resourceType: "learning_package",
+    resourceId: materialId,
+    details: { targetClassId: targetClass.id, materialId: clonedMaterialId, questCount: quests.length }
+  });
+  return c.json({ material, quests }, 201);
+});
+
+app.post("/teacher/library/quests/:questId/adopt", requireRole(["teacher", "admin"]), requirePermission("bank.manage"), async (c) => {
+  const user = c.get("authUser");
+  const questId = c.req.param("questId");
+  const body = (await c.req.json().catch(() => ({}))) as { targetClassId?: string };
+  if (!questId || !body.targetClassId) return c.json({ message: "IdeQuest dan kelas tujuan wajib diisi." }, 400);
+  const [[sourceQuest], [targetClass]] = await Promise.all([
+    db.select().from(ideQuests).where(eq(ideQuests.id, questId)).limit(1),
+    db.select().from(classes).where(eq(classes.id, body.targetClassId)).limit(1)
+  ]);
+  if (!sourceQuest || sourceQuest.bankStatus !== "approved") return c.json({ message: "IdeQuest tidak tersedia di perpustakaan." }, 404);
+  if (!targetClass || (user.activeRole !== "admin" && targetClass.teacherUserId !== user.id)) return c.json({ message: "Kelas tujuan tidak valid." }, 400);
+
+  const now = new Date();
+  const clonedQuestId = `iq_${crypto.randomUUID()}`;
+  await db.insert(ideQuests).values({
+    id: clonedQuestId,
+    teacherUserId: user.id,
+    classId: targetClass.id,
+    materialId: null,
+    title: sourceQuest.title,
+    mission: sourceQuest.mission,
+    points: sourceQuest.points,
+    dueDate: sourceQuest.dueDate,
+    status: "published",
+    bankStatus: "none",
+    level: sourceQuest.level,
+    createdAt: now,
+    updatedAt: now
+  });
+  const [quest] = await db.select().from(ideQuests).where(eq(ideQuests.id, clonedQuestId)).limit(1);
+  await writeActivityLog({ userId: user.id, action: "adopt", resourceType: "idequest", resourceId: questId, details: { targetClassId: targetClass.id, questId: clonedQuestId } });
+  return c.json({ quest }, 201);
+});
+
 app.post("/teacher/bank-requests", requireRole(["teacher", "admin"]), requirePermission("bank.manage"), async (c) => {
   const user = c.get("authUser");
   const body = (await c.req.json().catch(() => ({}))) as {

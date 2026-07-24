@@ -1499,6 +1499,51 @@ describeIfDb("Backend API Endpoints", () => {
           );
         });
 
+        test("Guru dapat langsung mengadopsi paket terkurasi beserta IdeQuest terkait ke kelasnya", async () => {
+          const { token: contributorToken } = await createUserWithPermissions("teacher", [
+            "class.manage", "material.create", "quest.manage", "bank.manage"
+          ]);
+          const sourceClassRes = await requestWithToken(contributorToken, "/teacher/classes", "POST", {
+            name: "Kelas Kontributor", subject: "Matematika", grade: "11"
+          });
+          const sourceClassId = (await sourceClassRes.json()).class.id;
+          const materialRes = await requestWithToken(contributorToken, "/teacher/materials", "POST", {
+            classId: sourceClassId, title: "Barisan dan Deret", type: "lesson", description: "Materi paket"
+          });
+          const materialId = (await materialRes.json()).material.id;
+          const questRes = await requestWithToken(contributorToken, "/teacher/idequests", "POST", {
+            classId: sourceClassId, materialId, title: "Misi Barisan", mission: "Selesaikan latihan.", points: 100, dueDate: "7d", status: "published"
+          });
+          const questId = (await questRes.json()).quest.id;
+          await requestWithToken(contributorToken, "/teacher/bank-submit", "POST", { type: "material", id: materialId });
+          await requestWithToken(contributorToken, "/teacher/bank-submit", "POST", { type: "quest", id: questId });
+
+          const { token: adminToken } = await createUserWithPermissions("admin", ["bank.manage"]);
+          await requestWithToken(adminToken, `/admin/bank-queue/material/${materialId}`, "PATCH", { status: "approved" });
+          await requestWithToken(adminToken, `/admin/bank-queue/quest/${questId}`, "PATCH", { status: "approved" });
+
+          const { token: adopterToken } = await createUserWithPermissions("teacher", ["class.manage", "bank.manage"]);
+          const targetClassRes = await requestWithToken(adopterToken, "/teacher/classes", "POST", {
+            name: "Kelas Adopter", subject: "Matematika", grade: "11"
+          });
+          const targetClassId = (await targetClassRes.json()).class.id;
+
+          const libraryRes = await requestWithToken(adopterToken, "/teacher/library", "GET");
+          expect(libraryRes.status).toBe(200);
+          const library = await libraryRes.json();
+          expect(library.packages).toEqual(expect.arrayContaining([
+            expect.objectContaining({ material: expect.objectContaining({ id: materialId }), quests: [expect.objectContaining({ id: questId })] })
+          ]));
+
+          const adoptRes = await requestWithToken(adopterToken, `/teacher/library/packages/${materialId}/adopt`, "POST", { targetClassId });
+          expect(adoptRes.status).toBe(201);
+          const adopted = await adoptRes.json();
+          expect(adopted.material.classId).toBe(targetClassId);
+          expect(adopted.quests).toHaveLength(1);
+          expect(adopted.quests[0].materialId).toBe(adopted.material.id);
+          expect(adopted.quests[0].classId).toBe(targetClassId);
+        });
+
         test("Teacher tidak bisa request clone item milik sendiri", async () => {
           const { token: teacherToken } = await createUserWithPermissions("teacher", [
             "class.manage",

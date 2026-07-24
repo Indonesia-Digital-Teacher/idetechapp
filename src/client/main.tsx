@@ -6399,10 +6399,11 @@ Langkah Petualangan:
 
   const [showBankModal, setShowBankModal] = React.useState(false);
   const [showRequestsModal, setShowRequestsModal] = React.useState(false);
-  const [bankTab, setBankTab] = React.useState<"material" | "quest" | "rpp">("material");
+  const [bankTab, setBankTab] = React.useState<"package" | "material" | "quest" | "rpp">("package");
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
 
   const [bankItems, setBankItems] = React.useState<{ materials: any[]; quests: any[]; lessonPlans: any[] }>({ materials: [], quests: [], lessonPlans: [] });
+  const [libraryItems, setLibraryItems] = React.useState<{ packages: any[]; materials: any[]; quests: any[] }>({ packages: [], materials: [], quests: [] });
   const [bankRequests, setBankRequests] = React.useState<{ incoming: any[]; outgoing: any[] }>({ incoming: [], outgoing: [] });
   const [requestTargetClass, setRequestTargetClass] = React.useState<Record<string, string>>({});
 
@@ -6410,6 +6411,15 @@ Langkah Petualangan:
     try {
       const data = await api<{ materials: any[]; quests: any[]; lessonPlans: any[] }>("/api/teacher/bank-public");
       setBankItems(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const loadLibrary = async () => {
+    try {
+      const data = await api<{ packages: any[]; materials: any[]; quests: any[] }>("/api/teacher/library");
+      setLibraryItems(data);
     } catch (err) {
       console.error(err);
     }
@@ -6425,7 +6435,10 @@ Langkah Petualangan:
   };
 
   React.useEffect(() => {
-    if (showBankModal) loadBankPublic();
+    if (showBankModal) {
+      loadBankPublic();
+      loadLibrary();
+    }
   }, [showBankModal]);
 
   React.useEffect(() => {
@@ -6446,6 +6459,22 @@ Langkah Petualangan:
       showToast("Permohonan berhasil dikirim ke pembuat.");
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Gagal memohon.");
+    }
+  };
+
+  const adoptLibraryItem = async (kind: "package" | "quest", id: string) => {
+    const classId = requestTargetClass[`library-${id}`];
+    if (!classId) {
+      showToast("Pilih kelas tujuan terlebih dahulu.");
+      return;
+    }
+    try {
+      const path = kind === "package" ? `/api/teacher/library/packages/${id}/adopt` : `/api/teacher/library/quests/${id}/adopt`;
+      await api(path, { method: "POST", body: JSON.stringify({ targetClassId: classId }) });
+      showToast(kind === "package" ? "Paket pembelajaran siap digunakan di kelas Anda." : "IdeQuest siap digunakan di kelas Anda.");
+      setShowBankModal(false);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Gagal menggunakan konten pembelajaran.");
     }
   };
 
@@ -6472,7 +6501,7 @@ Langkah Petualangan:
   return (
     <section className="teacher-studio-manager">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold text-slate-800">Studio Pembuatan</h2>
+        <h2 className="text-xl font-bold text-slate-800">Perpustakaan & Studio</h2>
         <div className="flex gap-2">
           <button
             type="button"
@@ -6491,7 +6520,7 @@ Langkah Petualangan:
             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-lg shadow-sm hover:shadow text-sm transition-all hover:scale-105"
           >
             <BookOpen className="h-4 w-4" />
-            Bank IdeTech
+            Jelajahi Perpustakaan
           </button>
         </div>
       </div>
@@ -7125,7 +7154,7 @@ Langkah Petualangan:
             <div className="p-4 border-b border-white/10 flex items-center justify-between">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 <BookOpen className="h-5 w-5 text-amber-400" />
-                Bank IdeTech
+                Perpustakaan Pembelajaran
               </h3>
               <button type="button" onClick={() => setShowBankModal(false)} className="text-[rgba(226,245,255,0.76)] hover:text-white transition-colors p-1 rounded-md hover:bg-white/10">
                 <X className="h-5 w-5" />
@@ -7133,6 +7162,13 @@ Langkah Petualangan:
             </div>
 
             <div className="flex border-b border-white/10">
+              <button
+                type="button"
+                className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${bankTab === 'package' ? 'border-amber-400 text-amber-400' : 'border-transparent text-[rgba(226,245,255,0.76)] hover:text-white hover:bg-white/5'}`}
+                onClick={() => setBankTab('package')}
+              >
+                Paket Siap Pakai
+              </button>
               <button
                 type="button"
                 className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${bankTab === 'material' ? 'border-amber-400 text-amber-400' : 'border-transparent text-[rgba(226,245,255,0.76)] hover:text-white hover:bg-white/5'}`}
@@ -7157,7 +7193,28 @@ Langkah Petualangan:
             </div>
 
             <div className="p-6 overflow-y-auto flex-1 space-y-4">
-              {bankTab === 'material' ? (
+              {bankTab === 'package' ? (
+                libraryItems.packages.length === 0 ? (
+                  <div className="text-center p-8 text-[rgba(226,245,255,0.76)] bg-[rgba(5,29,83,0.42)] rounded-xl border border-[rgba(125,211,252,0.22)] shadow-sm">Belum ada paket pembelajaran terkurasi.</div>
+                ) : (
+                  libraryItems.packages.map(item => (
+                    <div key={item.id} className="bg-[rgba(5,29,83,0.42)] p-4 rounded-xl border border-[rgba(125,211,252,0.22)] shadow-sm flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center hover:bg-[rgba(5,29,83,0.6)] transition-colors">
+                      <div>
+                        <div className="flex items-center gap-2"><h4 className="font-bold text-white">{item.title}</h4><span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-400/15 text-emerald-300 border border-emerald-400/30">{item.quests.length} IdeQuest</span></div>
+                        <p className="text-xs text-[rgba(226,245,255,0.76)] mt-1">Kontributor: {item.contributorName} • {item.material.type}</p>
+                        <p className="text-sm text-[rgba(226,245,255,0.86)] mt-2 line-clamp-2">{item.material.description}</p>
+                      </div>
+                      <div className="flex flex-col gap-2 min-w-[160px]">
+                        <select className="text-xs font-medium text-white border border-[rgba(125,211,252,0.22)] rounded p-1.5 w-full bg-[#0a1f5c] shadow-sm focus:border-amber-400 focus:ring-1 focus:ring-amber-400 focus:outline-none" value={requestTargetClass[`library-${item.id}`] || ""} onChange={(e) => setRequestTargetClass(prev => ({ ...prev, [`library-${item.id}`]: e.target.value }))}>
+                          <option value="">-- Pilih Kelas Tujuan --</option>
+                          {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                        <button type="button" onClick={() => adoptLibraryItem("package", item.id)} className="w-full text-xs py-1.5 px-3 rounded border border-emerald-400/50 bg-emerald-400/20 text-emerald-300 font-bold hover:bg-emerald-400/30 transition-colors shadow-sm">Gunakan untuk Kelas Saya</button>
+                      </div>
+                    </div>
+                  ))
+                )
+              ) : bankTab === 'material' ? (
                 bankItems.materials.length === 0 ? (
                   <div className="text-center p-8 text-[rgba(226,245,255,0.76)] bg-[rgba(5,29,83,0.42)] rounded-xl border border-[rgba(125,211,252,0.22)] shadow-sm">Belum ada materi di bank.</div>
                 ) : (
@@ -7171,22 +7228,22 @@ Langkah Petualangan:
                       <div className="flex flex-col gap-2 min-w-[160px]">
                         <select
                           className="text-xs font-medium text-white border border-[rgba(125,211,252,0.22)] rounded p-1.5 w-full bg-[#0a1f5c] shadow-sm focus:border-amber-400 focus:ring-1 focus:ring-amber-400 focus:outline-none"
-                          value={requestTargetClass[item.id] || ""}
-                          onChange={(e) => setRequestTargetClass(prev => ({...prev, [item.id]: e.target.value}))}
+                          value={requestTargetClass[`library-${item.id}`] || ""}
+                          onChange={(e) => setRequestTargetClass(prev => ({...prev, [`library-${item.id}`]: e.target.value}))}
                         >
                           <option value="">-- Pilih Kelas Tujuan --</option>
                           {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
-                        <button type="button" onClick={() => sendBankRequest("material", item.id)} className="w-full text-xs py-1.5 px-3 rounded border border-amber-400/50 bg-amber-400/20 text-amber-300 font-bold hover:bg-amber-400/30 transition-colors shadow-sm">Minta Izin Penggunaan</button>
+                        <button type="button" onClick={() => adoptLibraryItem("package", item.id)} className="w-full text-xs py-1.5 px-3 rounded border border-emerald-400/50 bg-emerald-400/20 text-emerald-300 font-bold hover:bg-emerald-400/30 transition-colors shadow-sm">Gunakan untuk Kelas Saya</button>
                       </div>
                     </div>
                   ))
                 )
               ) : bankTab === 'quest' ? (
-                bankItems.quests.length === 0 ? (
-                  <div className="text-center p-8 text-[rgba(226,245,255,0.76)] bg-[rgba(5,29,83,0.42)] rounded-xl border border-[rgba(125,211,252,0.22)] shadow-sm">Belum ada IdeQuest di bank.</div>
+                libraryItems.quests.length === 0 ? (
+                  <div className="text-center p-8 text-[rgba(226,245,255,0.76)] bg-[rgba(5,29,83,0.42)] rounded-xl border border-[rgba(125,211,252,0.22)] shadow-sm">Belum ada IdeQuest mandiri di perpustakaan.</div>
                 ) : (
-                  bankItems.quests.map(item => (
+                  libraryItems.quests.map(item => (
                     <div key={item.id} className="bg-[rgba(5,29,83,0.42)] p-4 rounded-xl border border-[rgba(125,211,252,0.22)] shadow-sm flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center hover:bg-[rgba(5,29,83,0.6)] transition-colors">
                       <div>
                         <h4 className="font-bold text-white">{item.title}</h4>
@@ -7196,13 +7253,13 @@ Langkah Petualangan:
                       <div className="flex flex-col gap-2 min-w-[160px]">
                         <select
                           className="text-xs font-medium text-white border border-[rgba(125,211,252,0.22)] rounded p-1.5 w-full bg-[#0a1f5c] shadow-sm focus:border-amber-400 focus:ring-1 focus:ring-amber-400 focus:outline-none"
-                          value={requestTargetClass[item.id] || ""}
-                          onChange={(e) => setRequestTargetClass(prev => ({...prev, [item.id]: e.target.value}))}
+                          value={requestTargetClass[`library-${item.id}`] || ""}
+                          onChange={(e) => setRequestTargetClass(prev => ({...prev, [`library-${item.id}`]: e.target.value}))}
                         >
                           <option value="">-- Pilih Kelas Tujuan --</option>
                           {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
-                        <button type="button" onClick={() => sendBankRequest("quest", item.id)} className="w-full text-xs py-1.5 px-3 rounded border border-amber-400/50 bg-amber-400/20 text-amber-300 font-bold hover:bg-amber-400/30 transition-colors shadow-sm">Minta Izin Penggunaan</button>
+                        <button type="button" onClick={() => adoptLibraryItem("quest", item.id)} className="w-full text-xs py-1.5 px-3 rounded border border-emerald-400/50 bg-emerald-400/20 text-emerald-300 font-bold hover:bg-emerald-400/30 transition-colors shadow-sm">Gunakan untuk Kelas Saya</button>
                       </div>
                     </div>
                   ))
