@@ -1132,6 +1132,10 @@ describeIfDb("Backend API Endpoints", () => {
             createdAt: new Date()
           });
 
+          const listRes = await requestWithToken(teacherToken, `/teacher/classes/${classId}/students`, "GET");
+          expect(listRes.status).toBe(200);
+          expect((await listRes.json()).students).toEqual(expect.arrayContaining([expect.objectContaining({ id: studentId })]));
+
           const updateRes = await requestWithToken(teacherToken, `/teacher/students/${studentId}/name`, "PATCH", { name: "Siswa Bernama Baru" });
           expect(updateRes.status).toBe(200);
           expect((await updateRes.json()).student.name).toBe("Siswa Bernama Baru");

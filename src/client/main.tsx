@@ -6530,7 +6530,7 @@ Langkah Petualangan:
       <div className="flex justify-between items-center mb-4">
         <div>
           <h2 className="text-xl font-bold text-white">Paket Pembelajaran</h2>
-          <p className="text-sm text-white/80">Pilih paket terkurasi, gunakan di kelas, lalu fokus pada proses belajar.</p>
+          <p className="text-sm text-white/80">Pilih paket, gunakan di kelas, fokus mengajar.</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -7510,6 +7510,7 @@ function TeacherClassManager({
   onCreate: (event: React.FormEvent<HTMLFormElement>) => void;
   onUpdateUnlockedLevel: (classId: string, level: number) => void;
 }) {
+  const [managingClass, setManagingClass] = useState<TeacherClass | null>(null);
   return (
     <section className="teacher-class-manager">
       <div className="teacher-class-summary">
@@ -7624,6 +7625,7 @@ function TeacherClassManager({
                     </div>
                     <b>{item.progress}%</b>
                     <span className="text-[10px] text-white/60">{item.students} siswa</span>
+                    <button type="button" onClick={() => setManagingClass(item)} className="mt-1 rounded-lg border border-sky-300/30 bg-sky-400/15 px-2.5 py-1.5 text-[10px] font-bold text-sky-100 hover:bg-sky-400/25">Kelola Siswa</button>
                   </div>
                 </article>
               ))}
@@ -7631,8 +7633,41 @@ function TeacherClassManager({
           </details>
         ))}
       </div>
+      {managingClass && <ClassStudentManagerModal classId={managingClass.id} className={managingClass.name} onClose={() => setManagingClass(null)} />}
     </section>
   );
+}
+
+function ClassStudentManagerModal({ classId, className, onClose }: { classId: string; className: string; onClose: () => void }) {
+  const [students, setStudents] = useState<{ id: string; name: string; email: string; avatarUrl: string | null; joinedAt?: string }[]>([]);
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [nameDraft, setNameDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api<{ students: typeof students }>(`/api/teacher/classes/${classId}/students`).then((result) => setStudents(result.students)).catch((reason) => setError(reason instanceof Error ? reason.message : "Gagal memuat siswa.")).finally(() => setLoading(false));
+  }, [classId]);
+
+  const saveName = async () => {
+    if (!editingId || nameDraft.trim().length < 3) return;
+    setSaving(true);
+    setError("");
+    try {
+      const result = await api<{ student: { id: string; name: string } }>(`/api/teacher/students/${editingId}/name`, { method: "PATCH", body: JSON.stringify({ name: nameDraft.trim() }) });
+      setStudents((current) => current.map((student) => student.id === result.student.id ? { ...student, name: result.student.name } : student));
+      setEditingId(null);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Gagal menyimpan nama siswa.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const filteredStudents = students.filter((student) => [student.name, student.email].some((value) => value.toLowerCase().includes(query.trim().toLowerCase())));
+  return <div className="fixed inset-0 z-[210] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"><div className="w-full max-w-xl overflow-hidden rounded-2xl border border-[rgba(125,211,252,0.28)] bg-[#08235f] shadow-2xl"><div className="flex items-start justify-between border-b border-white/10 p-5"><div><h3 className="text-lg font-bold text-white">Kelola Siswa</h3><p className="mt-1 text-sm text-[rgba(226,245,255,0.72)]">{className} · perbaiki nama siswa bila diperlukan.</p></div><button type="button" onClick={onClose} className="rounded-full p-1.5 text-white/70 hover:bg-white/10 hover:text-white" aria-label="Tutup"><X className="h-5 w-5" /></button></div><div className="p-5"><div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sky-200" /><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari nama atau email siswa..." className="w-full rounded-xl border border-sky-300/25 bg-[rgba(5,29,83,0.55)] py-3 pl-10 pr-4 text-sm text-white placeholder:text-white/40 outline-none focus:border-sky-300" /></div>{error && <p className="mt-3 text-sm text-rose-300">{error}</p>}<div className="mt-4 max-h-[48vh] space-y-2 overflow-y-auto">{loading ? <p className="py-8 text-center text-sm text-white/65">Memuat siswa...</p> : filteredStudents.length === 0 ? <p className="py-8 text-center text-sm text-white/65">Siswa tidak ditemukan.</p> : filteredStudents.map((student) => <div key={student.id} className="rounded-xl border border-white/10 bg-white/5 p-3"><div className="flex items-center gap-3">{student.avatarUrl ? <img src={student.avatarUrl} alt="" className="h-9 w-9 rounded-full object-cover" /> : <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sky-400/15 text-sm font-bold text-sky-200">{student.name.charAt(0).toUpperCase()}</div>}<div className="min-w-0 flex-1"><strong className="block truncate text-sm text-white">{student.name}</strong><span className="block truncate text-xs text-white/60">{student.email}</span></div>{editingId !== student.id && <button type="button" onClick={() => { setEditingId(student.id); setNameDraft(student.name); }} className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 text-xs font-bold text-amber-200 hover:bg-amber-400/20">Ubah nama</button>}</div>{editingId === student.id && <div className="mt-3 flex gap-2"><input value={nameDraft} onChange={(event) => setNameDraft(event.target.value)} maxLength={100} className="min-w-0 flex-1 rounded-lg border border-sky-300/25 bg-[rgba(5,29,83,0.55)] px-3 py-2 text-sm text-white outline-none focus:border-sky-300" /><button type="button" onClick={saveName} disabled={saving || nameDraft.trim().length < 3} className="rounded-lg bg-amber-400 px-3 py-2 text-xs font-bold text-[#07133b] disabled:opacity-50">{saving ? "..." : "Simpan"}</button><button type="button" onClick={() => setEditingId(null)} className="rounded-lg border border-white/15 px-3 py-2 text-xs font-bold text-white/75">Batal</button></div>}</div>)}</div></div></div></div>;
 }
 
 function TeacherDesktopSidebar({
@@ -8831,8 +8866,34 @@ function AdminControlCenter({
 
         <AdminUserVerificationGrid users={users} roles={access?.roles ?? []} busy={busy} onUpdateUser={onUpdateUser} onDeleteUser={onDeleteUser} />
       </Card>
+      <AdminStudentNameManager users={users} />
     </section>
   );
+}
+
+function AdminStudentNameManager({ users }: { users: AdminUser[] }) {
+  const [query, setQuery] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [nameDraft, setNameDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const students = users.filter((user) => user.roles.some((role) => role.name === "student"));
+  const filteredStudents = students.filter((student) => [student.name, student.email].some((value) => value.toLowerCase().includes(query.trim().toLowerCase())));
+  const saveName = async () => {
+    if (!editingId || nameDraft.trim().length < 3) return;
+    setSaving(true);
+    setMessage("");
+    try {
+      await api(`/api/admin/students/${editingId}/name`, { method: "PATCH", body: JSON.stringify({ name: nameDraft.trim() }) });
+      setMessage("Nama siswa berhasil diperbarui. Muat ulang halaman untuk memperbarui daftar utama.");
+      setEditingId(null);
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : "Gagal mengubah nama siswa.");
+    } finally {
+      setSaving(false);
+    }
+  };
+  return <Card className="professional-card p-5"><div className="professional-card__header"><div><h2 className="professional-card__title">Kelola Siswa</h2><p className="professional-card__hint">Cari siswa lintas kelas dan perbaiki nama akun bila diperlukan.</p></div><span className="professional-card__pill">{students.length} siswa</span></div><div className="relative mt-4"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari nama atau email siswa..." className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm text-slate-800 outline-none focus:border-blue-400" /></div>{message && <p className="mt-3 text-sm text-slate-600">{message}</p>}<div className="mt-4 grid gap-3 md:grid-cols-2">{filteredStudents.slice(0, 20).map((student) => <div key={student.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3"><div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 font-bold text-blue-700">{student.name.charAt(0).toUpperCase()}</div><div className="min-w-0 flex-1"><strong className="block truncate text-sm text-slate-800">{student.name}</strong><span className="block truncate text-xs text-slate-500">{student.email}</span></div>{editingId !== student.id && <button type="button" onClick={() => { setEditingId(student.id); setNameDraft(student.name); }} className="rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-50">Ubah nama</button>}</div>{editingId === student.id && <div className="mt-3 flex gap-2"><input value={nameDraft} onChange={(event) => setNameDraft(event.target.value)} maxLength={100} className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800" /><button type="button" onClick={saveName} disabled={saving || nameDraft.trim().length < 3} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{saving ? "..." : "Simpan"}</button><button type="button" onClick={() => setEditingId(null)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600">Batal</button></div>}</div>)}</div>{filteredStudents.length > 20 && <p className="mt-3 text-xs text-slate-500">Persempit pencarian untuk melihat siswa lainnya.</p>}</Card>;
 }
 
 function AdminSubPage({
@@ -10749,6 +10810,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
   const [editingStudentName, setEditingStudentName] = useState<StudentProgressReport | null>(null);
   const [studentNameDraft, setStudentNameDraft] = useState("");
   const [savingStudentName, setSavingStudentName] = useState(false);
+  const [showReportPrintDialog, setShowReportPrintDialog] = useState(false);
   const [rankingClassId, setRankingClassId] = useState<string>("");
   const [rankingMetric, setRankingMetric] = useState<"points" | "progress" | "completion">("points");
   const itemsPerPage = 5;
@@ -10935,6 +10997,26 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
     document.body.removeChild(link);
   };
 
+  const printReport = (scope: "class" | "all") => {
+    const reportStudents = scope === "class" && selectedClassId ? data.filter((student) => student.classId === selectedClassId) : data;
+    const scopeName = scope === "class" ? classChoices.find((classItem) => classItem.id === selectedClassId)?.name || "Kelas terpilih" : "Semua Kelas";
+    const escapeHtml = (value: unknown) => String(value ?? "").replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character] || character);
+    const rows = reportStudents.map((student) => {
+      const tasks = [...student.materials, ...student.quests];
+      const completed = tasks.filter((task) => task.progress >= 100).length;
+      const late = tasks.filter((task) => task.progress >= 100 && task.isLate).length;
+      const progress = tasks.length ? Math.round(tasks.reduce((total, task) => total + task.progress, 0) / tasks.length) : 0;
+      return `<tr><td>${escapeHtml(student.studentName)}</td><td>${escapeHtml(student.className)}</td><td>${completed}/${tasks.length}</td><td>${progress}%</td><td>${late}</td></tr>`;
+    }).join("");
+    const printWindow = window.open("", "_blank", "width=960,height=720");
+    if (!printWindow) return;
+    printWindow.document.write(`<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Laporan Hasil Belajar - ${escapeHtml(scopeName)}</title><style>body{font-family:Arial,sans-serif;color:#12203f;padding:32px}h1{margin:0;color:#0b3b82;font-size:24px}p{color:#4b6388}table{width:100%;border-collapse:collapse;margin-top:24px;font-size:12px}th{background:#0b3b82;color:#fff;text-align:left}th,td{padding:10px;border:1px solid #d7e2f2}tr:nth-child(even){background:#f5f8fd}.meta{margin-top:6px;font-size:12px}@media print{body{padding:0}}</style></head><body><h1>Laporan Hasil Belajar</h1><p>${escapeHtml(scopeName)}</p><p class="meta">Dicetak ${new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })} · ${reportStudents.length} siswa</p><table><thead><tr><th>Nama Siswa</th><th>Kelas</th><th>Tugas Selesai</th><th>Rata-rata Progres</th><th>Terlambat</th></tr></thead><tbody>${rows || '<tr><td colspan="5">Belum ada siswa untuk dilaporkan.</td></tr>'}</tbody></table></body></html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    setShowReportPrintDialog(false);
+  };
+
   const requiresClassSelection = currentMode === "radar" || currentMode === "report" || currentMode === "koreksi";
   const selectedStudent = selectedStudentId ? data.find((student) => student.studentId === selectedStudentId) ?? null : null;
 
@@ -10973,36 +11055,37 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
             <Download className="h-4 w-4" />
             <span className="hidden sm:inline">Unduh Laporan</span>
           </button>
+          {currentMode === "report" && <button type="button" onClick={() => setShowReportPrintDialog(true)} disabled={loading || data.length === 0} className="inline-flex items-center gap-2 rounded-lg border border-sky-300/30 bg-sky-400/15 px-3 py-2 text-sm font-bold text-sky-100 hover:bg-sky-400/25 disabled:cursor-not-allowed disabled:opacity-50"><Download className="h-4 w-4" /><span className="hidden sm:inline">Cetak PDF</span></button>}
           <button type="button" onClick={onClose} className="p-2 bg-[rgba(5,29,83,0.42)] text-[rgba(226,245,255,0.76)] rounded-full hover:bg-[rgba(5,29,83,0.6)] hover:text-white transition-colors border border-[rgba(125,211,252,0.22)]" title="Tutup Radar">
             <X className="h-5 w-5" />
           </button>
         </div>
       </div>
 
-      <div className="flex gap-2 p-1 bg-[rgba(5,29,83,0.42)] border border-[rgba(125,211,252,0.22)] rounded-lg mb-6 w-full overflow-x-auto hide-scrollbar">
+      <div className="grid grid-cols-2 gap-1 rounded-lg border border-[rgba(125,211,252,0.22)] bg-[rgba(5,29,83,0.42)] p-1 mb-6 w-full sm:flex sm:gap-2">
         <button
           onClick={() => setCurrentMode("radar")}
-          className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${currentMode === "radar" ? "bg-[rgba(5,29,83,0.8)] border border-[rgba(125,211,252,0.22)] text-amber-400 shadow-sm" : "text-[rgba(226,245,255,0.76)] hover:text-white hover:bg-white/5"}`}
+          className={`inline-flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-md transition-colors sm:flex-1 ${currentMode === "radar" ? "bg-[rgba(5,29,83,0.8)] border border-[rgba(125,211,252,0.22)] text-amber-400 shadow-sm" : "text-[rgba(226,245,255,0.76)] hover:text-white hover:bg-white/5"}`}
         >
-          Radar Pintar
+          <Gauge className="h-4 w-4 sm:hidden" /><span className="sm:hidden">Radar</span><span className="hidden sm:inline">Radar Pintar</span>
         </button>
         <button
           onClick={() => setCurrentMode("report")}
-          className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${currentMode === "report" ? "bg-[rgba(5,29,83,0.8)] border border-[rgba(125,211,252,0.22)] text-amber-400 shadow-sm" : "text-[rgba(226,245,255,0.76)] hover:text-white hover:bg-white/5"}`}
+          className={`inline-flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-md transition-colors sm:flex-1 ${currentMode === "report" ? "bg-[rgba(5,29,83,0.8)] border border-[rgba(125,211,252,0.22)] text-amber-400 shadow-sm" : "text-[rgba(226,245,255,0.76)] hover:text-white hover:bg-white/5"}`}
         >
-          Laporan Hasil Belajar
+          <BookOpen className="h-4 w-4 sm:hidden" /><span className="sm:hidden">Laporan</span><span className="hidden sm:inline">Laporan Hasil Belajar</span>
         </button>
         <button
           onClick={() => setCurrentMode("koreksi")}
-          className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${currentMode === "koreksi" ? "bg-[rgba(5,29,83,0.8)] border border-[rgba(125,211,252,0.22)] text-amber-400 shadow-sm" : "text-[rgba(226,245,255,0.76)] hover:text-white hover:bg-white/5"}`}
+          className={`inline-flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-md transition-colors sm:flex-1 ${currentMode === "koreksi" ? "bg-[rgba(5,29,83,0.8)] border border-[rgba(125,211,252,0.22)] text-amber-400 shadow-sm" : "text-[rgba(226,245,255,0.76)] hover:text-white hover:bg-white/5"}`}
         >
-          Koreksi IdeQuest
+          <Pencil className="h-4 w-4 sm:hidden" /><span className="sm:hidden">Koreksi</span><span className="hidden sm:inline">Koreksi IdeQuest</span>
         </button>
         <button
           onClick={() => setCurrentMode("peringkat")}
-          className={`hidden sm:inline-flex px-4 py-2 text-sm font-semibold rounded-md transition-colors ${currentMode === "peringkat" ? "bg-[rgba(5,29,83,0.8)] border border-[rgba(125,211,252,0.22)] text-amber-400 shadow-sm" : "text-[rgba(226,245,255,0.76)] hover:text-white hover:bg-white/5"}`}
+          className={`inline-flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-md transition-colors sm:flex-1 ${currentMode === "peringkat" ? "bg-[rgba(5,29,83,0.8)] border border-[rgba(125,211,252,0.22)] text-amber-400 shadow-sm" : "text-[rgba(226,245,255,0.76)] hover:text-white hover:bg-white/5"}`}
         >
-          Peringkat
+          <Trophy className="h-4 w-4 sm:hidden" /><span>Peringkat</span>
         </button>
       </div>
 
@@ -11590,6 +11673,15 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
       )}
       </>}
       </>}
+      {showReportPrintDialog && (
+        <div className="fixed inset-0 z-[205] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Cetak laporan PDF">
+          <div className="w-full max-w-md rounded-2xl border border-[rgba(125,211,252,0.25)] bg-[rgba(5,29,83,0.96)] p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-3"><div><h3 className="text-lg font-bold text-white">Cetak laporan PDF</h3><p className="mt-1 text-sm text-[rgba(226,245,255,0.76)]">Pilih cakupan laporan yang akan dicetak atau disimpan sebagai PDF.</p></div><button type="button" onClick={() => setShowReportPrintDialog(false)} className="rounded-full p-1.5 text-white/70 hover:bg-white/10 hover:text-white" aria-label="Tutup"><X className="h-5 w-5" /></button></div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2"><button type="button" disabled={!selectedClassId} onClick={() => printReport("class")} className="rounded-xl border border-sky-300/25 bg-sky-400/10 p-4 text-left text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-45"><strong className="block">Kelas terpilih</strong><span className="mt-1 block text-xs text-white/65">{selectedClassId ? classChoices.find((classItem) => classItem.id === selectedClassId)?.name : "Pilih kelas terlebih dahulu"}</span></button><button type="button" onClick={() => printReport("all")} className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-left text-amber-200 transition hover:bg-amber-400/20"><strong className="block">Semua kelas</strong><span className="mt-1 block text-xs text-white/65">Gabungkan seluruh laporan siswa</span></button></div>
+            <p className="mt-4 text-xs text-white/55">Pada dialog cetak browser, pilih “Save as PDF” untuk mengunduh PDF.</p>
+          </div>
+        </div>
+      )}
       {editingStudentName && (
         <div className="fixed inset-0 z-[205] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Ubah nama siswa">
           <div className="w-full max-w-md rounded-2xl border border-[rgba(125,211,252,0.25)] bg-[rgba(5,29,83,0.96)] p-5 shadow-2xl">

@@ -1120,7 +1120,26 @@ app.delete("/teacher/classes/:classId/students/:studentId", requireRole(["teache
   return c.json({ ok: true });
 });
 
-app.patch("/teacher/students/:studentId/name", requireRole(["teacher", "admin"]), requirePermission("report.view"), async (c) => {
+app.get("/teacher/classes/:classId/students", requireRole(["teacher", "admin"]), requirePermission("class.manage"), async (c) => {
+  const user = c.get("authUser");
+  const classId = c.req.param("classId");
+  if (!classId) return c.json({ message: "ID kelas tidak valid." }, 400);
+
+  const [targetClass] = await db.select({ id: classes.id, name: classes.name, teacherUserId: classes.teacherUserId }).from(classes).where(eq(classes.id, classId)).limit(1);
+  if (!targetClass) return c.json({ message: "Kelas tidak ditemukan." }, 404);
+  if (user.activeRole !== "admin" && targetClass.teacherUserId !== user.id) return c.json({ message: "Anda tidak memiliki akses ke kelas ini." }, 403);
+
+  const students = await db.select({
+    id: users.id,
+    name: users.name,
+    email: users.email,
+    avatarUrl: users.avatarUrl,
+    joinedAt: classStudents.createdAt
+  }).from(classStudents).innerJoin(users, eq(classStudents.studentUserId, users.id)).where(eq(classStudents.classId, classId)).orderBy(users.name);
+  return c.json({ class: targetClass, students });
+});
+
+app.patch("/teacher/students/:studentId/name", requireRole(["teacher", "admin"]), requirePermission("class.manage"), async (c) => {
   const user = c.get("authUser");
   const studentId = c.req.param("studentId");
   const body = (await c.req.json().catch(() => ({}))) as { name?: string };
@@ -1153,6 +1172,24 @@ app.patch("/teacher/students/:studentId/name", requireRole(["teacher", "admin"])
     resourceId: studentId,
     details: { name }
   });
+  return c.json({ student: { id: studentId, name } });
+});
+
+app.patch("/admin/students/:studentId/name", requireRole(["admin"]), requirePermission("user.manage"), async (c) => {
+  const user = c.get("authUser");
+  const studentId = c.req.param("studentId");
+  const body = (await c.req.json().catch(() => ({}))) as { name?: string };
+  const name = body.name?.trim() ?? "";
+  if (!studentId) return c.json({ message: "ID siswa tidak valid." }, 400);
+  if (name.length < 3 || name.length > 100 || !/^[a-zA-Z\s.'’`]+$/.test(name)) return c.json({ message: "Nama siswa tidak valid." }, 400);
+
+  const [student] = await db.select({ id: users.id }).from(users).where(eq(users.id, studentId)).limit(1);
+  if (!student) return c.json({ message: "Siswa tidak ditemukan." }, 404);
+  const studentRoleRows = await db.select({ name: roles.name }).from(userRoles).innerJoin(roles, eq(userRoles.roleId, roles.id)).where(eq(userRoles.userId, studentId));
+  if (!studentRoleRows.some((role) => role.name === "student")) return c.json({ message: "Akun ini bukan siswa." }, 400);
+
+  await db.update(users).set({ name, fullName: name, updatedAt: new Date() }).where(eq(users.id, studentId));
+  await writeActivityLog({ userId: user.id, action: "update_student_name", resourceType: "user", resourceId: studentId, details: { name, scope: "admin" } });
   return c.json({ student: { id: studentId, name } });
 });
 
