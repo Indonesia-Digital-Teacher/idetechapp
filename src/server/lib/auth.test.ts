@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeAll } from "bun:test";
+import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "../db/client";
@@ -6,7 +6,7 @@ import { initializeDatabase } from "../db/init";
 import { roles, userRoles, users } from "../db/schema";
 import { roleCatalog } from "./catalog";
 import { upsertGoogleUser } from "./auth";
-import { setSystemSetting } from "./settings";
+import { defaultGoogleRoleRule, setSystemSetting } from "./settings";
 import { pool } from "../db/client";
 
 async function hasDatabaseConnection(timeoutMs = 1500) {
@@ -33,6 +33,10 @@ describeIfDb("upsertGoogleUser", () => {
     for (const role of roleCatalog) {
       await db.insert(roles).ignore().values(role);
     }
+  });
+
+  afterEach(async () => {
+    await setSystemSetting("google.role_rule", defaultGoogleRoleRule);
   });
 
   async function cleanupUser(email: string) {
