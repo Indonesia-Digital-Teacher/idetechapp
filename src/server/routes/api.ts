@@ -2777,10 +2777,11 @@ app.get("/teacher/bank-public", requireRole(["teacher", "admin"]), requirePermis
 // contributor's source item intact and returns classroom-ready packages made
 // of one material plus its linked IdeQuests.
 app.get("/teacher/library", requireRole(["teacher", "admin"]), requirePermission("bank.manage"), async (c) => {
-  const [materialRows, questRows, userRows] = await Promise.all([
+  const [materialRows, questRows, userRows, classRows] = await Promise.all([
     db.select().from(materials).where(eq(materials.bankStatus, "approved")).orderBy(desc(materials.updatedAt)),
     db.select().from(ideQuests).where(eq(ideQuests.bankStatus, "approved")).orderBy(desc(ideQuests.updatedAt)),
-    db.select().from(users)
+    db.select().from(users),
+    db.select().from(classes)
   ]);
   const contributorName = (userId: string) => userRows.find((user) => user.id === userId)?.fullName ?? "Kontributor IdeTech";
   const publicQuest = (quest: any) => ({ ...quest, contributorName: contributorName(quest.teacherUserId) });
@@ -2790,6 +2791,8 @@ app.get("/teacher/library", requireRole(["teacher", "admin"]), requirePermission
       id: material.id,
       title: material.title,
       contributorName: contributorName(material.teacherUserId),
+      subject: classRows.find((item) => item.id === material.classId)?.subject ?? "Umum",
+      grade: classRows.find((item) => item.id === material.classId)?.grade ?? null,
       material: { ...material, contributorName: contributorName(material.teacherUserId) },
       quests: questRows.filter((quest) => quest.materialId === material.id).map(publicQuest)
     })),

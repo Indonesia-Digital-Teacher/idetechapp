@@ -6222,6 +6222,7 @@ function TeacherStudioManager({
   onDeleteQuest?: (id: string) => void;
 }) {
   const [activeTab, setActiveTab] = React.useState<"material" | "quest">("material");
+  const [showCreator, setShowCreator] = React.useState(false);
   const [showMarkdownGuide, setShowMarkdownGuide] = React.useState(false);
   const [showAdvancedMaterial, setShowAdvancedMaterial] = React.useState(false);
   const [showAdvancedQuest, setShowAdvancedQuest] = React.useState(false);
@@ -6404,6 +6405,7 @@ Langkah Petualangan:
 
   const [bankItems, setBankItems] = React.useState<{ materials: any[]; quests: any[]; lessonPlans: any[] }>({ materials: [], quests: [], lessonPlans: [] });
   const [libraryItems, setLibraryItems] = React.useState<{ packages: any[]; materials: any[]; quests: any[] }>({ packages: [], materials: [], quests: [] });
+  const [selectedLibrarySubject, setSelectedLibrarySubject] = React.useState("Semua");
   const [bankRequests, setBankRequests] = React.useState<{ incoming: any[]; outgoing: any[] }>({ incoming: [], outgoing: [] });
   const [requestTargetClass, setRequestTargetClass] = React.useState<Record<string, string>>({});
 
@@ -6433,6 +6435,10 @@ Langkah Petualangan:
       console.error(err);
     }
   };
+
+  React.useEffect(() => {
+    loadLibrary();
+  }, []);
 
   React.useEffect(() => {
     if (showBankModal) {
@@ -6492,6 +6498,10 @@ Langkah Petualangan:
   };
 
   const pendingIncomingRequests = bankRequests.incoming.filter(r => r.status === 'pending').length;
+  const librarySubjects = ["Semua", ...Array.from(new Set(libraryItems.packages.map((item) => item.subject || "Umum")))];
+  const visiblePackages = selectedLibrarySubject === "Semua"
+    ? libraryItems.packages
+    : libraryItems.packages.filter((item) => (item.subject || "Umum") === selectedLibrarySubject);
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -6501,7 +6511,10 @@ Langkah Petualangan:
   return (
     <section className="teacher-studio-manager">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold text-slate-800">Perpustakaan & Studio</h2>
+        <div>
+          <h2 className="text-xl font-bold text-slate-800">Paket Pembelajaran</h2>
+          <p className="text-sm text-slate-500">Pilih paket terkurasi, gunakan di kelas, lalu fokus pada proses belajar.</p>
+        </div>
         <div className="flex gap-2">
           <button
             type="button"
@@ -6514,17 +6527,41 @@ Langkah Petualangan:
               <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse border border-white"></span>
             )}
           </button>
-          <button
-            type="button"
-            onClick={() => setShowBankModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-lg shadow-sm hover:shadow text-sm transition-all hover:scale-105"
-          >
+          <button type="button" onClick={() => setShowCreator((current) => !current)} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-lg shadow-sm hover:shadow text-sm transition-all hover:scale-105">
             <BookOpen className="h-4 w-4" />
-            Jelajahi Perpustakaan
+            {showCreator ? "Tutup Studio" : "Buat Konten Sendiri"}
           </button>
         </div>
       </div>
 
+      <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+          {librarySubjects.map((subject) => (
+            <button key={subject} type="button" onClick={() => setSelectedLibrarySubject(subject)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold transition-colors ${selectedLibrarySubject === subject ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-700"}`}>{subject}</button>
+          ))}
+        </div>
+        {visiblePackages.length === 0 ? (
+          <p className="py-8 text-center text-sm text-slate-500">Belum ada paket terkurasi untuk kategori ini.</p>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {visiblePackages.map((item) => (
+              <article key={item.id} className="flex flex-col rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="mb-2 flex items-start justify-between gap-2"><h3 className="font-bold text-slate-800">{item.title}</h3><span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">{item.quests.length} quest</span></div>
+                <p className="mb-2 text-xs font-semibold text-blue-600">{item.subject}{item.grade ? ` · Kelas ${item.grade}` : ""}</p>
+                <p className="mb-3 line-clamp-3 flex-1 text-sm text-slate-600">{item.material.description}</p>
+                <p className="mb-3 text-xs text-slate-500">Kontributor: {item.contributorName}</p>
+                <select className="mb-2 rounded-lg border border-slate-200 bg-white p-2 text-xs text-slate-700" value={requestTargetClass[`library-${item.id}`] || ""} onChange={(event) => setRequestTargetClass((current) => ({ ...current, [`library-${item.id}`]: event.target.value }))}>
+                  <option value="">Pilih kelas tujuan</option>
+                  {classes.map((classItem) => <option key={classItem.id} value={classItem.id}>{classItem.name}</option>)}
+                </select>
+                <button type="button" onClick={() => adoptLibraryItem("package", item.id)} className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700">Gunakan untuk Kelas Saya</button>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {showCreator && <>
       <div className="flex bg-slate-100 rounded-lg p-1 mb-4 gap-1">
         <button
           type="button"
@@ -6910,6 +6947,8 @@ Langkah Petualangan:
         </div>
       </form>
       )}
+
+      </>}
 
       <div id="tour-step-3" className="teacher-studio-board">
         <div>
