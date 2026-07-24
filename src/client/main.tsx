@@ -94,6 +94,7 @@ import {
   Flag,
   ClipboardList,
   Copy,
+  Share2,
   GripVertical,
   Edit3,
   XCircle,
@@ -727,19 +728,49 @@ function App() {
       setTeacherHasClasses(true);
     }
 
-    if (payload.user.activeRole === "admin") {
-      const [usersResponse, accessResponse, classResponse] = await Promise.all([
-        api<{ users: AdminUser[] }>("/api/admin/users"),
-        api<AdminAccess>("/api/admin/access"),
-        api<{ classes: AdminClass[] }>("/api/admin/classes")
-      ]);
-      setAdminUsers(usersResponse.users);
-      setAdminAccess(accessResponse);
-      setAdminClasses(classResponse.classes);
-    } else {
+    if (payload.user.activeRole !== "admin") {
       setAdminUsers([]);
       setAdminAccess(null);
       setAdminClasses([]);
+    }
+  }
+
+  async function loadAdminUsers() {
+    const response = await api<{ users: AdminUser[] }>("/api/admin/users");
+    setAdminUsers(response.users);
+  }
+
+  async function loadAdminAccess() {
+    const response = await api<AdminAccess>("/api/admin/access");
+    setAdminAccess(response);
+  }
+
+  async function loadAdminClasses() {
+    const response = await api<{ classes: AdminClass[] }>("/api/admin/classes");
+    setAdminClasses(response.classes);
+  }
+
+  async function loadAdminViewData(view: AdminView) {
+    if (view === "users") {
+      await Promise.all([loadAdminUsers(), loadAdminAccess()]);
+    } else if (view === "classes") {
+      await Promise.all([loadAdminUsers(), loadAdminClasses()]);
+    } else if (view === "system") {
+      await loadAdminAccess();
+    } else if (view === "parent_students") {
+      await loadAdminUsers();
+    }
+  }
+
+  async function openAdminView(view: AdminView) {
+    setBusy(true);
+    setError(null);
+    try {
+      await loadAdminViewData(view);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal memuat data administrasi.");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -842,7 +873,7 @@ function App() {
         method: "PATCH",
         body: JSON.stringify(payload)
       });
-      await loadDashboard();
+      await Promise.all([loadAdminUsers(), loadAdminAccess()]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memperbarui user.");
     } finally {
@@ -856,7 +887,7 @@ function App() {
     setError(null);
     try {
       await api(`/api/admin/users/${id}`, { method: "DELETE" });
-      await loadDashboard();
+      await Promise.all([loadAdminUsers(), loadAdminAccess()]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menghapus user.");
     } finally {
@@ -872,7 +903,7 @@ function App() {
         method: "PATCH",
         body: JSON.stringify({ permissions })
       });
-      await loadDashboard();
+      await loadAdminAccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memperbarui permission.");
     } finally {
@@ -888,7 +919,7 @@ function App() {
         method: "POST",
         body: JSON.stringify(payload)
       });
-      await loadDashboard();
+      await loadAdminClasses();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal membuat kelas.");
     } finally {
@@ -904,7 +935,7 @@ function App() {
         method: "PATCH",
         body: JSON.stringify(payload)
       });
-      await loadDashboard();
+      await loadAdminClasses();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memperbarui kelas.");
     } finally {
@@ -917,7 +948,7 @@ function App() {
     setError(null);
     try {
       await api(`/api/admin/classes/${id}`, { method: "DELETE" });
-      await loadDashboard();
+      await loadAdminClasses();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menghapus kelas.");
     } finally {
@@ -1015,6 +1046,7 @@ function App() {
           onCreateAdminClass={createAdminClass}
           onUpdateAdminClass={updateAdminClass}
           onDeleteAdminClass={deleteAdminClass}
+          onOpenAdminView={openAdminView}
         />
       )}
 
@@ -3249,7 +3281,8 @@ function ProfessionalDashboard({
   onUpdateRolePermissions,
   onCreateAdminClass,
   onUpdateAdminClass,
-  onDeleteAdminClass
+  onDeleteAdminClass,
+  onOpenAdminView
 }: {
   user: AuthUser;
   dashboard: Dashboard;
@@ -3268,6 +3301,7 @@ function ProfessionalDashboard({
   onCreateAdminClass: (payload: { teacherUserId?: string; name: string; subject: string; grade: string; students: number; status: TeacherClass["status"] }) => void;
   onUpdateAdminClass: (id: string, payload: Partial<Pick<TeacherClass, "name" | "subject" | "grade" | "students" | "progress" | "status">> & { teacherUserId?: string }) => void;
   onDeleteAdminClass: (id: string) => void;
+  onOpenAdminView: (view: AdminView) => void;
 }) {
   const [adminView, setAdminView] = useState<AdminView>("home");
   const [showBackToTop, setShowBackToTop] = useState(false);
@@ -3452,7 +3486,12 @@ function ProfessionalDashboard({
                   {(user.activeRole === "admin" ? adminActions : dashboard.actions.map((action) => ({ label: action, view: "home" as AdminView, description: "", icon: ChevronRight }))).map((action) => {
                     const Icon = action.icon;
                     return (
-                      <button key={action.label} type="button" className={`${actionRowClass} professional-action-button`} onClick={() => user.activeRole === "admin" && setAdminView(action.view)}>
+                      <button key={action.label} type="button" className={`${actionRowClass} professional-action-button`} onClick={() => {
+                        if (user.activeRole === "admin") {
+                          setAdminView(action.view);
+                          onOpenAdminView(action.view);
+                        }
+                      }}>
                         <span className="professional-action-button__icon">
                           <Icon className="h-4 w-4" />
                         </span>
@@ -3487,7 +3526,7 @@ function ProfessionalDashboard({
       </div>
 
       {isTeacher ? <TeacherBottomNav active={activeMenu} onChange={onChangeMenu} /> : null}
-      {user.activeRole === "admin" ? <AdminBottomNav activeView={adminView} onViewChange={setAdminView} actions={adminActions} /> : null}
+      {user.activeRole === "admin" ? <AdminBottomNav activeView={adminView} onViewChange={(view) => { setAdminView(view); onOpenAdminView(view); }} actions={adminActions} /> : null}
 
       {showBackToTop && user.activeRole === "admin" ? (
         <button
@@ -7865,8 +7904,11 @@ function LoginScreen({
   onDemoLogin: (email: string) => void;
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeView, setActiveView] = useState<"home" | "shop" | "blog" | "demo" | "usecases" | "contact">("home");
+  const [activeView, setActiveView] = useState<"home" | "shop" | "blog" | "demo" | "usecases" | "contact">(() => (
+    new URLSearchParams(window.location.search).has("blog") ? "blog" : "home"
+  ));
   const [readingBlog, setReadingBlog] = useState<any | null>(null);
+  const [blogShareMessage, setBlogShareMessage] = useState<string | null>(null);
   const [shopSearch, setShopSearch] = useState("");
   const [shopSort, setShopSort] = useState<"asc" | "desc">("asc");
   const [selectedShopItem, setSelectedShopItem] = useState<any | null>(null);
@@ -7908,6 +7950,55 @@ function LoginScreen({
       setReadingBlog(null);
     }
   }, [activeView]);
+
+  useEffect(() => {
+    const slug = new URLSearchParams(window.location.search).get("blog");
+    if (!slug || activeView !== "blog" || publicBlogs.length === 0) return;
+    const blog = publicBlogs.find((item) => item.slug === slug);
+    if (blog) setReadingBlog(blog);
+  }, [activeView, publicBlogs]);
+
+  const getBlogUrl = (blog: any) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("blog", blog.slug);
+    url.hash = "";
+    return url.toString();
+  };
+
+  const openBlog = (blog: any) => {
+    setReadingBlog(blog);
+    setBlogShareMessage(null);
+    window.history.pushState({}, "", getBlogUrl(blog));
+  };
+
+  const closeBlog = () => {
+    setReadingBlog(null);
+    setBlogShareMessage(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("blog");
+    window.history.pushState({}, "", url.toString());
+  };
+
+  const copyBlogLink = async (blog: any) => {
+    try {
+      await navigator.clipboard.writeText(getBlogUrl(blog));
+      setBlogShareMessage("Tautan artikel disalin.");
+    } catch {
+      setBlogShareMessage("Tautan tidak dapat disalin. Silakan salin dari alamat browser.");
+    }
+  };
+
+  const shareBlog = async (blog: any) => {
+    if (!navigator.share) {
+      await copyBlogLink(blog);
+      return;
+    }
+    try {
+      await navigator.share({ title: blog.title, text: blog.excerpt || blog.title, url: getBlogUrl(blog) });
+    } catch {
+      // Pengguna dapat membatalkan dialog berbagi tanpa menampilkan pesan galat.
+    }
+  };
 
   const nextTestimoni = () => setActiveTestimoniIndex((prev) => (prev + 1) % testimonials.length);
   const prevTestimoni = () => setActiveTestimoniIndex((prev) => (prev - 1 + testimonials.length) % testimonials.length);
@@ -8228,7 +8319,7 @@ function LoginScreen({
                 <div className="col-span-full text-center py-10 text-slate-500 bg-white/50 border border-slate-200 rounded-xl">Belum ada artikel yang dipublikasikan.</div>
               ) : (
                 publicBlogs.map(blog => (
-                  <div key={blog.id} onClick={() => setReadingBlog(blog)} className="bg-white/80 border border-slate-200 rounded-2xl overflow-hidden hover:shadow-xl transition-all cursor-pointer">
+                  <div key={blog.id} onClick={() => openBlog(blog)} className="bg-white/80 border border-slate-200 rounded-2xl overflow-hidden hover:shadow-xl transition-all cursor-pointer">
                     <div className="h-48 bg-slate-200 relative">
                       <img src={blog.coverImageUrl || `https://placehold.co/600x400/3b82f6/ffffff?text=${encodeURIComponent(blog.title)}`} alt={blog.title} className="w-full h-full object-cover" />
                       {new Date().getTime() - new Date(blog.createdAt).getTime() < 7 * 24 * 60 * 60 * 1000 && (
@@ -8249,7 +8340,7 @@ function LoginScreen({
 
         {activeView === "blog" && readingBlog && (
           <section className="landing-demo-panel mt-12 bg-white/90 p-8 md:p-12 rounded-3xl shadow-sm border border-slate-200" id="blog-read">
-            <button onClick={() => setReadingBlog(null)} className="mb-8 flex items-center gap-2 text-slate-500 hover:text-blue-600 font-semibold transition-colors bg-white rounded-full px-4 py-2 shadow-sm border border-slate-100 w-fit">
+            <button onClick={closeBlog} className="mb-8 flex items-center gap-2 text-slate-500 hover:text-blue-600 font-semibold transition-colors bg-white rounded-full px-4 py-2 shadow-sm border border-slate-100 w-fit">
               <ChevronLeft className="w-5 h-5"/> Kembali ke Artikel
             </button>
             {readingBlog.coverImageUrl && <img src={readingBlog.coverImageUrl} className="w-full h-64 md:h-96 object-cover rounded-2xl mb-8 shadow-sm" alt={readingBlog.title} />}
@@ -8260,6 +8351,22 @@ function LoginScreen({
               <span className="text-slate-300 mx-2">•</span>
               Dipublikasikan oleh Tim IdeTech
             </p>
+            <div className="mb-10 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="mr-1 text-sm font-bold text-slate-700">Bagikan artikel:</span>
+                <button type="button" onClick={() => shareBlog(readingBlog)} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-blue-700">
+                  <Share2 className="h-4 w-4" /> Bagikan
+                </button>
+                <a href={`https://wa.me/?text=${encodeURIComponent(`${readingBlog.title}\n${getBlogUrl(readingBlog)}`)}`} target="_blank" rel="noreferrer" className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-emerald-700">WhatsApp</a>
+                <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(getBlogUrl(readingBlog))}`} target="_blank" rel="noreferrer" className="rounded-lg bg-blue-800 px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-blue-900">Facebook</a>
+                <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(readingBlog.title)}&url=${encodeURIComponent(getBlogUrl(readingBlog))}`} target="_blank" rel="noreferrer" className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-slate-900">X</a>
+                <a href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(getBlogUrl(readingBlog))}`} target="_blank" rel="noreferrer" className="rounded-lg bg-sky-700 px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-sky-800">LinkedIn</a>
+                <button type="button" onClick={() => copyBlogLink(readingBlog)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-100">
+                  <Copy className="h-4 w-4" /> Salin tautan
+                </button>
+              </div>
+              {blogShareMessage && <p className="mt-2 text-xs font-medium text-emerald-700">{blogShareMessage}</p>}
+            </div>
             <div className="prose prose-slate max-w-none prose-img:rounded-2xl prose-img:shadow-sm prose-headings:text-slate-800 prose-a:text-blue-600 hover:prose-a:text-blue-700 prose-h1:text-3xl prose-h2:text-2xl prose-h2:mt-10 prose-p:leading-relaxed">
               <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeKatex]} remarkPlugins={[remarkMath, remarkGfm]}>{readingBlog.content}</ReactMarkdown>
             </div>
@@ -12762,8 +12869,15 @@ function AdminBlogManager() {
   const [blogs, setBlogs] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [form, setForm] = useState({ title: "", excerpt: "", content: "", status: "draft", prompt: "" });
+  const [editingBlogId, setEditingBlogId] = useState<string | null>(null);
+  const [form, setForm] = useState({ title: "", excerpt: "", content: "", coverImageUrl: "", status: "draft", prompt: "" });
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const resetForm = () => {
+    setEditingBlogId(null);
+    setForm({ title: "", excerpt: "", content: "", coverImageUrl: "", status: "draft", prompt: "" });
+    setIsFormOpen(false);
+  };
 
   const fetchBlogs = async () => {
     setBusy(true);
@@ -12809,17 +12923,31 @@ function AdminBlogManager() {
     setBusy(true);
     setErrorMsg(null);
     try {
-      await api("/api/admin/blogs", {
-        method: "POST",
-        body: JSON.stringify(form)
+      const { prompt: _prompt, ...blogPayload } = form;
+      await api(editingBlogId ? `/api/admin/blogs/${editingBlogId}` : "/api/admin/blogs", {
+        method: editingBlogId ? "PUT" : "POST",
+        body: JSON.stringify(blogPayload)
       });
-      setIsFormOpen(false);
-      setForm({ title: "", excerpt: "", content: "", status: "draft", prompt: "" });
+      resetForm();
       fetchBlogs();
     } catch (e: any) {
       setErrorMsg("Gagal menyimpan blog: " + e.message);
     }
     setBusy(false);
+  };
+
+  const handleEdit = (blog: any) => {
+    setEditingBlogId(blog.id);
+    setForm({
+      title: blog.title || "",
+      excerpt: blog.excerpt || "",
+      content: blog.content || "",
+      coverImageUrl: blog.coverImageUrl || "",
+      status: blog.status || "draft",
+      prompt: ""
+    });
+    setErrorMsg(null);
+    setIsFormOpen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -12848,8 +12976,8 @@ function AdminBlogManager() {
     return (
       <div className="bg-black/20 border border-white/10 rounded-xl shadow p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-bold text-slate-200">Buat Artikel Blog</h3>
-          <button onClick={() => setIsFormOpen(false)} className="text-slate-400 hover:text-slate-300">Kembali</button>
+          <h3 className="text-xl font-bold text-slate-200">{editingBlogId ? "Edit Artikel Blog" : "Buat Artikel Blog"}</h3>
+          <button onClick={resetForm} className="text-slate-400 hover:text-slate-300">Kembali</button>
         </div>
         <ErrorAlert />
         <form onSubmit={handleSave} className="space-y-4">
@@ -12860,6 +12988,15 @@ function AdminBlogManager() {
           <div>
             <label className="block text-sm font-medium mb-1">Kutipan Pendek (Excerpt)</label>
             <textarea className="idetech-input w-full bg-white/5 border-white/10 text-white placeholder-slate-500" rows={2} value={form.excerpt} onChange={e => setForm({...form, excerpt: e.target.value})} placeholder="Ringkasan singkat untuk halaman depan..." />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Cover Artikel</label>
+            <input type="url" className="idetech-input w-full bg-white/5 border-white/10 text-white placeholder-slate-500" value={form.coverImageUrl} onChange={e => setForm({...form, coverImageUrl: e.target.value})} placeholder="https://contoh.com/gambar-cover.jpg" />
+            <p className="mt-1 text-xs text-slate-400">Masukkan URL gambar. Cover ditampilkan pada kartu dan halaman artikel.</p>
+            {form.coverImageUrl && (
+              <img src={form.coverImageUrl} alt="Pratinjau cover artikel" className="mt-3 h-40 w-full rounded-lg border border-white/10 object-cover" />
+            )}
           </div>
 
           <div className="p-4 bg-blue-950/30 border border-blue-500/30 rounded-lg">
@@ -12886,7 +13023,7 @@ function AdminBlogManager() {
             </select>
           </div>
 
-          <button type="submit" disabled={busy} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors w-full flex justify-center">Simpan Artikel</button>
+          <button type="submit" disabled={busy} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors w-full flex justify-center">{editingBlogId ? "Simpan Perubahan" : "Simpan Artikel"}</button>
         </form>
       </div>
     );
@@ -12899,7 +13036,7 @@ function AdminBlogManager() {
           <h3 className="font-bold text-slate-200">Daftar Artikel Blog</h3>
           <p className="text-sm text-slate-400">Kelola informasi publik dan pembaruan IdeTech.</p>
         </div>
-        <button onClick={() => setIsFormOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2"><Plus className="w-4 h-4"/> Buat Artikel Baru</button>
+        <button onClick={() => { setEditingBlogId(null); setForm({ title: "", excerpt: "", content: "", coverImageUrl: "", status: "draft", prompt: "" }); setErrorMsg(null); setIsFormOpen(true); }} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2"><Plus className="w-4 h-4"/> Buat Artikel Baru</button>
       </div>
 
       <ErrorAlert />
@@ -12923,7 +13060,12 @@ function AdminBlogManager() {
                   <span className="text-slate-400">{new Date(blog.createdAt).toLocaleDateString()}</span>
                 </div>
               </div>
-              <button onClick={() => handleDelete(blog.id)} disabled={busy} className="bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg font-semibold transition-colors">Hapus</button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => handleEdit(blog)} disabled={busy} className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 hover:text-blue-200 px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5">
+                  <Pencil className="w-4 h-4" /> Edit
+                </button>
+                <button onClick={() => handleDelete(blog.id)} disabled={busy} className="bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg font-semibold transition-colors">Hapus</button>
+              </div>
             </div>
           ))}
         </div>

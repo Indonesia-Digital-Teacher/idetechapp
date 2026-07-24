@@ -297,20 +297,23 @@ app.get("/schools/search", async (c) => {
 });
 
 app.get("/admin/users", requireRole(["admin"]), requirePermission("user.manage"), async (c) => {
-  const rows = await db.select().from(users);
-  const enriched = await Promise.all(
-    rows.map(async (user) => {
-      const roleRows = await db
-        .select({ name: roles.name, label: roles.label })
-        .from(userRoles)
-        .innerJoin(roles, eq(userRoles.roleId, roles.id))
-        .where(eq(userRoles.userId, user.id));
+  const rows = await db
+    .select({ user: users, roleName: roles.name, roleLabel: roles.label })
+    .from(users)
+    .leftJoin(userRoles, eq(userRoles.userId, users.id))
+    .leftJoin(roles, eq(userRoles.roleId, roles.id));
 
-      return { ...user, roles: roleRows };
-    })
-  );
+  const usersById = new globalThis.Map<string, typeof users.$inferSelect & { roles: { name: string; label: string }[] }>();
+  for (const row of rows) {
+    let user = usersById.get(row.user.id);
+    if (!user) {
+      user = { ...row.user, roles: [] };
+      usersById.set(row.user.id, user);
+    }
+    if (row.roleName && row.roleLabel) user.roles.push({ name: row.roleName, label: row.roleLabel });
+  }
 
-  return c.json({ users: enriched });
+  return c.json({ users: [...usersById.values()] });
 });
 
 app.patch("/admin/users/:id/verify", requireRole(["admin"]), requirePermission("user.manage"), async (c) => {
@@ -5132,7 +5135,7 @@ app.put("/admin/blogs/:id", requireRole(["admin"]), requirePermission("blog.mana
   }
   if (body.excerpt !== undefined) updateData.excerpt = body.excerpt;
   if (body.content !== undefined) updateData.content = body.content;
-  if (body.coverImageUrl !== undefined) updateData.coverImageUrl = body.coverImageUrl;
+  if (body.coverImageUrl !== undefined) updateData.coverImageUrl = body.coverImageUrl || null;
   if (body.status !== undefined) updateData.status = body.status;
 
   await db.update(blogs).set(updateData).where(eq(blogs.id, id));

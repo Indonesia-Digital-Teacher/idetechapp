@@ -74,7 +74,10 @@ const port = Number(process.env.PORT ?? 2016);
 
 Bun.serve({
   fetch: app.fetch,
-  port
+  port,
+  // Permintaan administrasi dan AI dapat memerlukan lebih dari batas Bun
+  // bawaan (10 detik). Endpoint tetap dioptimalkan agar tidak bergantung pada ini.
+  idleTimeout: 30
 });
 
 console.log(`IdeTech API berjalan di http://localhost:${port}/api`);

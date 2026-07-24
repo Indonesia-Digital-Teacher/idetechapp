@@ -543,6 +543,24 @@ describeIfDb("Backend API Endpoints", () => {
       return app.request(req);
     }
 
+    test("Admin users menggabungkan semua role milik user dalam satu baris", async () => {
+      const { token, userId } = await createUserWithPermissions("admin", ["user.manage"]);
+      const teacherRole = await ensureRole("teacher");
+      await db.insert(userRoles).values({
+        id: `ur_${nanoid(12)}`,
+        userId,
+        roleId: teacherRole.id,
+        createdAt: new Date()
+      });
+
+      const res = await requestWithToken(token, "/admin/users");
+      expect(res.status).toBe(200);
+      const payload = await res.json();
+      const user = payload.users.filter((item: { id: string }) => item.id === userId);
+      expect(user).toHaveLength(1);
+      expect(user[0].roles.map((role: { name: string }) => role.name)).toEqual(expect.arrayContaining(["admin", "teacher"]));
+    });
+
     test("Endpoint yang dilindungi memerlukan autentikasi dan role yang sesuai", async () => {
       // Teacher dengan permission default dari seed
       const teacherId = `usr_${nanoid(12)}`;
