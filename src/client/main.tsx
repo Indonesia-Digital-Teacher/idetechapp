@@ -6556,7 +6556,7 @@ Langkah Petualangan:
           <>
             <div className="mb-4"><h3 className="font-bold text-white">Pilih mata pelajaran</h3><p className="text-sm text-[rgba(226,245,255,0.76)]">Paket disusun oleh kontributor dan siap dipakai di kelas Anda.</p></div>
             {subjectCards.length === 0 ? <p className="py-8 text-center text-sm text-[rgba(226,245,255,0.76)]">Belum ada paket pembelajaran terkurasi.</p> : (
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-3 md:grid-cols-2">
                 {subjectCards.map((card) => (
                   <button key={card.subject} type="button" onClick={() => setSelectedLibrarySubject(card.subject)} className="rounded-xl border border-[rgba(125,211,252,0.24)] bg-[rgba(12,52,121,0.52)] p-4 text-left transition hover:-translate-y-0.5 hover:border-sky-300/70 hover:bg-[rgba(20,80,165,0.60)] hover:shadow-lg hover:shadow-blue-950/30">
                     <div className="mb-3 flex items-start justify-between gap-2"><strong className="text-base text-white">{card.subject}</strong><span className="rounded-full border border-sky-300/30 bg-sky-400/15 px-2 py-0.5 text-[10px] font-bold text-sky-200">{card.packages.length} paket</span></div>
@@ -10735,10 +10735,12 @@ type StudentProgressReport = {
 function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mode?: "radar" | "report" | "koreksi" | "peringkat" }) {
   const [currentMode, setCurrentMode] = useState<"radar" | "report" | "koreksi" | "peringkat">(mode);
   const [data, setData] = useState<StudentProgressReport[]>([]);
+  const [radarClasses, setRadarClasses] = useState<TeacherClass[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterClass, setFilterClass] = useState("all");
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [filterRisk, setFilterRisk] = useState("all");
   const [sortBy, setSortBy] = useState<"name" | "progress" | "late" | "completion">("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
@@ -10754,11 +10756,38 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
     return Object.entries(obj).map(([id, name]) => ({ id, name }));
   }, [data]);
 
+  const classChoices = React.useMemo(() => {
+    const safeClasses = Array.isArray(radarClasses) ? radarClasses : [];
+    const safeData = Array.isArray(data) ? data : [];
+    const classesById = new globalThis.Map<string, TeacherClass>(safeClasses.map((classItem) => [classItem.id, classItem]));
+    safeData.forEach((student) => {
+      if (student.classId && !classesById.has(student.classId)) {
+        classesById.set(student.classId, {
+          id: student.classId,
+          name: student.className,
+          subject: "",
+          grade: "",
+          students: 0,
+          classCode: null,
+          teacherUserId: "",
+          progress: 0,
+          nextSession: "",
+          status: "active"
+        });
+      }
+    });
+    return Array.from(classesById.values()).map((classItem) => ({
+      ...classItem,
+      studentCount: typeof classItem.students === "number" ? classItem.students : safeData.filter((student) => student.classId === classItem.id).length
+    }));
+  }, [data, radarClasses]);
+
   const filteredData = React.useMemo(() => {
     return data.filter(student => {
       const matchSearch = student.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           student.studentEmail.toLowerCase().includes(searchQuery.toLowerCase());
       if (!matchSearch) return false;
+      if (selectedClassId && student.classId !== selectedClassId) return false;
       if (filterClass !== "all" && student.className !== filterClass) return false;
       if (filterRisk !== "all") {
         const allTasks = [...student.materials, ...student.quests];
@@ -10768,7 +10797,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
       }
       return true;
     });
-  }, [data, searchQuery, filterClass, filterRisk]);
+  }, [data, searchQuery, filterClass, filterRisk, selectedClassId]);
 
   const sortedAndPaginatedData = React.useMemo(() => {
     const result = [...filteredData].sort((a, b) => {
@@ -10805,8 +10834,6 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
 
   const totalPages = Math.ceil(sortedAndPaginatedData.length / itemsPerPage);
   const paginatedData = sortedAndPaginatedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  const uniqueClasses = Array.from(new Set(data.map(s => s.className)));
 
   // Peringkat per kelas (hanya quest yang sudah dinilai / earnedPoints tersedia)
   const rankingByClass = React.useMemo(() => {
@@ -10845,8 +10872,12 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
   useEffect(() => {
     async function fetchProgress() {
       try {
-        const res = await api<{ progress: StudentProgressReport[] }>("/api/teacher/student-progress");
-        setData(res.progress);
+        const [progressResult, classResult] = await Promise.all([
+          api<{ progress: StudentProgressReport[] }>("/api/teacher/student-progress"),
+          api<{ classes: TeacherClass[] }>("/api/teacher/classes").catch(() => ({ classes: [] }))
+        ]);
+        setData(Array.isArray(progressResult.progress) ? progressResult.progress : []);
+        setRadarClasses(Array.isArray(classResult.classes) ? classResult.classes : []);
       } catch (e) {
         console.error(e);
       } finally {
@@ -10906,6 +10937,8 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
     document.body.removeChild(link);
   };
 
+  const requiresClassSelection = currentMode === "radar" || currentMode === "report" || currentMode === "koreksi";
+
   return (
     <div className="teacher-profile-card border-0 rounded-t-3xl min-h-[60vh] p-4 md:p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] relative mt-4 animate-in slide-in-from-bottom-10">
       <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-[rgba(226,245,255,0.3)] rounded-full" />
@@ -10923,6 +10956,15 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {requiresClassSelection && selectedClassId && (
+            <button
+              type="button"
+              onClick={() => { setSelectedClassId(null); setSearchQuery(""); setFilterRisk("all"); }}
+              className="hidden sm:inline-flex items-center gap-2 px-3 py-2 bg-white/10 text-sky-100 hover:bg-white/15 font-bold rounded-lg transition-colors border border-white/15 text-sm"
+            >
+              Ganti Kelas
+            </button>
+          )}
           <button
             type="button"
             onClick={exportToCSV}
@@ -10965,6 +11007,32 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
         </button>
       </div>
 
+      {requiresClassSelection && selectedClassId === null ? (
+        loading ? (
+          <div className="flex flex-col items-center justify-center py-16">
+            <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" />
+            <p className="text-[rgba(226,245,255,0.76)]">Memuat daftar kelas...</p>
+          </div>
+        ) : classChoices.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[rgba(226,245,255,0.4)] bg-[rgba(5,29,83,0.42)] py-12 text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-white/20 bg-white/10 text-[rgba(226,245,255,0.76)]"><Users className="h-8 w-8" /></div>
+            <p className="text-white">Belum ada kelas yang dapat ditampilkan.</p>
+          </div>
+        ) : (
+          <div className="mx-auto max-w-3xl animate-in fade-in slide-in-from-top-2">
+            <div className="mb-5 text-center"><h3 className="text-lg font-bold text-white">Pilih kelas</h3><p className="mt-1 text-sm text-[rgba(226,245,255,0.76)]">Pilih satu kelas untuk melihat {currentMode === "koreksi" ? "IdeQuest yang perlu dikoreksi" : currentMode === "report" ? "laporan hasil belajar" : "progres dan risiko siswa"}.</p></div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {classChoices.map((classItem) => (
+                <button key={classItem.id} type="button" onClick={() => { setSelectedClassId(classItem.id); setFilterClass("all"); setSearchQuery(""); setFilterRisk("all"); }} className="rounded-xl border border-[rgba(125,211,252,0.24)] bg-[rgba(5,29,83,0.42)] p-4 text-left transition hover:-translate-y-0.5 hover:border-sky-300/70 hover:bg-[rgba(20,80,165,0.48)] hover:shadow-lg hover:shadow-blue-950/30">
+                  <div className="flex items-start justify-between gap-3"><div><strong className="block text-base text-white">{classItem.name}</strong><span className="mt-1 block text-xs text-sky-200">{[classItem.subject, classItem.grade ? `Kelas ${classItem.grade}` : ""].filter(Boolean).join(" · ") || "Kelas aktif"}</span></div><span className="rounded-full border border-sky-300/30 bg-sky-400/15 px-2 py-0.5 text-[10px] font-bold text-sky-200">{classItem.studentCount} siswa</span></div>
+                  <span className="mt-4 inline-flex text-xs font-bold text-white/75">Lihat kelas →</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )
+      ) : <>
+
       {!loading && data.length > 0 && (
         <div className="flex flex-col sm:flex-row gap-3 mb-6 bg-[rgba(5,29,83,0.42)] p-3 rounded-xl border border-[rgba(125,211,252,0.22)] animate-in fade-in slide-in-from-top-2">
           <div className="relative flex-1">
@@ -10977,14 +11045,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
               className="w-full pl-9 pr-4 py-2 bg-[#0a1f5c] border border-[rgba(125,211,252,0.22)] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition-all placeholder:text-[rgba(226,245,255,0.5)]"
             />
           </div>
-          <select
-            value={filterClass}
-            onChange={e => setFilterClass(e.target.value)}
-            className="px-3 py-2 bg-[#0a1f5c] border border-[rgba(125,211,252,0.22)] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-          >
-            <option value="all">Semua Kelas</option>
-            {uniqueClasses.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
+          {requiresClassSelection && selectedClassId && <div className="flex items-center rounded-lg border border-[rgba(125,211,252,0.22)] bg-[#0a1f5c] px-3 py-2 text-sm font-semibold text-sky-100">{classChoices.find((classItem) => classItem.id === selectedClassId)?.name}</div>}
           <select
             value={filterRisk}
             onChange={e => setFilterRisk(e.target.value)}
@@ -11532,6 +11593,7 @@ function TeacherRadarView({ onClose, mode = "radar" }: { onClose: () => void, mo
           </button>
         </div>
       )}
+      </>}
     </div>
   );
 }
