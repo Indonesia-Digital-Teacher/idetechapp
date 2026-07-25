@@ -6262,6 +6262,7 @@ function TeacherStudioManager({
   onDeleteQuest?: (id: string) => void;
 }) {
   const [activeTab, setActiveTab] = React.useState<"material" | "quest">("material");
+  const [studioView, setStudioView] = React.useState<"library" | "my-content">("library");
   const [showCreator, setShowCreator] = React.useState(false);
   const [showMarkdownGuide, setShowMarkdownGuide] = React.useState(false);
   const [showAdvancedMaterial, setShowAdvancedMaterial] = React.useState(false);
@@ -6569,8 +6570,8 @@ Langkah Petualangan:
     <section className="teacher-studio-manager">
       <div className="flex justify-between items-center mb-4">
         <div>
-          <h2 className="text-xl font-bold text-white">Paket Pembelajaran</h2>
-          <p className="text-sm text-white/80">Pilih paket, gunakan di kelas, fokus mengajar.</p>
+          <h2 className="text-xl font-bold text-white">{studioView === "library" ? "Paket Pembelajaran" : "Konten Kelas Saya"}</h2>
+          <p className="text-sm text-white/80">{studioView === "library" ? "Pilih paket, gunakan di kelas, fokus mengajar." : "Materi dan IdeQuest yang sudah dikirim ke kelas Anda."}</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -6584,14 +6585,19 @@ Langkah Petualangan:
               <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse border border-white"></span>
             )}
           </button>
-          <button type="button" onClick={() => setShowCreator((current) => !current)} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-lg shadow-sm hover:shadow text-sm transition-all hover:scale-105">
+          <button type="button" onClick={() => { setStudioView("my-content"); setShowCreator((current) => !current || studioView !== "my-content"); }} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-lg shadow-sm hover:shadow text-sm transition-all hover:scale-105">
             <BookOpen className="h-4 w-4" />
-            {showCreator ? "Tutup Studio" : "Buat Konten Sendiri"}
+            {studioView === "my-content" && showCreator ? "Tutup Editor" : "Buat Konten"}
           </button>
         </div>
       </div>
 
-      <div className="mb-6 rounded-2xl border border-[rgba(125,211,252,0.28)] bg-[rgba(5,29,83,0.58)] p-4 shadow-lg shadow-blue-950/20">
+      <div className="mb-5 grid grid-cols-2 rounded-xl border border-white/15 bg-[rgba(5,29,83,0.44)] p-1">
+        <button type="button" onClick={() => { setStudioView("library"); setShowCreator(false); }} className={`rounded-lg px-3 py-2.5 text-sm font-bold transition ${studioView === "library" ? "bg-white text-blue-700 shadow-sm" : "text-sky-100 hover:bg-white/10"}`}>Paket Pembelajaran</button>
+        <button type="button" onClick={() => { setStudioView("my-content"); setShowCreator(false); }} className={`rounded-lg px-3 py-2.5 text-sm font-bold transition ${studioView === "my-content" ? "bg-white text-blue-700 shadow-sm" : "text-sky-100 hover:bg-white/10"}`}>Konten Kelas Saya <span className="ml-1 text-xs opacity-75">{materials.length + quests.length}</span></button>
+      </div>
+
+      {studioView === "library" && <div className="mb-6 rounded-2xl border border-[rgba(125,211,252,0.28)] bg-[rgba(5,29,83,0.58)] p-4 shadow-lg shadow-blue-950/20">
         {selectedLibrarySubject === null ? (
           <>
             <div className="mb-4"><h3 className="font-bold text-white">Pilih mata pelajaran</h3><p className="text-sm text-[rgba(226,245,255,0.76)]">Paket disusun oleh kontributor dan siap dipakai di kelas Anda.</p></div>
@@ -6630,9 +6636,9 @@ Langkah Petualangan:
             </div>
           </>
         )}
-      </div>
+      </div>}
 
-      {showCreator && <>
+      {studioView === "my-content" && showCreator && <>
       <div className="flex bg-slate-100 rounded-lg p-1 mb-4 gap-1">
         <button
           type="button"
@@ -7021,10 +7027,10 @@ Langkah Petualangan:
 
       </>}
 
-      {showCreator && <div id="tour-step-3" className="teacher-studio-board">
+      {studioView === "my-content" && <div id="tour-step-3" className="teacher-studio-board">
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="!mb-0">Materi Terbit</h3>
+            <h3 className="!mb-0">Materi Kelas</h3>
             <button type="button" onClick={() => { setIsSearchModalOpen(true); setSearchFilter("material"); }} className="p-1.5 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors" title="Cari Materi Terbit">
               <Search className="h-4 w-4" />
             </button>
@@ -7037,13 +7043,13 @@ Langkah Petualangan:
                 </div>
                 <h4 className="text-white font-semibold mb-1">Belum Ada Materi</h4>
                 <p className="text-xs text-[rgba(226,245,255,0.76)] max-w-[200px] mb-3">Bagikan modul atau referensi bacaan untuk kelas Anda.</p>
-                <button type="button" onClick={() => setActiveTab("material")} className="text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded-full transition-colors border-0">Buat Sekarang</button>
+                <button type="button" onClick={() => { setActiveTab("material"); setShowCreator(true); }} className="text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded-full transition-colors border-0">Buat Sekarang</button>
               </div>
             ) : materials.map((item) => (
               <article key={item.id} className="flex flex-col shrink-0 min-h-[96px] group relative p-3 bg-white rounded-lg border border-slate-100 shadow-sm hover:border-blue-200 transition-all">
                 <div className="flex flex-col my-auto">
                   <strong className="leading-tight">{item.title}</strong>
-                  <span className="text-[11px] text-slate-500 mt-0.5">{item.type} - {classes.find((kelas) => kelas.id === item.classId)?.name ?? "Kelas"}</span>
+                  <span className="text-[11px] text-slate-500 mt-0.5">{item.type} · {classes.find((kelas) => kelas.id === item.classId)?.name ?? "Kelas"} · {item.status === "published" ? "Terkirim" : "Draf"}</span>
                 </div>
                 <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-all duration-300 ease-in-out">
                   <div className="overflow-hidden min-h-0">
@@ -7077,7 +7083,7 @@ Langkah Petualangan:
         </div>
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="!mb-0">IdeQuest Terbit</h3>
+            <h3 className="!mb-0">IdeQuest Kelas</h3>
             <button type="button" onClick={() => { setIsSearchModalOpen(true); setSearchFilter("quest"); }} className="p-1.5 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors" title="Cari IdeQuest Terbit">
               <Search className="h-4 w-4" />
             </button>
@@ -7090,13 +7096,13 @@ Langkah Petualangan:
                 </div>
                 <h4 className="text-white font-semibold mb-1">Belum Ada IdeQuest</h4>
                 <p className="text-xs text-[rgba(226,245,255,0.76)] max-w-[200px] mb-3">Buat misi seru berhadiah poin untuk memotivasi murid.</p>
-                <button type="button" onClick={() => setActiveTab("quest")} className="text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 px-3 py-1.5 rounded-full transition-colors border-0">Buat Sekarang</button>
+                <button type="button" onClick={() => { setActiveTab("quest"); setShowCreator(true); }} className="text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 px-3 py-1.5 rounded-full transition-colors border-0">Buat Sekarang</button>
               </div>
             ) : quests.map((item) => (
               <article key={item.id} className="flex flex-col shrink-0 min-h-[96px] group relative p-3 bg-white rounded-lg border border-slate-100 shadow-sm hover:border-blue-200 transition-all">
                 <div className="flex flex-col my-auto">
                   <strong className="leading-tight">{item.title}</strong>
-                  <span className="text-[11px] text-slate-500 mt-0.5">{item.points} poin - {item.dueDate}</span>
+                  <span className="text-[11px] text-slate-500 mt-0.5">{item.points} poin · {classes.find((kelas) => kelas.id === item.classId)?.name ?? "Kelas"} · {item.status === "published" ? "Terkirim" : "Draf"}</span>
                 </div>
                 <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-all duration-300 ease-in-out">
                   <div className="overflow-hidden min-h-0">
@@ -9502,7 +9508,7 @@ function AdminSystemConfig({
   const [adminContactWa, setAdminContactWa] = useState("");
   const [chatLimit, setChatLimit] = useState("5");
   const [chatWindowHours, setChatWindowHours] = useState("72");
-  const [aiDefaultLimit, setAiDefaultLimit] = useState("1");
+  const [aiDefaultLimit, setAiDefaultLimit] = useState("10");
   const [aiOverridesText, setAiOverridesText] = useState("");
 
   const system = access?.system;

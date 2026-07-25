@@ -84,7 +84,7 @@ export type AiGenerationQuotaConfig = {
 };
 
 export const defaultAiGenerationQuotaConfig: AiGenerationQuotaConfig = {
-  defaultLimit: 1,
+  defaultLimit: 10,
   overrides: {}
 };
 
