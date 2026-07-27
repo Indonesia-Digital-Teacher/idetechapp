@@ -6451,6 +6451,7 @@ Langkah Petualangan:
   const [libraryGradeFilter, setLibraryGradeFilter] = React.useState<string | null>(null);
   const [showAllLibraryPackages, setShowAllLibraryPackages] = React.useState(false);
   const [selectedLibraryPackage, setSelectedLibraryPackage] = React.useState<any | null>(null);
+  const [previewContent, setPreviewContent] = React.useState<{ kind: "material" | "quest"; item: any } | null>(null);
   const [bankRequests, setBankRequests] = React.useState<{ incoming: any[]; outgoing: any[] }>({ incoming: [], outgoing: [] });
   const [requestTargetClass, setRequestTargetClass] = React.useState<Record<string, string>>({});
 
@@ -6572,6 +6573,13 @@ Langkah Petualangan:
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  const renderMaterialPreview = (material: any) => {
+    if (material.type === "video" && material.content) return <a href={material.content} target="_blank" rel="noreferrer" className="inline-flex rounded-lg bg-sky-500/15 px-3 py-2 text-sm font-bold text-sky-200 hover:bg-sky-500/25">Buka video pembelajaran</a>;
+    if (material.type === "document" && material.content) return <a href={material.content} target="_blank" rel="noreferrer" className="inline-flex rounded-lg bg-sky-500/15 px-3 py-2 text-sm font-bold text-sky-200 hover:bg-sky-500/25">Buka dokumen pembelajaran</a>;
+    if (!material.content) return <p className="text-sm text-white/65">Belum ada isi materi.</p>;
+    return <div className="prose prose-sm max-w-none prose-invert prose-headings:text-white prose-p:text-white/80 prose-li:text-white/80"><ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>{material.content}</ReactMarkdown></div>;
+  };
+
   return (
     <section className="teacher-studio-manager">
       <div className="flex justify-between items-center mb-4">
@@ -6631,7 +6639,7 @@ Langkah Petualangan:
               </div>}
             </div>
             {libraryGrades.length > 0 && <div className="mt-4 flex gap-2 overflow-x-auto pb-1"><button type="button" onClick={() => { setLibraryGradeFilter(null); setShowAllLibraryPackages(false); }} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold transition ${libraryGradeFilter === null ? "border-sky-300 bg-sky-400/20 text-white" : "border-white/15 text-sky-100 hover:bg-white/10"}`}>Semua</button>{libraryGrades.map((grade) => <button key={String(grade)} type="button" onClick={() => { setLibraryGradeFilter(String(grade)); setShowAllLibraryPackages(false); }} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold transition ${libraryGradeFilter === String(grade) ? "border-sky-300 bg-sky-400/20 text-white" : "border-white/15 text-sky-100 hover:bg-white/10"}`}>Kelas {grade}</button>)}</div>}
-            <div className="mt-5"><div className="mb-3 flex items-center justify-between"><div><h4 className="font-bold text-white">Paket pilihan</h4><p className="text-xs text-[rgba(226,245,255,0.68)]">Mulai dari paket yang paling siap digunakan.</p></div>{visiblePackages.length > 3 && <button type="button" onClick={() => setShowAllLibraryPackages((current) => !current)} className="text-xs font-bold text-sky-300 hover:text-white">{showAllLibraryPackages ? "Ringkas" : "Jelajahi semua"}</button>}</div>{featuredPackages.length === 0 ? <p className="rounded-xl border border-dashed border-white/20 px-4 py-6 text-center text-sm text-white/65">Belum ada paket untuk pilihan ini.</p> : <div className="grid gap-3 md:grid-cols-2">{featuredPackages.map((item) => <button key={item.id} type="button" onClick={() => setSelectedLibraryPackage(item)} className="rounded-xl border border-[rgba(125,211,252,0.24)] bg-[rgba(12,52,121,0.52)] p-4 text-left transition hover:-translate-y-0.5 hover:border-sky-300/70 hover:bg-[rgba(20,80,165,0.60)]"><strong className="block text-sm text-white">{item.title}</strong><span className="mt-1 block text-xs text-sky-200">{item.grade ? `Kelas ${item.grade}` : "Beragam jenjang"} · {item.quests.length} IdeQuest</span><p className="mt-2 line-clamp-2 text-xs text-[rgba(226,245,255,0.68)]">{item.material.description || "Paket pembelajaran siap digunakan di kelas."}</p></button>)}</div>}</div>
+            <div className="mt-5"><div className="mb-3 flex items-center justify-between"><div><h4 className="font-bold text-white">Paket pilihan</h4><p className="text-xs text-[rgba(226,245,255,0.68)]">Mulai dari paket yang paling siap digunakan.</p></div>{visiblePackages.length > 3 && <button type="button" onClick={() => setShowAllLibraryPackages((current) => !current)} className="text-xs font-bold text-sky-300 hover:text-white">{showAllLibraryPackages ? "Ringkas" : "Jelajahi semua"}</button>}</div>{featuredPackages.length === 0 ? <p className="rounded-xl border border-dashed border-white/20 px-4 py-6 text-center text-sm text-white/65">Belum ada paket untuk pilihan ini.</p> : <div className="grid gap-3 md:grid-cols-2">{featuredPackages.map((item) => <button key={item.id} type="button" onClick={() => setSelectedLibraryPackage(item)} className="rounded-xl border border-[rgba(125,211,252,0.24)] bg-[rgba(12,52,121,0.52)] p-4 text-left transition hover:-translate-y-0.5 hover:border-sky-300/70 hover:bg-[rgba(20,80,165,0.60)]"><strong className="block text-sm text-white">{item.title}</strong><span className="mt-1 block text-xs text-sky-200">{item.grade ? `Kelas ${item.grade}` : "Beragam jenjang"} · {item.quests.length} IdeQuest</span><p className="mt-2 line-clamp-2 text-xs text-[rgba(226,245,255,0.68)]">{item.material.description || "Paket pembelajaran siap digunakan di kelas."}</p><span className="mt-3 inline-flex text-xs font-bold text-sky-200">Preview paket →</span></button>)}</div>}</div>
           </>
         )}
       </div>}
@@ -7046,7 +7054,7 @@ Langkah Petualangan:
             ) : materials.map((item) => (
               <article key={item.id} className="flex flex-col shrink-0 min-h-[96px] group relative p-3 bg-white rounded-lg border border-slate-100 shadow-sm hover:border-blue-200 transition-all">
                 <div className="flex flex-col my-auto">
-                  <strong className="leading-tight">{item.title}</strong>
+                  <div className="flex items-start justify-between gap-2"><strong className="leading-tight">{item.title}</strong><button type="button" onClick={() => setPreviewContent({ kind: "material", item })} className="shrink-0 rounded-md bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-700 transition hover:bg-violet-100" title="Preview Materi"><BookOpen className="mr-1 inline h-3 w-3" />Preview</button></div>
                   <span className="text-[11px] text-slate-500 mt-0.5">{item.type} · {classes.find((kelas) => kelas.id === item.classId)?.name ?? "Kelas"} · {item.status === "published" ? "Terkirim" : "Draf"}</span>
                 </div>
                 <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-all duration-300 ease-in-out">
@@ -7099,7 +7107,7 @@ Langkah Petualangan:
             ) : quests.map((item) => (
               <article key={item.id} className="flex flex-col shrink-0 min-h-[96px] group relative p-3 bg-white rounded-lg border border-slate-100 shadow-sm hover:border-blue-200 transition-all">
                 <div className="flex flex-col my-auto">
-                  <strong className="leading-tight">{item.title}</strong>
+                  <div className="flex items-start justify-between gap-2"><strong className="leading-tight">{item.title}</strong><button type="button" onClick={() => setPreviewContent({ kind: "quest", item })} className="shrink-0 rounded-md bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-700 transition hover:bg-violet-100" title="Preview IdeQuest"><Puzzle className="mr-1 inline h-3 w-3" />Preview</button></div>
                   <span className="text-[11px] text-slate-500 mt-0.5">{item.points} poin · {classes.find((kelas) => kelas.id === item.classId)?.name ?? "Kelas"} · {item.status === "published" ? "Terkirim" : "Draf"}</span>
                 </div>
                 <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-all duration-300 ease-in-out">
@@ -7135,12 +7143,22 @@ Langkah Petualangan:
       </div>}
       {selectedLibraryPackage && (
         <div className="fixed inset-0 z-[102] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-[rgba(125,211,252,0.28)] bg-[#08235f] p-5 shadow-2xl">
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[rgba(125,211,252,0.28)] bg-[#08235f] shadow-2xl">
+            <div className="shrink-0 border-b border-white/10 p-5">
             <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold text-sky-200">{selectedLibraryPackage.subject || "Umum"}{selectedLibraryPackage.grade ? ` · Kelas ${selectedLibraryPackage.grade}` : ""}</p><h3 className="mt-1 text-lg font-bold text-white">{selectedLibraryPackage.title}</h3></div><button type="button" onClick={() => setSelectedLibraryPackage(null)} className="rounded-full p-1.5 text-white/70 hover:bg-white/10 hover:text-white" aria-label="Tutup"><X className="h-5 w-5" /></button></div>
             <p className="mt-3 text-sm text-[rgba(226,245,255,0.78)]">{selectedLibraryPackage.material.description || "Paket pembelajaran siap digunakan."}</p>
             <p className="mt-3 text-xs text-white/60">Kontributor: {selectedLibraryPackage.contributorName} · {selectedLibraryPackage.quests.length} IdeQuest</p>
-            <select className="mt-5 w-full rounded-lg border border-sky-300/25 bg-[rgba(5,29,83,0.55)] p-2.5 text-sm text-white" value={requestTargetClass[`library-${selectedLibraryPackage.id}`] || ""} onChange={(event) => setRequestTargetClass((current) => ({ ...current, [`library-${selectedLibraryPackage.id}`]: event.target.value }))}><option value="">Pilih kelas tujuan</option>{classes.map((classItem) => <option key={classItem.id} value={classItem.id}>{classItem.name}</option>)}</select>
-            <button type="button" onClick={() => { adoptLibraryItem("package", selectedLibraryPackage.id); setSelectedLibraryPackage(null); }} className="mt-3 w-full rounded-lg bg-emerald-600 px-3 py-2.5 text-sm font-bold text-white hover:bg-emerald-700">Gunakan untuk Kelas Saya</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5"><section className="rounded-xl border border-white/10 bg-white/5 p-4"><h4 className="mb-3 text-sm font-bold text-white">Materi</h4>{renderMaterialPreview(selectedLibraryPackage.material)}</section>{selectedLibraryPackage.quests.length > 0 && <section className="mt-4"><h4 className="mb-3 text-sm font-bold text-white">IdeQuest dalam paket</h4><div className="space-y-2">{selectedLibraryPackage.quests.map((quest: any) => <div key={quest.id} className="rounded-xl border border-white/10 bg-white/5 p-3"><div className="flex items-center justify-between gap-2"><strong className="text-sm text-white">{quest.title}</strong><span className="text-xs font-bold text-amber-300">{quest.points} poin</span></div><p className="mt-1 text-sm text-white/75">{quest.mission}</p></div>)}</div></section>}</div>
+            <div className="shrink-0 border-t border-white/10 p-5"><select className="w-full rounded-lg border border-sky-300/25 bg-[rgba(5,29,83,0.55)] p-2.5 text-sm text-white" value={requestTargetClass[`library-${selectedLibraryPackage.id}`] || ""} onChange={(event) => setRequestTargetClass((current) => ({ ...current, [`library-${selectedLibraryPackage.id}`]: event.target.value }))}><option value="">Pilih kelas tujuan</option>{classes.map((classItem) => <option key={classItem.id} value={classItem.id}>{classItem.name}</option>)}</select><button type="button" onClick={() => { adoptLibraryItem("package", selectedLibraryPackage.id); setSelectedLibraryPackage(null); }} className="mt-3 w-full rounded-lg bg-emerald-600 px-3 py-2.5 text-sm font-bold text-white hover:bg-emerald-700">Gunakan untuk Kelas Saya</button></div>
+          </div>
+        </div>
+      )}
+      {previewContent && (
+        <div className="fixed inset-0 z-[103] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm">
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[rgba(125,211,252,0.28)] bg-[#08235f] shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-white/10 p-5"><div><p className="text-xs font-semibold text-sky-200">{previewContent.kind === "material" ? "Preview materi" : "Preview IdeQuest"}</p><h3 className="mt-1 text-lg font-bold text-white">{previewContent.item.title}</h3></div><button type="button" onClick={() => setPreviewContent(null)} className="rounded-full p-1.5 text-white/70 hover:bg-white/10 hover:text-white" aria-label="Tutup preview"><X className="h-5 w-5" /></button></div>
+            <div className="flex-1 overflow-y-auto p-5">{previewContent.kind === "material" ? <><p className="mb-4 text-sm text-white/75">{previewContent.item.description || "Materi pembelajaran untuk siswa."}</p><section className="rounded-xl border border-white/10 bg-white/5 p-4">{renderMaterialPreview(previewContent.item)}</section></> : <><div className="flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-amber-400/15 px-2.5 py-1 font-bold text-amber-300">{previewContent.item.points} poin</span>{previewContent.item.dueDate && <span className="rounded-full bg-white/10 px-2.5 py-1 text-white/75">Tenggat: {previewContent.item.dueDate}</span>}</div><section className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4"><h4 className="mb-2 text-sm font-bold text-white">Misi siswa</h4><p className="whitespace-pre-wrap text-sm leading-relaxed text-white/80">{previewContent.item.mission || "Belum ada instruksi misi."}</p></section></>}</div>
           </div>
         </div>
       )}
