@@ -2833,6 +2833,89 @@ app.patch("/admin/bank-queue/:type/:id", requireRole(["admin"]), requirePermissi
   return c.json({ ok: true });
 });
 
+// Admin-facing catalog management. A package is represented by its source
+// material and the IdeQuests linked to it. `rejected` is intentionally reused
+// as the hidden state: it keeps the contributor's work intact while removing
+// it from the teacher library, whose public read seam only returns `approved`.
+app.get("/admin/library-packages", requireRole(["admin"]), requirePermission("bank.manage"), async (c) => {
+  const [materialRows, questRows, userRows, classRows] = await Promise.all([
+    db.select().from(materials).where(or(eq(materials.bankStatus, "approved"), eq(materials.bankStatus, "rejected"))).orderBy(desc(materials.updatedAt)),
+    db.select().from(ideQuests).where(or(eq(ideQuests.bankStatus, "approved"), eq(ideQuests.bankStatus, "rejected"))),
+    db.select().from(users),
+    db.select().from(classes)
+  ]);
+  const contributorName = (userId: string) => userRows.find((user) => user.id === userId)?.fullName ?? "Kontributor IdeTech";
+  const classFor = (classId: string) => classRows.find((item) => item.id === classId);
+
+  return c.json({
+    packages: materialRows.map((material) => {
+      const linkedQuests = questRows.filter((quest) => quest.materialId === material.id);
+      const sourceClass = classFor(material.classId);
+      return {
+        id: material.id,
+        title: material.title,
+        type: material.type,
+        description: material.description,
+        contributorName: contributorName(material.teacherUserId),
+        subject: sourceClass?.subject ?? "Umum",
+        grade: sourceClass?.grade ?? null,
+        visibility: material.bankStatus === "approved" ? "visible" : "hidden",
+        questCount: linkedQuests.length,
+        visibleQuestCount: linkedQuests.filter((quest) => quest.bankStatus === "approved").length,
+        updatedAt: material.updatedAt
+      };
+    })
+  });
+});
+
+app.patch("/admin/library-packages/:id", requireRole(["admin"]), requirePermission("bank.manage"), async (c) => {
+  const user = c.get("authUser");
+  const id = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as { visibility?: "visible" | "hidden" };
+  if (!id) return c.json({ message: "ID paket tidak valid." }, 400);
+  if (body.visibility !== "visible" && body.visibility !== "hidden") return c.json({ message: "Status paket tidak valid." }, 400);
+
+  const [item] = await db.select().from(materials).where(eq(materials.id, id)).limit(1);
+  if (!item) return c.json({ message: "Paket pembelajaran tidak ditemukan." }, 404);
+
+  await db.update(materials).set({ bankStatus: body.visibility === "visible" ? "approved" : "rejected", updatedAt: new Date() }).where(eq(materials.id, id));
+  await writeActivityLog({
+    userId: user.id,
+    action: body.visibility === "visible" ? "publish" : "hide",
+    resourceType: "learning_package",
+    resourceId: id,
+    details: { visibility: body.visibility }
+  });
+  return c.json({ ok: true });
+});
+
+app.delete("/admin/library-packages/:id", requireRole(["admin"]), requirePermission("bank.manage"), async (c) => {
+  const user = c.get("authUser");
+  const id = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as { deleteContents?: boolean };
+  if (!id) return c.json({ message: "ID paket tidak valid." }, 400);
+  const [item] = await db.select().from(materials).where(eq(materials.id, id)).limit(1);
+  if (!item) return c.json({ message: "Paket pembelajaran tidak ditemukan." }, 404);
+
+  if (!body.deleteContents) {
+    await db.update(materials).set({ bankStatus: "rejected", updatedAt: new Date() }).where(eq(materials.id, id));
+    await writeActivityLog({ userId: user.id, action: "hide", resourceType: "learning_package", resourceId: id, details: { via: "delete_action" } });
+    return c.json({ ok: true, action: "hidden" });
+  }
+
+  const linkedQuests = await db.select({ id: ideQuests.id }).from(ideQuests).where(eq(ideQuests.materialId, id));
+  if (linkedQuests.length) await db.delete(ideQuests).where(inArray(ideQuests.id, linkedQuests.map((quest) => quest.id)));
+  await db.delete(materials).where(eq(materials.id, id));
+  await writeActivityLog({
+    userId: user.id,
+    action: "delete",
+    resourceType: "learning_package",
+    resourceId: id,
+    details: { deleteContents: true, deletedQuestCount: linkedQuests.length }
+  });
+  return c.json({ ok: true, action: "deleted", deletedQuestCount: linkedQuests.length });
+});
+
 app.get("/teacher/bank-public", requireRole(["teacher", "admin"]), requirePermission("bank.manage"), async (c) => {
   const [materialRows, questRows, rppRows, userRows] = await Promise.all([
     db.select().from(materials).where(eq(materials.bankStatus, "approved")).orderBy(desc(materials.updatedAt)),

@@ -4745,7 +4745,7 @@ function TeacherSpaceDashboard({
                   </button>
                 ))}
 
-                {/* Custom RPP Generator Banner Card */}
+                {/* Form RPP manual */}
                 <button
                   className="teacher-space-planet-card bg-gradient-to-br from-indigo-500 to-purple-600 border-none relative overflow-hidden"
                   type="button"
@@ -4757,8 +4757,8 @@ function TeacherSpaceDashboard({
                   <span className="flex items-center justify-center w-12 h-12 bg-white/20 rounded-full mb-3 shrink-0 relative z-10 backdrop-blur-md text-white shadow-inner">
                     <Sparkles className="h-6 w-6" />
                   </span>
-                  <strong className="text-white relative z-10 text-lg">AI RPP Generator</strong>
-                  <small className="text-white/80 relative z-10 leading-relaxed max-w-[200px]">Buat Modul Ajar Kurikulum Merdeka instan</small>
+                  <strong className="text-white relative z-10 text-lg">Form RPP Manual</strong>
+                  <small className="text-white/80 relative z-10 leading-relaxed max-w-[200px]">Susun dan simpan RPP sesuai kebutuhan kelas</small>
                   <ChevronRight className="teacher-feature-arrow h-5 w-5 text-white absolute bottom-5 right-5 z-10" />
                 </button>
               </section>
@@ -6447,8 +6447,9 @@ Langkah Petualangan:
   const [bankItems, setBankItems] = React.useState<{ materials: any[]; quests: any[]; lessonPlans: any[] }>({ materials: [], quests: [], lessonPlans: [] });
   const [libraryItems, setLibraryItems] = React.useState<{ packages: any[]; materials: any[]; quests: any[] }>({ packages: [], materials: [], quests: [] });
   const [selectedLibrarySubject, setSelectedLibrarySubject] = React.useState<string | null>(null);
-  const [showLibrarySearch, setShowLibrarySearch] = React.useState(false);
   const [librarySearchQuery, setLibrarySearchQuery] = React.useState("");
+  const [libraryGradeFilter, setLibraryGradeFilter] = React.useState<string | null>(null);
+  const [showAllLibraryPackages, setShowAllLibraryPackages] = React.useState(false);
   const [selectedLibraryPackage, setSelectedLibraryPackage] = React.useState<any | null>(null);
   const [bankRequests, setBankRequests] = React.useState<{ incoming: any[]; outgoing: any[] }>({ incoming: [], outgoing: [] });
   const [requestTargetClass, setRequestTargetClass] = React.useState<Record<string, string>>({});
@@ -6553,12 +6554,17 @@ Langkah Petualangan:
       grades: Array.from(new Set(packages.map((item) => item.grade).filter(Boolean)))
     };
   });
-  const visiblePackages = selectedLibrarySubject
+  const subjectPackages = selectedLibrarySubject
     ? libraryItems.packages.filter((item) => (item.subject || "Umum") === selectedLibrarySubject)
     : [];
+  const libraryGrades = Array.from(new Set(subjectPackages.map((item) => item.grade).filter(Boolean)));
+  const visiblePackages = libraryGradeFilter
+    ? subjectPackages.filter((item) => String(item.grade) === libraryGradeFilter)
+    : subjectPackages;
+  const featuredPackages = (showAllLibraryPackages ? visiblePackages : visiblePackages.slice(0, 3));
   const librarySearchResults = libraryItems.packages.filter((item) => {
     const query = librarySearchQuery.trim().toLowerCase();
-    return Boolean(query) && (!selectedLibrarySubject || (item.subject || "Umum") === selectedLibrarySubject) && [item.title, item.subject, item.material.description, item.contributorName].some((value) => String(value || "").toLowerCase().includes(query));
+    return Boolean(query) && (!selectedLibrarySubject || (item.subject || "Umum") === selectedLibrarySubject) && (!libraryGradeFilter || String(item.grade) === libraryGradeFilter) && [item.title, item.subject, item.material.description, item.contributorName].some((value) => String(value || "").toLowerCase().includes(query));
   });
 
   const showToast = (message: string) => {
@@ -6615,25 +6621,17 @@ Langkah Petualangan:
           </>
         ) : (
           <>
-            <div><button type="button" onClick={() => { setSelectedLibrarySubject(null); setShowLibrarySearch(false); setLibrarySearchQuery(""); }} className="text-xs font-bold text-sky-300 hover:text-white">← Semua mata pelajaran</button><h3 className="mt-1 font-bold text-white">{selectedLibrarySubject}</h3></div>
-            <div className="mx-auto flex min-h-[310px] max-w-xl flex-col items-center justify-center py-8 text-center">
-              <div className="mb-5 rounded-full border border-sky-300/25 bg-sky-400/10 p-4 text-sky-200"><Search className="h-7 w-7" /></div>
-              <h4 className="text-xl font-bold text-white">Cari materi {selectedLibrarySubject}</h4>
-              <p className="mt-2 max-w-sm text-sm text-[rgba(226,245,255,0.72)]">Temukan paket pembelajaran yang siap digunakan di kelas Anda.</p>
-              {!showLibrarySearch ? (
-                <button type="button" onClick={() => setShowLibrarySearch(true)} className="mt-6 inline-flex items-center gap-2 rounded-xl border border-sky-300/35 bg-sky-400/15 px-5 py-3 text-sm font-bold text-sky-100 transition hover:bg-sky-400/25"><Search className="h-4 w-4" />Cari materi</button>
-              ) : (
-                <div className="relative mt-6 w-full text-left">
-                  <Search className="absolute left-4 top-4 h-5 w-5 text-sky-200" />
-                  <input autoFocus value={librarySearchQuery} onChange={(event) => setLibrarySearchQuery(event.target.value)} placeholder={`Cari materi ${selectedLibrarySubject}...`} className="w-full rounded-xl border border-sky-300/35 bg-[rgba(5,29,83,0.62)] py-3.5 pl-12 pr-10 text-sm text-white placeholder:text-white/45 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-300/20" />
-                  <button type="button" onClick={() => { setShowLibrarySearch(false); setLibrarySearchQuery(""); }} className="absolute right-3 top-2.5 rounded-full p-1.5 text-white/55 hover:bg-white/10 hover:text-white" aria-label="Tutup pencarian"><X className="h-4 w-4" /></button>
-                  {librarySearchQuery.trim() && <div className="absolute z-10 mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-sky-300/25 bg-[#08235f] p-1.5 shadow-2xl">
-                    {librarySearchResults.length === 0 ? <p className="p-4 text-center text-sm text-white/65">Materi tidak ditemukan.</p> : librarySearchResults.map((item) => <button key={item.id} type="button" onClick={() => { setSelectedLibraryPackage(item); setShowLibrarySearch(false); setLibrarySearchQuery(""); }} className="w-full rounded-lg px-3 py-2.5 text-left hover:bg-sky-400/15"><strong className="block text-sm text-white">{item.title}</strong><span className="mt-0.5 block text-xs text-sky-200">{item.grade ? `Kelas ${item.grade}` : "Beragam jenjang"} · {item.quests.length} IdeQuest</span></button>)}
-                  </div>}
-                </div>
-              )}
-              <p className="mt-5 text-xs text-white/55">{visiblePackages.length} paket tersedia</p>
+            <div className="flex items-end justify-between gap-3"><div><button type="button" onClick={() => { setSelectedLibrarySubject(null); setLibrarySearchQuery(""); setLibraryGradeFilter(null); setShowAllLibraryPackages(false); }} className="text-xs font-bold text-sky-300 hover:text-white">← Semua mata pelajaran</button><h3 className="mt-1 font-bold text-white">{selectedLibrarySubject}</h3></div><span className="text-xs text-white/55">{visiblePackages.length} paket tersedia</span></div>
+            <div className="relative mt-5">
+              <Search className="absolute left-4 top-3.5 h-5 w-5 text-sky-200" />
+              <input value={librarySearchQuery} onChange={(event) => setLibrarySearchQuery(event.target.value)} placeholder={`Cari materi ${selectedLibrarySubject}...`} className="w-full rounded-xl border border-sky-300/35 bg-[rgba(5,29,83,0.62)] py-3 pl-12 pr-10 text-sm text-white placeholder:text-white/45 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-300/20" />
+              {librarySearchQuery && <button type="button" onClick={() => setLibrarySearchQuery("")} className="absolute right-3 top-2 rounded-full p-1.5 text-white/55 hover:bg-white/10 hover:text-white" aria-label="Hapus pencarian"><X className="h-4 w-4" /></button>}
+              {librarySearchQuery.trim() && <div className="absolute z-10 mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-sky-300/25 bg-[#08235f] p-1.5 shadow-2xl">
+                {librarySearchResults.length === 0 ? <p className="p-4 text-center text-sm text-white/65">Materi tidak ditemukan.</p> : librarySearchResults.map((item) => <button key={item.id} type="button" onClick={() => { setSelectedLibraryPackage(item); setLibrarySearchQuery(""); }} className="w-full rounded-lg px-3 py-2.5 text-left hover:bg-sky-400/15"><strong className="block text-sm text-white">{item.title}</strong><span className="mt-0.5 block text-xs text-sky-200">{item.grade ? `Kelas ${item.grade}` : "Beragam jenjang"} · {item.quests.length} IdeQuest</span></button>)}
+              </div>}
             </div>
+            {libraryGrades.length > 0 && <div className="mt-4 flex gap-2 overflow-x-auto pb-1"><button type="button" onClick={() => { setLibraryGradeFilter(null); setShowAllLibraryPackages(false); }} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold transition ${libraryGradeFilter === null ? "border-sky-300 bg-sky-400/20 text-white" : "border-white/15 text-sky-100 hover:bg-white/10"}`}>Semua</button>{libraryGrades.map((grade) => <button key={String(grade)} type="button" onClick={() => { setLibraryGradeFilter(String(grade)); setShowAllLibraryPackages(false); }} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold transition ${libraryGradeFilter === String(grade) ? "border-sky-300 bg-sky-400/20 text-white" : "border-white/15 text-sky-100 hover:bg-white/10"}`}>Kelas {grade}</button>)}</div>}
+            <div className="mt-5"><div className="mb-3 flex items-center justify-between"><div><h4 className="font-bold text-white">Paket pilihan</h4><p className="text-xs text-[rgba(226,245,255,0.68)]">Mulai dari paket yang paling siap digunakan.</p></div>{visiblePackages.length > 3 && <button type="button" onClick={() => setShowAllLibraryPackages((current) => !current)} className="text-xs font-bold text-sky-300 hover:text-white">{showAllLibraryPackages ? "Ringkas" : "Jelajahi semua"}</button>}</div>{featuredPackages.length === 0 ? <p className="rounded-xl border border-dashed border-white/20 px-4 py-6 text-center text-sm text-white/65">Belum ada paket untuk pilihan ini.</p> : <div className="grid gap-3 md:grid-cols-2">{featuredPackages.map((item) => <button key={item.id} type="button" onClick={() => setSelectedLibraryPackage(item)} className="rounded-xl border border-[rgba(125,211,252,0.24)] bg-[rgba(12,52,121,0.52)] p-4 text-left transition hover:-translate-y-0.5 hover:border-sky-300/70 hover:bg-[rgba(20,80,165,0.60)]"><strong className="block text-sm text-white">{item.title}</strong><span className="mt-1 block text-xs text-sky-200">{item.grade ? `Kelas ${item.grade}` : "Beragam jenjang"} · {item.quests.length} IdeQuest</span><p className="mt-2 line-clamp-2 text-xs text-[rgba(226,245,255,0.68)]">{item.material.description || "Paket pembelajaran siap digunakan di kelas."}</p></button>)}</div>}</div>
           </>
         )}
       </div>}
@@ -7146,26 +7144,6 @@ Langkah Petualangan:
           </div>
         </div>
       )}
-      {showLibrarySearch && !selectedLibrarySubject && (
-        <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-sm">
-          <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-[rgba(125,211,252,0.28)] bg-[#08235f] shadow-2xl">
-            <div className="flex items-center justify-between border-b border-white/10 p-4">
-              <div><h3 className="font-bold text-white">Cari paket pembelajaran</h3><p className="text-xs text-[rgba(226,245,255,0.72)]">Cari berdasarkan topik, mapel, atau kontributor.</p></div>
-              <button type="button" onClick={() => { setShowLibrarySearch(false); setLibrarySearchQuery(""); }} className="rounded-full p-1.5 text-white/70 hover:bg-white/10 hover:text-white"><X className="h-5 w-5" /></button>
-            </div>
-            <div className="p-4">
-              <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sky-200" /><input autoFocus value={librarySearchQuery} onChange={(event) => setLibrarySearchQuery(event.target.value)} placeholder="Contoh: stoikiometri, kelas 11…" className="w-full rounded-xl border border-sky-300/25 bg-[rgba(5,29,83,0.55)] py-3 pl-10 pr-4 text-sm text-white placeholder:text-white/40 outline-none focus:border-sky-300" /></div>
-              <div className="mt-4 max-h-[50vh] space-y-2 overflow-y-auto">
-                {librarySearchResults.length === 0 ? <p className="py-8 text-center text-sm text-white/65">Paket tidak ditemukan.</p> : librarySearchResults.map((item) => (
-                  <button key={item.id} type="button" onClick={() => { setSelectedLibrarySubject(item.subject || "Umum"); setShowLibrarySearch(false); setLibrarySearchQuery(""); }} className="w-full rounded-xl border border-white/10 bg-white/5 p-3 text-left hover:bg-sky-400/10 hover:border-sky-300/30">
-                    <strong className="block text-sm text-white">{item.title}</strong><span className="mt-1 block text-xs text-sky-200">{item.subject || "Umum"}{item.grade ? ` · Kelas ${item.grade}` : ""} · {item.quests.length} quest</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
       {isSearchModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="teacher-profile-card border-0 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -7557,6 +7535,16 @@ function TeacherClassManager({
   onUpdateUnlockedLevel: (classId: string, level: number) => void;
 }) {
   const [managingClass, setManagingClass] = useState<TeacherClass | null>(null);
+  const [copiedClassId, setCopiedClassId] = useState<string | null>(null);
+  const copyClassId = async (classId: string) => {
+    try {
+      await navigator.clipboard.writeText(classId);
+      setCopiedClassId(classId);
+      window.setTimeout(() => setCopiedClassId((current) => current === classId ? null : current), 1800);
+    } catch {
+      window.prompt("Salin ClassID berikut:", classId);
+    }
+  };
   return (
     <section className="teacher-class-manager">
       <div className="teacher-class-summary">
@@ -7645,7 +7633,7 @@ function TeacherClassManager({
                   <div>
                     <strong>{item.name}</strong>
                     <span>{item.subject} - {item.grade}</span>
-                    <small>ClassID: {item.classCode ?? item.nextSession}</small>
+                    <div className="mt-1 flex items-center gap-1.5"><small>ClassID: {item.classCode ?? item.nextSession}</small><button type="button" onClick={() => copyClassId(String(item.classCode ?? item.nextSession ?? ""))} className="rounded-md border border-white/20 bg-white/10 px-1.5 py-0.5 text-[10px] font-bold text-white transition hover:bg-white/20" title="Salin ClassID"><Copy className="inline h-3 w-3" /> {copiedClassId === String(item.classCode ?? item.nextSession ?? "") ? "Disalin" : "Salin"}</button></div>
                   </div>
                   <div className="teacher-class-card__meta flex flex-col items-end gap-1.5">
                     <div className="flex items-center gap-1 bg-white/10 px-2 py-0.5 rounded border border-white/20 text-[10px] text-white">
@@ -10777,9 +10765,12 @@ function TeacherChatWidget({ isOpen, onClose }: { isOpen: boolean; onClose: () =
 }
 
 function AdminBankApprovalPanel() {
+  const [managerView, setManagerView] = React.useState<"queue" | "catalog">("queue");
   const [tab, setTab] = React.useState<"material" | "quest">("material");
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
   const [queue, setQueue] = React.useState<{ materials: any[]; quests: any[] }>({ materials: [], quests: [] });
+  const [packages, setPackages] = React.useState<any[]>([]);
+  const [packageQuery, setPackageQuery] = React.useState("");
 
   const loadQueue = async () => {
     try {
@@ -10790,9 +10781,22 @@ function AdminBankApprovalPanel() {
     }
   };
 
+  const loadPackages = async () => {
+    try {
+      const data = await api<{ packages: any[] }>("/api/admin/library-packages");
+      setPackages(data.packages);
+    } catch (err) {
+      console.error("Gagal mengambil paket pembelajaran:", err);
+    }
+  };
+
   React.useEffect(() => {
     loadQueue();
   }, []);
+
+  React.useEffect(() => {
+    if (managerView === "catalog") loadPackages();
+  }, [managerView]);
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -10809,7 +10813,30 @@ function AdminBankApprovalPanel() {
     }
   };
 
+  const updatePackageVisibility = async (id: string, visibility: "visible" | "hidden") => {
+    try {
+      await api(`/api/admin/library-packages/${id}`, { method: "PATCH", body: JSON.stringify({ visibility }) });
+      showToast(visibility === "visible" ? "Paket ditampilkan di perpustakaan guru." : "Paket disembunyikan dari perpustakaan guru.");
+      loadPackages();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Gagal memperbarui paket.");
+    }
+  };
+
+  const deletePackagePermanently = async (item: any) => {
+    const confirmed = window.confirm(`Hapus permanen “${item.title}” beserta ${item.questCount} IdeQuest yang terhubung? Tindakan ini tidak dapat dibatalkan.`);
+    if (!confirmed) return;
+    try {
+      await api(`/api/admin/library-packages/${item.id}`, { method: "DELETE", body: JSON.stringify({ deleteContents: true }) });
+      showToast("Paket dan konten di dalamnya telah dihapus permanen.");
+      loadPackages();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Gagal menghapus paket.");
+    }
+  };
+
   const pendingCount = queue.materials.length + queue.quests.length;
+  const filteredPackages = packages.filter((item) => [item.title, item.subject, item.contributorName, item.grade].some((value) => String(value || "").toLowerCase().includes(packageQuery.trim().toLowerCase())));
 
   return (
     <Card className="professional-card p-5 relative overflow-hidden">
@@ -10828,6 +10855,12 @@ function AdminBankApprovalPanel() {
         </div>
       </div>
 
+      <div className="mb-4 grid grid-cols-2 rounded-xl border border-slate-200 bg-slate-50 p-1">
+        <button type="button" onClick={() => setManagerView("queue")} className={`rounded-lg px-3 py-2 text-sm font-bold transition ${managerView === "queue" ? "bg-white text-blue-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Antrean Kurasi</button>
+        <button type="button" onClick={() => setManagerView("catalog")} className={`rounded-lg px-3 py-2 text-sm font-bold transition ${managerView === "catalog" ? "bg-white text-blue-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Kelola Paket</button>
+      </div>
+
+      {managerView === "queue" && <>
       <div className="flex border-b border-slate-100 mb-4">
         <button
           type="button"
@@ -10892,6 +10925,32 @@ function AdminBankApprovalPanel() {
           )
         )}
       </div>
+      </>}
+
+      {managerView === "catalog" && <div>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h4 className="font-bold text-slate-800">Paket Pembelajaran</h4>
+            <p className="text-xs text-slate-500">Sembunyikan paket untuk merapikan perpustakaan tanpa menghapus karya kontributor.</p>
+          </div>
+          <div className="relative w-full sm:w-64"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={packageQuery} onChange={(event) => setPackageQuery(event.target.value)} placeholder="Cari paket atau mapel..." className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm text-slate-800 outline-none focus:border-blue-400" /></div>
+        </div>
+        <div className="grid gap-3">
+          {filteredPackages.length === 0 ? <div className="rounded-xl bg-slate-50 p-5 text-center text-sm text-slate-500">Belum ada paket yang dapat dikelola.</div> : filteredPackages.map((item) => <div key={item.id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2"><strong className="text-sm text-slate-800">{item.title}</strong><span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${item.visibility === "visible" ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>{item.visibility === "visible" ? "Tampil" : "Disembunyikan"}</span></div>
+                <p className="mt-1 text-xs text-slate-500">{item.subject} {item.grade ? `· Kelas ${item.grade}` : ""} · oleh {item.contributorName}</p>
+                <p className="mt-1 text-xs text-slate-500">{item.questCount} IdeQuest terhubung{item.questCount !== item.visibleQuestCount ? ` · ${item.visibleQuestCount} siap tampil` : ""}</p>
+              </div>
+              <div className="flex flex-wrap gap-2 sm:justify-end">
+                <button type="button" onClick={() => updatePackageVisibility(item.id, item.visibility === "visible" ? "hidden" : "visible")} className={`rounded-lg px-3 py-2 text-xs font-bold transition ${item.visibility === "visible" ? "bg-slate-200 text-slate-700 hover:bg-slate-300" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}>{item.visibility === "visible" ? "Sembunyikan" : "Tampilkan"}</button>
+                <button type="button" onClick={() => deletePackagePermanently(item)} className="rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-50"><Trash2 className="mr-1 inline h-3.5 w-3.5" />Hapus permanen</button>
+              </div>
+            </div>
+          </div>)}
+        </div>
+      </div>}
 
       {toastMessage && (
         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-[#0a1f5c] border border-[rgba(125,211,252,0.3)] shadow-[0_0_20px_rgba(125,211,252,0.25)] text-white px-6 py-3.5 rounded-full z-[100] text-sm font-bold flex items-center gap-3 animate-in fade-in slide-in-from-bottom-6">
